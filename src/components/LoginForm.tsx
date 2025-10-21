@@ -41,7 +41,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
         // If Supabase auth fails, fall back to mock authentication
         console.warn("Supabase auth failed, using mock auth:", result.error);
         setTimeout(() => {
-          onLogin({ email, password });
+          onLogin({ username: email, password });
           setIsLoading(false);
         }, 1000);
       } else {

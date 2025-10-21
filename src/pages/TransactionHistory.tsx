@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,9 @@ import { formatCurrency } from "@/lib/currency";
 import { ExportUtils } from "@/utils/exportUtils";
 import { PrintUtils } from "@/utils/printUtils";
 import { ExcelUtils } from "@/utils/excelUtils";
+// Import Supabase database service
+import { getSales, Sale } from "@/services/databaseService";
+import { useToast } from "@/hooks/use-toast";
 
 interface Transaction {
   id: string;
@@ -23,95 +26,43 @@ interface Transaction {
 }
 
 export const TransactionHistory = ({ username, onBack, onLogout }: { username: string; onBack: () => void; onLogout: () => void }) => {
-  // Mock transaction data
-  const mockTransactions = [
-    {
-      id: "1",
-      date: "2023-05-15T14:30:00Z",
-      customer: "John Smith",
-      items: [
-        { id: "1", name: "Wireless Headphones", price: 99.99, quantity: 1 },
-        { id: "2", name: "Phone Case", price: 24.99, quantity: 2 }
-      ],
-      total: 149.97,
-      status: "completed",
-      paymentMethod: "Credit Card"
-    },
-    {
-      id: "2",
-      date: "2023-05-15T11:15:00Z",
-      customer: "Sarah Johnson",
-      items: [
-        { id: "3", name: "Coffee Maker", price: 79.99, quantity: 1 }
-      ],
-      total: 79.99,
-      status: "completed",
-      paymentMethod: "Cash"
-    },
-    {
-      id: "3",
-      date: "2023-05-14T16:45:00Z",
-      customer: "Mike Williams",
-      items: [
-        { id: "4", name: "Running Shoes", price: 129.99, quantity: 1 },
-        { id: "5", name: "Socks", price: 9.99, quantity: 3 }
-      ],
-      total: 159.96,
-      status: "completed",
-      paymentMethod: "Debit Card"
-    }
-  ];
-  const [transactions] = useState<Transaction[]>([
-    {
-      id: "TXN-001",
-      date: "2023-05-18 14:30",
-      customer: "John Smith",
-      items: 3,
-      total: 159.97,
-      paymentMethod: "Cash",
-      status: "completed"
-    },
-    {
-      id: "TXN-002",
-      date: "2023-05-18 11:15",
-      customer: "Sarah Johnson",
-      items: 1,
-      total: 699.99,
-      paymentMethod: "Credit Card",
-      status: "completed"
-    },
-    {
-      id: "TXN-003",
-      date: "2023-05-17 16:45",
-      customer: "Walk-in Customer",
-      items: 5,
-      total: 249.95,
-      paymentMethod: "Cash",
-      status: "completed"
-    },
-    {
-      id: "TXN-004",
-      date: "2023-05-17 13:20",
-      customer: "Mike Williams",
-      items: 2,
-      total: 229.98,
-      paymentMethod: "Credit Card",
-      status: "refunded"
-    },
-    {
-      id: "TXN-005",
-      date: "2023-05-16 10:05",
-      customer: "John Smith",
-      items: 1,
-      total: 129.99,
-      paymentMethod: "Cash",
-      status: "completed"
-    }
-  ]);
-  
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const { toast } = useToast();
+
+  // Load transactions from Supabase on component mount
+  useEffect(() => {
+    const loadTransactions = async () => {
+      try {
+        setLoading(true);
+        const salesData = await getSales();
+        const formattedTransactions = salesData.map(sale => ({
+          id: sale.id || '',
+          date: sale.sale_date || new Date().toISOString(),
+          customer: sale.customer_id || 'Walk-in Customer',
+          items: 1, // In a real implementation, this would be calculated from sale items
+          total: sale.total_amount || 0,
+          paymentMethod: sale.payment_method || 'Unknown',
+          status: (sale.sale_status as "completed" | "refunded" | "pending") || 'completed'
+        }));
+        setTransactions(formattedTransactions);
+      } catch (error) {
+        console.error("Error loading transactions:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load transactions",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTransactions();
+  }, []);
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = 
@@ -199,63 +150,58 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
         
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5" />
-              Recent Transactions
-            </CardTitle>
+            <CardTitle>Transaction Records</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Transaction ID</TableHead>
-                  <TableHead>Date & Time</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTransactions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No transactions found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredTransactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
-                      <TableCell className="font-medium">{transaction.id}</TableCell>
-                      <TableCell>{transaction.date}</TableCell>
-                      <TableCell>{transaction.customer}</TableCell>
-                      <TableCell>{transaction.items}</TableCell>
-                      <TableCell>{formatCurrency(transaction.total)}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{transaction.paymentMethod}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={
-                            transaction.status === "completed" ? "default" : 
-                            transaction.status === "refunded" ? "destructive" : "outline"
-                          }
-                        >
-                          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
-                      </TableCell>
+            {loading ? (
+              <div className="flex justify-center items-center h-32">
+                <p>Loading transactions...</p>
+              </div>
+            ) : filteredTransactions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                <Receipt className="h-8 w-8 mb-2" />
+                <p>No transactions found</p>
+                <p className="text-sm">Process a sale to see transactions here</p>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Transaction ID</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTransactions.map((transaction) => (
+                      <TableRow key={transaction.id}>
+                        <TableCell className="font-medium">{transaction.id.substring(0, 8)}</TableCell>
+                        <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
+                        <TableCell>{transaction.customer}</TableCell>
+                        <TableCell>{transaction.items}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(transaction.total)}</TableCell>
+                        <TableCell>{transaction.paymentMethod}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              transaction.status === "completed" ? "default" :
+                              transaction.status === "refunded" ? "destructive" : "secondary"
+                            }
+                          >
+                            {transaction.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>

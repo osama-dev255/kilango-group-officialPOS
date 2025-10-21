@@ -36,13 +36,18 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [newProduct, setNewProduct] = useState<Omit<Product, "id" | "created_at" | "updated_at">>({
     name: "",
-    category: categories[0],
-    price: 0,
-    cost: 0,
-    stock: 0,
+    category_id: "",
+    selling_price: 0,
+    cost_price: 0,
+    stock_quantity: 0,
     barcode: "",
     sku: "",
-    description: ""
+    description: "",
+    unit_of_measure: "piece",
+    wholesale_price: 0,
+    min_stock_level: 0,
+    max_stock_level: 10000,
+    is_active: true
   });
   const { toast } = useToast();
 
@@ -69,7 +74,7 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
   };
 
   const handleAddProduct = async () => {
-    if (!newProduct.name || newProduct.price <= 0) {
+    if (!newProduct.name || newProduct.selling_price <= 0) {
       toast({
         title: "Error",
         description: "Please fill in required fields",
@@ -116,9 +121,9 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
           const updatedProduct = await updateProduct(existingProduct.id, {
             ...existingProduct,
             ...importedProduct,
-            price: Number(importedProduct.price) || existingProduct.price,
-            cost: Number(importedProduct.cost) || existingProduct.cost,
-            stock: Number(importedProduct.stock) || existingProduct.stock
+            selling_price: Number(importedProduct.selling_price) || existingProduct.selling_price,
+            cost_price: Number(importedProduct.cost_price) || existingProduct.cost_price,
+            stock_quantity: Number(importedProduct.stock_quantity) || existingProduct.stock_quantity
           });
           
           if (updatedProduct) {
@@ -128,9 +133,9 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
           // Add new product
           const newProductData = {
             ...importedProduct,
-            price: Number(importedProduct.price) || 0,
-            cost: Number(importedProduct.cost) || 0,
-            stock: Number(importedProduct.stock) || 0
+            selling_price: Number(importedProduct.selling_price) || 0,
+            cost_price: Number(importedProduct.cost_price) || 0,
+            stock_quantity: Number(importedProduct.stock_quantity) || 0
           };
           
           const createdProduct = await createProduct(newProductData);
@@ -158,7 +163,7 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
   };
 
   const handleUpdateProduct = async () => {
-    if (!editingProduct || !editingProduct.name || editingProduct.price <= 0) {
+    if (!editingProduct || !editingProduct.name || editingProduct.selling_price <= 0) {
       toast({
         title: "Error",
         description: "Please fill in required fields",
@@ -218,13 +223,18 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
   const resetForm = () => {
     setNewProduct({
       name: "",
-      category: categories[0],
-      price: 0,
-      cost: 0,
-      stock: 0,
+      category_id: "",
+      selling_price: 0,
+      cost_price: 0,
+      stock_quantity: 0,
       barcode: "",
       sku: "",
-      description: ""
+      description: "",
+      unit_of_measure: "piece",
+      wholesale_price: 0,
+      min_stock_level: 0,
+      max_stock_level: 10000,
+      is_active: true
     });
     setEditingProduct(null);
   };
@@ -237,14 +247,14 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
   // Filter products based on search term
   const filteredProducts = products.filter(product => 
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (product.category_id && product.category_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (product.barcode && product.barcode.includes(searchTerm)) ||
     (product.sku && product.sku.includes(searchTerm))
   );
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation username={username} onBack={onBack} onLogout={onLogout} activeSection="products" />
+      <Navigation title="Product Management" username={username} onBack={onBack} onLogout={onLogout} />
       
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -293,11 +303,11 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
                     <div className="space-y-2">
                       <Label htmlFor="category">Category</Label>
                       <Select
-                        value={editingProduct ? editingProduct.category : newProduct.category}
+                        value={editingProduct ? (editingProduct.category_id || "") : (newProduct.category_id || "")}
                         onValueChange={(value) => 
                           editingProduct
-                            ? setEditingProduct({...editingProduct, category: value})
-                            : setNewProduct({...newProduct, category: value})
+                            ? setEditingProduct({...editingProduct, category_id: value})
+                            : setNewProduct({...newProduct, category_id: value})
                         }
                       >
                         <SelectTrigger>
@@ -322,11 +332,11 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
                         type="number"
                         step="0.01"
                         min="0"
-                        value={editingProduct ? editingProduct.price : newProduct.price}
+                        value={editingProduct ? editingProduct.selling_price : newProduct.selling_price}
                         onChange={(e) => 
                           editingProduct
-                            ? setEditingProduct({...editingProduct, price: parseFloat(e.target.value) || 0})
-                            : setNewProduct({...newProduct, price: parseFloat(e.target.value) || 0})
+                            ? setEditingProduct({...editingProduct, selling_price: parseFloat(e.target.value) || 0})
+                            : setNewProduct({...newProduct, selling_price: parseFloat(e.target.value) || 0})
                         }
                         placeholder="0.00"
                       />
@@ -338,11 +348,11 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
                         type="number"
                         step="0.01"
                         min="0"
-                        value={editingProduct ? editingProduct.cost : newProduct.cost}
+                        value={editingProduct ? editingProduct.cost_price : newProduct.cost_price}
                         onChange={(e) => 
                           editingProduct
-                            ? setEditingProduct({...editingProduct, cost: parseFloat(e.target.value) || 0})
-                            : setNewProduct({...newProduct, cost: parseFloat(e.target.value) || 0})
+                            ? setEditingProduct({...editingProduct, cost_price: parseFloat(e.target.value) || 0})
+                            : setNewProduct({...newProduct, cost_price: parseFloat(e.target.value) || 0})
                         }
                         placeholder="0.00"
                       />
@@ -353,11 +363,11 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
                         id="stock"
                         type="number"
                         min="0"
-                        value={editingProduct ? editingProduct.stock : newProduct.stock}
+                        value={editingProduct ? editingProduct.stock_quantity : newProduct.stock_quantity}
                         onChange={(e) => 
                           editingProduct
-                            ? setEditingProduct({...editingProduct, stock: parseInt(e.target.value) || 0})
-                            : setNewProduct({...newProduct, stock: parseInt(e.target.value) || 0})
+                            ? setEditingProduct({...editingProduct, stock_quantity: parseInt(e.target.value) || 0})
+                            : setNewProduct({...newProduct, stock_quantity: parseInt(e.target.value) || 0})
                         }
                         placeholder="0"
                       />
@@ -440,7 +450,7 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {products.filter(p => p.stock < 10).length}
+                {products.filter(p => p.stock_quantity < 10).length}
               </div>
               <p className="text-xs text-muted-foreground">Items with less than 10 units</p>
             </CardContent>
@@ -453,7 +463,7 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatCurrency(products.reduce((sum, product) => sum + (product.price * product.stock), 0))}
+                {formatCurrency(products.reduce((sum, product) => sum + (product.selling_price * product.stock_quantity), 0))}
               </div>
               <p className="text-xs text-muted-foreground">Based on selling prices</p>
             </CardContent>
@@ -467,11 +477,9 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
           </CardHeader>
           <CardContent>
             <ExportImportManager 
+              data={products}
               onImport={handleImportProducts}
               dataType="products"
-              templateFields={[
-                "name", "category", "price", "cost", "stock", "barcode", "sku", "description"
-              ]}
             />
           </CardContent>
         </Card>
@@ -518,13 +526,13 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">{product.category}</Badge>
+                          <Badge variant="secondary">{product.category_id}</Badge>
                         </TableCell>
-                        <TableCell className="text-right">{formatCurrency(product.price)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(product.cost)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(product.selling_price)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(product.cost_price)}</TableCell>
                         <TableCell className="text-right">
-                          <Badge variant={product.stock < 10 ? "destructive" : "default"}>
-                            {product.stock}
+                          <Badge variant={product.stock_quantity < 10 ? "destructive" : "default"}>
+                            {product.stock_quantity}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">

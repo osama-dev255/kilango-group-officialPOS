@@ -22,7 +22,8 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [newCustomer, setNewCustomer] = useState<Omit<Customer, "id" | "loyalty_points" | "created_at" | "updated_at">>({
-    name: "",
+    first_name: "",
+    last_name: "",
     email: "",
     phone: "",
     address: ""
@@ -52,7 +53,7 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
   };
 
   const handleAddCustomer = async () => {
-    if (!newCustomer.name) {
+    if (!newCustomer.first_name && !newCustomer.last_name) {
       toast({
         title: "Error",
         description: "Customer name is required",
@@ -144,7 +145,7 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
   };
 
   const handleUpdateCustomer = async () => {
-    if (!editingCustomer || !editingCustomer.name) {
+    if (!editingCustomer || !editingCustomer.first_name || !editingCustomer.last_name) {
       toast({
         title: "Error",
         description: "Customer name is required",
@@ -203,7 +204,8 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
 
   const resetForm = () => {
     setNewCustomer({
-      name: "",
+      first_name: "",
+      last_name: "",
       email: "",
       phone: "",
       address: ""
@@ -273,12 +275,23 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
                     <Label htmlFor="name">Customer Name *</Label>
                     <Input
                       id="name"
-                      value={editingCustomer ? editingCustomer.name : newCustomer.name}
-                      onChange={(e) => 
-                        editingCustomer 
-                          ? setEditingCustomer({...editingCustomer, name: e.target.value})
-                          : setNewCustomer({...newCustomer, name: e.target.value})
-                      }
+                      value={editingCustomer ? `${editingCustomer.first_name} ${editingCustomer.last_name}` : `${newCustomer.first_name} ${newCustomer.last_name}`}
+                      onChange={(e) => {
+                        const [firstName, lastName = ''] = e.target.value.split(' ', 2);
+                        if (editingCustomer) {
+                          setEditingCustomer({
+                            ...editingCustomer, 
+                            first_name: firstName,
+                            last_name: lastName
+                          });
+                        } else {
+                          setNewCustomer({
+                            ...newCustomer, 
+                            first_name: firstName,
+                            last_name: lastName
+                          });
+                        }
+                      }}
                       placeholder="Enter customer name"
                     />
                   </div>
@@ -390,11 +403,9 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
           </CardHeader>
           <CardContent>
             <ExportImportManager 
+              data={customers}
               onImport={handleImportCustomers}
               dataType="customers"
-              templateFields={[
-                "name", "email", "phone", "address", "loyalty_points"
-              ]}
             />
           </CardContent>
         </Card>
@@ -431,7 +442,7 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
                       <TableRow key={customer.id}>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{customer.name}</div>
+                            <div className="font-medium">{`${customer.first_name} ${customer.last_name}`}</div>
                             <div className="text-sm text-muted-foreground">
                               {customer.address}
                             </div>

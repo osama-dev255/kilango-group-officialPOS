@@ -8,38 +8,43 @@ import NotFound from "./pages/NotFound";
 import { Dashboard } from "./pages/Dashboard";
 import { SalesDashboard } from "./pages/SalesDashboard";
 import { SalesCart } from "./pages/SalesCart";
+import { useEffect } from "react";
 
 // Import Supabase test function
 import { testSupabaseConnection } from "@/services/supabaseService";
 
 const queryClient = new QueryClient();
 
-// Test Supabase connection on app start
-testSupabaseConnection().then((isConnected) => {
-  if (isConnected) {
-    console.log("Successfully connected to Supabase!");
-  } else {
-    console.warn("Failed to connect to Supabase. Please check your credentials in the .env file.");
-  }
-});
+const App = () => {
+  useEffect(() => {
+    // Test Supabase connection on app start
+    testSupabaseConnection().then((isConnected) => {
+      if (isConnected) {
+        console.log("Successfully connected to Supabase!");
+      } else {
+        console.warn("Failed to connect to Supabase. Please check your credentials in the .env file.");
+      }
+    });
+  }, []);
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<Dashboard username="admin" onNavigate={() => {}} onLogout={() => {}} />} />
-          <Route path="/sales" element={<SalesDashboard username="admin" onBack={() => {}} onLogout={() => {}} onNavigate={() => {}} />} />
-          <Route path="/sales/cart" element={<SalesCart username="admin" onBack={() => {}} onLogout={() => {}} />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/dashboard" element={<Dashboard username="admin" onNavigate={() => {}} onLogout={() => {}} />} />
+            <Route path="/sales" element={<SalesDashboard username="admin" onBack={() => {}} onLogout={() => {}} onNavigate={() => {}} />} />
+            <Route path="/sales/cart" element={<SalesCart username="admin" onBack={() => {}} onLogout={() => {}} />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

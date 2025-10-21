@@ -50,6 +50,40 @@ This project now includes Supabase integration for real-time data persistence. T
 
 The Supabase client is configured in `src/lib/supabaseClient.ts` and can be imported anywhere in your application.
 
+## Deployment
+
+### Deploy to Netlify (Recommended)
+
+#### Option 1: Using Netlify CLI (Automated Deployment)
+1. Install Netlify CLI globally:
+   ```bash
+   npm install -g netlify-cli
+   ```
+2. Login to your Netlify account:
+   ```bash
+   netlify login
+   ```
+3. Deploy your site:
+   ```bash
+   netlify deploy --prod
+   ```
+
+#### Option 2: Manual Deployment
+1. Build your project:
+   ```bash
+   npm run build
+   ```
+2. Drag and drop the `dist` folder to your Netlify dashboard
+
+#### Option 3: Using Deployment Scripts
+- On Windows: Run `deploy.bat`
+- On macOS/Linux: Run `deploy.sh`
+
+### Environment Variables for Production
+When deploying to Netlify, make sure to set the following environment variables in your Netlify project settings:
+- `VITE_SUPABASE_URL` - Your Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` - Your Supabase anon key
+
 ## Project info
 
 **URL**: https://lovable.dev/projects/9f9e30d6-d3f0-4c0d-990f-ab3b9f33d598

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ShoppingCart, Package, Users, Truck } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import "../App.css";
 
 export const SplashScreen = () => {
@@ -16,43 +16,43 @@ export const SplashScreen = () => {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-primary to-primary/90 flex items-center justify-center z-50">
-      <div className="text-center text-white">
-        <div className="mb-8">
-          <div className="relative inline-block">
-            <div className="absolute -inset-4 bg-white rounded-full opacity-20 blur"></div>
-            <div className="relative bg-white rounded-full p-6">
-              <ShoppingCart className="h-16 w-16 text-primary" />
-            </div>
+    <div className="fixed inset-0 bg-gradient-to-br from-background to-primary/10 flex items-center justify-center z-50">
+      <div className="text-center">
+        <div className="mb-8 relative">
+          <div className="absolute -inset-4 bg-primary/20 rounded-full blur-lg animate-pulse"></div>
+          <div className="relative bg-primary rounded-full p-6 shadow-lg">
+            <ShoppingCart className="h-16 w-16 text-white" />
           </div>
         </div>
 
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 splash-fade-in">
+        <h1 className="text-4xl md:text-5xl font-bold mb-3 text-foreground splash-fade-in">
           Bulletproof POS
         </h1>
 
-        <p className="text-xl mb-8 opacity-90 splash-fade-in">
-          Comprehensive Point of Sale System
+        <div className="w-24 h-1 bg-primary mx-auto mb-6 splash-fade-in"></div>
+
+        <p className="text-lg md:text-xl mb-8 text-muted-foreground splash-fade-in">
+          Professional Point of Sale Solution
         </p>
 
         <div className="flex justify-center space-x-4 mb-8">
           <div className="flex space-x-2">
-            {[Package, Users, Truck].map((Icon, index) => (
+            {["Inventory", "Sales", "Analytics"].map((text, index) => (
               <div
                 key={index}
-                className="bg-white/20 p-3 rounded-full splash-fade-in"
+                className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium splash-fade-in"
                 style={{ animationDelay: `${0.8 + index * 0.1}s` }}
               >
-                <Icon className="h-6 w-6" />
+                {text}
               </div>
             ))}
           </div>
         </div>
 
-        <div className="h-1 bg-white/30 rounded-full overflow-hidden mx-auto w-64">
-          <div 
-            className="h-full bg-white rounded-full splash-progress"
-          />
+        <div className="flex items-center justify-center space-x-2">
+          <div className="h-2 w-2 bg-primary rounded-full animate-bounce"></div>
+          <div className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+          <div className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
         </div>
       </div>
     </div>

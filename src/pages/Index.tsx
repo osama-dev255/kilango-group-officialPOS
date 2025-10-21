@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LoginForm } from "@/components/LoginForm";
 import { Dashboard } from "@/pages/Dashboard";
 import { SalesDashboard } from "@/pages/SalesDashboard";
@@ -31,6 +31,16 @@ type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "inventory" | 
 const Index = () => {
   const [currentView, setCurrentView] = useState<ViewState>("login");
   const [user, setUser] = useState<{ username: string } | null>(null);
+  const [showSplash, setShowSplash] = useState(true);
+
+  // Hide splash screen after 3 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleLogin = (credentials: { username: string; password: string }) => {
     // In a real app, you would validate credentials with Google Sheets
@@ -205,27 +215,17 @@ const Index = () => {
     }
   };
 
-  if (currentView === "login") {
-    return (
-      <div>
-        <SplashScreen />
-        <LoginForm onLogin={handleLogin} />
-      </div>
-    );
+  // Show splash screen first, then login form
+  if (showSplash) {
+    return <SplashScreen />;
   }
 
-  if (!user) {
-    return (
-      <div>
-        <SplashScreen />
-        <LoginForm onLogin={handleLogin} />
-      </div>
-    );
+  if (currentView === "login" || !user) {
+    return <LoginForm onLogin={handleLogin} />;
   }
 
   return (
     <div>
-      <SplashScreen />
       {(() => {
         console.log("Rendering currentView:", currentView);
         switch (currentView) {

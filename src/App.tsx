@@ -8,12 +8,14 @@ import NotFound from "./pages/NotFound";
 import { Dashboard } from "./pages/Dashboard";
 import { SalesDashboard } from "./pages/SalesDashboard";
 import { SalesCart } from "./pages/SalesCart";
+import TestPage from "./pages/TestPage";
 import { useEffect } from "react";
 // Import authentication context
 import { AuthProvider } from "@/contexts/AuthContext";
 
 // Import Supabase test function
 import { testSupabaseConnection } from "@/services/supabaseService";
+import { testRLSPolicies } from "@/services/databaseService";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +27,15 @@ const App = () => {
         console.log("Successfully connected to Supabase!");
       } else {
         console.warn("Failed to connect to Supabase. Please check your credentials in the .env file.");
+      }
+    });
+    
+    // Test RLS policies
+    testRLSPolicies().then((policiesOk) => {
+      if (policiesOk) {
+        console.log("RLS policies are correctly configured!");
+      } else {
+        console.warn("RLS policies need to be configured. Please run the FIX_RLS_POLICIES.sql script in your Supabase SQL editor.");
       }
     });
   }, []);
@@ -41,6 +52,7 @@ const App = () => {
               <Route path="/dashboard" element={<Dashboard username="admin" onNavigate={() => {}} onLogout={() => {}} />} />
               <Route path="/sales" element={<SalesDashboard username="admin" onBack={() => {}} onLogout={() => {}} onNavigate={() => {}} />} />
               <Route path="/sales/cart" element={<SalesCart username="admin" onBack={() => {}} onLogout={() => {}} />} />
+              <Route path="/test" element={<TestPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

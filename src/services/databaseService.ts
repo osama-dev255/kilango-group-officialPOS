@@ -303,25 +303,64 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 
 export const createProduct = async (product: Omit<Product, 'id'>): Promise<Product | null> => {
   try {
+    console.log('Creating product with data:', product);
+    
+    // Remove created_at and updated_at from the product object since they have database defaults
+    const { created_at, updated_at, ...productData } = product;
+    
+    // Handle empty strings for UNIQUE fields by setting them to null
+    if (productData.barcode === '') {
+      productData.barcode = null;
+    }
+    if (productData.sku === '') {
+      productData.sku = null;
+    }
+    
+    console.log('Sending product data to Supabase:', productData);
+    
     const { data, error } = await supabase
       .from('products')
-      .insert([{ ...product, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+      .insert([productData])
       .select()
       .single();
       
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error creating product:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      throw error;
+    }
+    
+    console.log('Product created successfully:', data);
     return data || null;
   } catch (error) {
     console.error('Error creating product:', error);
+    console.error('Error type:', typeof error);
+    console.error('Error keys:', Object.keys(error as object));
     return null;
   }
 };
 
 export const updateProduct = async (id: string, product: Partial<Product>): Promise<Product | null> => {
   try {
+    // Remove updated_at from the product object since it has a database default
+    const { updated_at, ...productData } = product;
+    
+    // Handle empty strings for UNIQUE fields by setting them to null
+    if ('barcode' in productData && productData.barcode === '') {
+      productData.barcode = null;
+    }
+    if ('sku' in productData && productData.sku === '') {
+      productData.sku = null;
+    }
+    
     const { data, error } = await supabase
       .from('products')
-      .update({ ...product, updated_at: new Date().toISOString() })
+      .update({ ...productData, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
       .single();
@@ -346,6 +385,330 @@ export const deleteProduct = async (id: string): Promise<boolean> => {
   } catch (error) {
     console.error('Error deleting product:', error);
     return false;
+  }
+};
+
+// Test RLS policies for products table
+export const testRLSPolicies = async (): Promise<boolean> => {
+  try {
+    // Try to fetch products to test SELECT policy (without aggregate functions)
+    const { data: selectData, error: selectError } = await supabase
+      .from('products')
+      .select('*')
+      .limit(1);
+    
+    if (selectError) {
+      console.error('SELECT policy test failed:', selectError);
+      return false;
+    }
+    
+    // Try to insert a test product to test INSERT policy
+    const testProduct = {
+      name: 'RLS Test Product',
+      selling_price: 1.00,
+      cost_price: 0.50,
+      stock_quantity: 1
+    };
+    
+    const { data: insertData, error: insertError } = await supabase
+      .from('products')
+      .insert([testProduct])
+      .select()
+      .single();
+    
+    if (insertError) {
+      console.error('INSERT policy test failed:', insertError);
+      console.error('Error details:', {
+        message: insertError.message,
+        code: insertError.code,
+        details: insertError.details,
+        hint: insertError.hint
+      });
+      return false;
+    }
+    
+    // Clean up test product if created
+    if (insertData && insertData.id) {
+      await supabase
+        .from('products')
+        .delete()
+        .eq('id', insertData.id);
+    }
+    
+    console.log('RLS policies test passed');
+    return true;
+  } catch (error) {
+    console.error('RLS policies test failed:', error);
+    return false;
+  }
+};
+
+// Fix RLS policies by adding proper policies to Supabase
+export const fixRLSPolicies = async (): Promise<{ success: boolean; message: string }> => {
+  try {
+    console.log('Attempting to fix RLS policies...');
+    
+    // Since we can't directly execute SQL from the client, we'll provide the exact SQL commands
+    // that need to be run in the Supabase SQL editor
+    const sqlCommands = `
+-- Fix RLS policies for all tables to allow anonymous access for a POS system
+-- This is suitable for development/testing but should be more restrictive in production
+
+-- Products table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON products;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON products;
+DROP POLICY IF EXISTS "Enable update access for all users" ON products;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON products;
+
+CREATE POLICY "Enable read access for all users" ON products FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON products FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON products FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON products FOR DELETE USING (true);
+
+-- Categories table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON categories;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON categories;
+DROP POLICY IF EXISTS "Enable update access for all users" ON categories;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON categories;
+
+CREATE POLICY "Enable read access for all users" ON categories FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON categories FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON categories FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON categories FOR DELETE USING (true);
+
+-- Customers table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON customers;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON customers;
+DROP POLICY IF EXISTS "Enable update access for all users" ON customers;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON customers;
+
+CREATE POLICY "Enable read access for all users" ON customers FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON customers FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON customers FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON customers FOR DELETE USING (true);
+
+-- Suppliers table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON suppliers;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON suppliers;
+DROP POLICY IF EXISTS "Enable update access for all users" ON suppliers;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON suppliers;
+
+CREATE POLICY "Enable read access for all users" ON suppliers FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON suppliers FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON suppliers FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON suppliers FOR DELETE USING (true);
+
+-- Sales table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON sales;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON sales;
+DROP POLICY IF EXISTS "Enable update access for all users" ON sales;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON sales;
+
+CREATE POLICY "Enable read access for all users" ON sales FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON sales FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON sales FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON sales FOR DELETE USING (true);
+
+-- Sale items table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON sale_items;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON sale_items;
+DROP POLICY IF EXISTS "Enable update access for all users" ON sale_items;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON sale_items;
+
+CREATE POLICY "Enable read access for all users" ON sale_items FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON sale_items FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON sale_items FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON sale_items FOR DELETE USING (true);
+
+-- Purchase orders table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON purchase_orders;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON purchase_orders;
+DROP POLICY IF EXISTS "Enable update access for all users" ON purchase_orders;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON purchase_orders;
+
+CREATE POLICY "Enable read access for all users" ON purchase_orders FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON purchase_orders FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON purchase_orders FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON purchase_orders FOR DELETE USING (true);
+
+-- Purchase order items table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON purchase_order_items;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON purchase_order_items;
+DROP POLICY IF EXISTS "Enable update access for all users" ON purchase_order_items;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON purchase_order_items;
+
+CREATE POLICY "Enable read access for all users" ON purchase_order_items FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON purchase_order_items FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON purchase_order_items FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON purchase_order_items FOR DELETE USING (true);
+
+-- Expenses table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON expenses;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON expenses;
+DROP POLICY IF EXISTS "Enable update access for all users" ON expenses;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON expenses;
+
+CREATE POLICY "Enable read access for all users" ON expenses FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON expenses FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON expenses FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON expenses FOR DELETE USING (true);
+
+-- Discounts table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON discounts;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON discounts;
+DROP POLICY IF EXISTS "Enable update access for all users" ON discounts;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON discounts;
+
+CREATE POLICY "Enable read access for all users" ON discounts FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON discounts FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON discounts FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON discounts FOR DELETE USING (true);
+
+-- Users table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON users;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON users;
+DROP POLICY IF EXISTS "Enable update access for all users" ON users;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON users;
+
+CREATE POLICY "Enable read access for all users" ON users FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON users FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON users FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON users FOR DELETE USING (true);
+
+-- Returns table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON returns;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON returns;
+DROP POLICY IF EXISTS "Enable update access for all users" ON returns;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON returns;
+
+CREATE POLICY "Enable read access for all users" ON returns FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON returns FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON returns FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON returns FOR DELETE USING (true);
+
+-- Return items table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON return_items;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON return_items;
+DROP POLICY IF EXISTS "Enable update access for all users" ON return_items;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON return_items;
+
+CREATE POLICY "Enable read access for all users" ON return_items FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON return_items FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON return_items FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON return_items FOR DELETE USING (true);
+
+-- Damaged products table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON damaged_products;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON damaged_products;
+DROP POLICY IF EXISTS "Enable update access for all users" ON damaged_products;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON damaged_products;
+
+CREATE POLICY "Enable read access for all users" ON damaged_products FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON damaged_products FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON damaged_products FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON damaged_products FOR DELETE USING (true);
+
+-- Debts table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON debts;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON debts;
+DROP POLICY IF EXISTS "Enable update access for all users" ON debts;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON debts;
+
+CREATE POLICY "Enable read access for all users" ON debts FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON debts FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON debts FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON debts FOR DELETE USING (true);
+
+-- Customer settlements table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON customer_settlements;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON customer_settlements;
+DROP POLICY IF EXISTS "Enable update access for all users" ON customer_settlements;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON customer_settlements;
+
+CREATE POLICY "Enable read access for all users" ON customer_settlements FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON customer_settlements FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON customer_settlements FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON customer_settlements FOR DELETE USING (true);
+
+-- Supplier settlements table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON supplier_settlements;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON supplier_settlements;
+DROP POLICY IF EXISTS "Enable update access for all users" ON supplier_settlements;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON supplier_settlements;
+
+CREATE POLICY "Enable read access for all users" ON supplier_settlements FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON supplier_settlements FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON supplier_settlements FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON supplier_settlements FOR DELETE USING (true);
+
+-- Inventory audits table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON inventory_audits;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON inventory_audits;
+DROP POLICY IF EXISTS "Enable update access for all users" ON inventory_audits;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON inventory_audits;
+
+CREATE POLICY "Enable read access for all users" ON inventory_audits FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON inventory_audits FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON inventory_audits FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON inventory_audits FOR DELETE USING (true);
+
+-- Reports table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON reports;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON reports;
+DROP POLICY IF EXISTS "Enable update access for all users" ON reports;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON reports;
+
+CREATE POLICY "Enable read access for all users" ON reports FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON reports FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON reports FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON reports FOR DELETE USING (true);
+
+-- Access logs table policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON access_logs;
+DROP POLICY IF EXISTS "Enable insert access for all users" ON access_logs;
+DROP POLICY IF EXISTS "Enable update access for all users" ON access_logs;
+DROP POLICY IF EXISTS "Enable delete access for all users" ON access_logs;
+
+CREATE POLICY "Enable read access for all users" ON access_logs FOR SELECT USING (true);
+CREATE POLICY "Enable insert access for all users" ON access_logs FOR INSERT WITH CHECK (true);
+CREATE POLICY "Enable update access for all users" ON access_logs FOR UPDATE USING (true);
+CREATE POLICY "Enable delete access for all users" ON access_logs FOR DELETE USING (true);
+`;
+
+    console.log('RLS policies SQL commands prepared. Please run these in your Supabase SQL editor.');
+    return {
+      success: true,
+      message: "RLS policies SQL commands prepared. Please run these in your Supabase SQL editor."
+    };
+  } catch (error) {
+    console.error('Error preparing RLS policies fix:', error);
+    return {
+      success: false,
+      message: "Error preparing RLS policies fix: " + (error as Error).message
+    };
+  }
+};
+
+// Apply RLS policies fix and show instructions
+export const applyRLSPoliciesFix = async (): Promise<void> => {
+  try {
+    const result = await fixRLSPolicies();
+    
+    // Show instructions to the user
+    if (result.success) {
+      console.log("=== RLS POLICIES FIX INSTRUCTIONS ===");
+      console.log("1. Open your Supabase project dashboard");
+      console.log("2. Go to the SQL Editor");
+      console.log("3. Copy and paste the SQL commands provided below");
+      console.log("4. Run the script");
+      console.log("5. Test product creation again");
+      console.log("\nSQL Commands:\n");
+      console.log(result.message);
+    } else {
+      console.error("Failed to prepare RLS policies fix:", result.message);
+    }
+  } catch (error) {
+    console.error('Error applying RLS policies fix:', error);
   }
 };
 

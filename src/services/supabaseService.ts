@@ -3,15 +3,18 @@ import { supabase } from '@/lib/supabaseClient';
 // Test connection to Supabase
 export const testSupabaseConnection = async (): Promise<boolean> => {
   try {
-    // Simple health check - try to get the current time from Supabase
-    const { data, error } = await supabase.rpc('now');
+    // Simple health check - try to get a small set of data
+    const { data, error } = await supabase
+      .from('products')
+      .select('id')
+      .limit(1);
     
     if (error) {
       console.error('Supabase connection error:', error);
       return false;
     }
     
-    console.log('Supabase connection successful:', data);
+    console.log('Supabase connection successful');
     return true;
   } catch (error) {
     console.error('Supabase connection failed:', error);

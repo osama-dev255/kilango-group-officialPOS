@@ -11,32 +11,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, Edit, Trash2, Package, Scan, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
-import { AutomationService } from "@/services/automationService";
 import { ExportImportManager } from "@/components/ExportImportManager";
 // Import Supabase database service
-import { getProducts, createProduct, updateProduct, deleteProduct, Product } from "@/services/databaseService";
-
-const categories = [
-  "Electronics",
-  "Clothing",
-  "Food & Beverage",
-  "Home & Garden",
-  "Health & Beauty",
-  "Sports & Outdoors",
-  "Books & Media",
-  "Toys & Games",
-  "Other"
-];
+import { getProducts, createProduct, updateProduct, deleteProduct, getCategories, Product, Category } from "@/services/databaseService";
 
 export const ProductManagement = ({ username, onBack, onLogout }: { username: string; onBack: () => void; onLogout: () => void }) => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [newProduct, setNewProduct] = useState<Omit<Product, "id" | "created_at" | "updated_at">>({
     name: "",
-    category_id: "",
+    category_id: null,
     selling_price: 0,
     cost_price: 0,
     stock_quantity: 0,
@@ -51,9 +39,9 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
   });
   const { toast } = useToast();
 
-  // Load products from Supabase on component mount
+  // Load products and categories from Supabase on component mount
   useEffect(() => {
-    loadProducts();
+    Promise.all([loadProducts(), loadCategories()]);
   }, []);
 
   const loadProducts = async () => {
@@ -73,11 +61,25 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
     }
   };
 
-  const handleAddProduct = async () => {
-    if (!newProduct.name || newProduct.selling_price <= 0) {
+  const loadCategories = async () => {
+    try {
+      const data = await getCategories();
+      setCategories(data);
+    } catch (error) {
+      console.error("Error loading categories:", error);
       toast({
         title: "Error",
-        description: "Please fill in required fields",
+        description: "Failed to load categories",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleAddProduct = async () => {
+    if (!newProduct.name || newProduct.selling_price < 0) {
+      toast({
+        title: "Error",
+        description: "Please fill in required fields (price must be zero or positive)",
         variant: "destructive"
       });
       return;
@@ -163,10 +165,10 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
   };
 
   const handleUpdateProduct = async () => {
-    if (!editingProduct || !editingProduct.name || editingProduct.selling_price <= 0) {
+    if (!editingProduct || !editingProduct.name || editingProduct.selling_price < 0) {
       toast({
         title: "Error",
-        description: "Please fill in required fields",
+        description: "Please fill in required fields (price must be zero or positive)",
         variant: "destructive"
       });
       return;
@@ -223,7 +225,7 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
   const resetForm = () => {
     setNewProduct({
       name: "",
-      category_id: "",
+      category_id: null,
       selling_price: 0,
       cost_price: 0,
       stock_quantity: 0,
@@ -306,8 +308,8 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
                         value={editingProduct ? (editingProduct.category_id || "") : (newProduct.category_id || "")}
                         onValueChange={(value) => 
                           editingProduct
-                            ? setEditingProduct({...editingProduct, category_id: value})
-                            : setNewProduct({...newProduct, category_id: value})
+                            ? setEditingProduct({...editingProduct, category_id: value || null})
+                            : setNewProduct({...newProduct, category_id: value || null})
                         }
                       >
                         <SelectTrigger>
@@ -315,8 +317,8 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
                         </SelectTrigger>
                         <SelectContent>
                           {categories.map((category) => (
-                            <SelectItem key={category} value={category}>
-                              {category}
+                            <SelectItem key={category.id || category.name} value={category.id || ""}>
+                              {category.name}
                             </SelectItem>
                           ))}
                         </SelectContent>

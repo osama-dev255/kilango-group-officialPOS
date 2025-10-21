@@ -1,10 +1,18 @@
 import { supabase } from '@/lib/supabaseClient';
 import { getProducts, createProduct, updateProduct, deleteProduct } from '@/services/databaseService';
+import { testProductCreation } from '@/utils/testProductCreation';
+import { testEnvVars } from '@/utils/testEnvVars';
 
 // Test Supabase connection and basic operations
 export const testSupabaseIntegration = async () => {
   try {
     console.log('Testing Supabase integration...');
+    
+    // Test environment variables
+    const envVarsOk = testEnvVars();
+    if (!envVarsOk) {
+      return { success: false, error: 'Environment variables not set correctly' };
+    }
     
     // Test connection
     const { data, error } = await supabase.rpc('now');
@@ -17,6 +25,9 @@ export const testSupabaseIntegration = async () => {
     // Test fetching products
     const products = await getProducts();
     console.log('Fetched products:', products.length);
+    
+    // Run product creation tests
+    await testProductCreation();
     
     // Test creating a product
     const newProduct = {

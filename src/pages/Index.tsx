@@ -3,8 +3,30 @@ import { LoginForm } from "@/components/LoginForm";
 import { Dashboard } from "@/pages/Dashboard";
 import { SalesDashboard } from "@/pages/SalesDashboard";
 import { SalesCart } from "@/pages/SalesCart";
+import { ProductManagement } from "@/pages/ProductManagement";
+import { CustomerManagement } from "@/pages/CustomerManagement";
+import { TransactionHistory } from "@/pages/TransactionHistory";
+import { SalesAnalytics } from "@/pages/SalesAnalytics";
+import { EmployeeManagement } from "@/pages/EmployeeManagement";
+import { SupplierManagement } from "@/pages/SupplierManagement";
+import { PurchaseOrders } from "@/pages/PurchaseOrders";
+import { PurchaseDashboard } from "@/pages/PurchaseDashboard";
+import { ExpenseManagement } from "@/pages/ExpenseManagement";
+import { ReturnsManagement } from "@/pages/ReturnsManagement";
+import { DebtManagement } from "@/pages/DebtManagement";
+import { CustomerSettlements } from "@/pages/CustomerSettlements";
+import { SupplierSettlements } from "@/pages/SupplierSettlements";
+import { DiscountManagement } from "@/pages/DiscountManagement";
+import { InventoryAudit } from "@/pages/InventoryAudit";
+import { AccessLogs } from "@/pages/AccessLogs";
+import { ComprehensiveDashboard } from "@/pages/ComprehensiveDashboard";
+import { FinanceDashboard } from "@/pages/FinanceDashboard";
+import { FinancialReports } from "@/pages/FinancialReports";
+import { Settings } from "@/pages/Settings";
+import { AutomatedDashboard } from "@/pages/AutomatedDashboard";
+import { SplashScreen } from "@/components/SplashScreen";
 
-type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "inventory" | "purchase" | "finance";
+type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "inventory" | "purchase" | "finance" | "products" | "customers" | "transactions" | "analytics" | "employees" | "suppliers" | "purchase-orders" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "reports" | "financial-reports" | "settings" | "automated" | "comprehensive";
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<ViewState>("login");
@@ -13,7 +35,7 @@ const Index = () => {
   const handleLogin = (credentials: { username: string; password: string }) => {
     // In a real app, you would validate credentials with Google Sheets
     setUser({ username: credentials.username });
-    setCurrentView("dashboard");
+    setCurrentView("comprehensive");
   };
 
   const handleLogout = () => {
@@ -22,6 +44,17 @@ const Index = () => {
   };
 
   const handleNavigate = (destination: string) => {
+    console.log("Navigating to:", destination);
+    // Add debugging
+    console.log("Available modules:", [
+      "sales", "cart", "inventory", "products", "purchase", "finance", 
+      "customers", "transactions", "analytics", "employees", "suppliers", 
+      "purchase-orders", "expenses", "returns", "debts", "customer-settlements", 
+      "supplier-settlements", "discounts", "audit", "access-logs", 
+      "comprehensive", "reports", "financial-reports", "settings", 
+      "scanner", "automated"
+    ]);
+    
     switch (destination) {
       case "sales":
         setCurrentView("sales");
@@ -30,81 +63,418 @@ const Index = () => {
         setCurrentView("sales-cart");
         break;
       case "inventory":
+      case "products":
+        setCurrentView("products");
+        break;
       case "purchase":
+        setCurrentView("purchase");
+        break;
       case "finance":
-        // These will be implemented later
-        setCurrentView(destination as ViewState);
+        setCurrentView("finance");
+        break;
+      case "customers":
+        setCurrentView("customers");
+        break;
+      case "transactions":
+        setCurrentView("transactions");
+        break;
+      case "analytics":
+        setCurrentView("analytics");
+        break;
+      case "employees":
+        setCurrentView("employees");
+        break;
+      case "suppliers":
+        setCurrentView("suppliers");
+        break;
+      case "purchase-orders":
+        setCurrentView("purchase-orders");
+        break;
+      case "expenses":
+        setCurrentView("expenses");
+        break;
+      case "returns":
+        setCurrentView("returns");
+        break;
+      case "debts":
+        setCurrentView("debts");
+        break;
+      case "customer-settlements":
+        setCurrentView("customer-settlements");
+        break;
+      case "supplier-settlements":
+        setCurrentView("supplier-settlements");
+        break;
+      case "discounts":
+        setCurrentView("discounts");
+        break;
+      case "audit":
+        setCurrentView("audit");
+        break;
+      case "access-logs":
+        setCurrentView("access-logs");
+        break;
+      case "comprehensive":
+        setCurrentView("comprehensive");
+        break;
+      case "reports":
+        // Show financial reports view
+        setCurrentView("financial-reports");
+        break;
+      case "settings":
+        setCurrentView("settings");
+        break;
+      case "scanner":
+        setCurrentView("sales-cart");
+        break;
+      case "automated":
+        setCurrentView("automated");
         break;
       default:
-        setCurrentView("dashboard");
+        console.log("Unknown destination:", destination);
+        console.log("Current view set to comprehensive as fallback");
+        setCurrentView("comprehensive");
+        break;
     }
   };
 
   const handleBack = () => {
     switch (currentView) {
       case "sales":
-        setCurrentView("dashboard");
+        setCurrentView("comprehensive");
         break;
       case "sales-cart":
         setCurrentView("sales");
         break;
+      case "products":
+        setCurrentView("comprehensive");
+        break;
+      case "customers":
+        setCurrentView("sales");
+        break;
+      case "transactions":
+        setCurrentView("sales");
+        break;
+      case "analytics":
+        setCurrentView("sales");
+        break;
+      case "employees":
+        setCurrentView("comprehensive");
+        break;
+      case "suppliers":
+        setCurrentView("purchase");
+        break;
+      case "purchase-orders":
+        setCurrentView("purchase");
+        break;
+      case "purchase":
+        setCurrentView("comprehensive");
+        break;
+      case "expenses":
+        setCurrentView("finance");
+        break;
+      case "returns":
+        setCurrentView("comprehensive");
+        break;
+      case "debts":
+        setCurrentView("finance");
+        break;
+      case "customer-settlements":
+        setCurrentView("finance");
+        break;
+      case "supplier-settlements":
+        setCurrentView("finance");
+        break;
+      case "discounts":
+        setCurrentView("sales");
+        break;
+      case "audit":
+        setCurrentView("comprehensive");
+        break;
+      case "access-logs":
+        setCurrentView("comprehensive");
+        break;
+      case "finance":
+        setCurrentView("comprehensive");
+        break;
+      case "settings":
+        setCurrentView("comprehensive");
+        break;
       default:
-        setCurrentView("dashboard");
+        setCurrentView("comprehensive");
     }
   };
 
   if (currentView === "login") {
-    return <LoginForm onLogin={handleLogin} />;
+    return (
+      <div>
+        <SplashScreen />
+        <LoginForm onLogin={handleLogin} />
+      </div>
+    );
   }
 
   if (!user) {
-    return <LoginForm onLogin={handleLogin} />;
+    return (
+      <div>
+        <SplashScreen />
+        <LoginForm onLogin={handleLogin} />
+      </div>
+    );
   }
 
-  switch (currentView) {
-    case "dashboard":
-      return (
-        <Dashboard
-          username={user.username}
-          onNavigate={handleNavigate}
-          onLogout={handleLogout}
-        />
-      );
-    case "sales":
-      return (
-        <SalesDashboard
-          username={user.username}
-          onBack={handleBack}
-          onLogout={handleLogout}
-          onNavigate={handleNavigate}
-        />
-      );
-    case "sales-cart":
-      return (
-        <SalesCart
-          username={user.username}
-          onBack={handleBack}
-          onLogout={handleLogout}
-        />
-      );
-    default:
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">
-              {currentView.charAt(0).toUpperCase() + currentView.slice(1)} Dashboard
-            </h1>
-            <p className="text-muted-foreground mb-4">This module is coming soon!</p>
-            <button 
-              onClick={handleBack}
-              className="text-primary hover:underline"
-            >
-              ← Back to Dashboard
-            </button>
-          </div>
-        </div>
-      );
-  }
+  return (
+    <div>
+      <SplashScreen />
+      {(() => {
+        console.log("Rendering currentView:", currentView);
+        switch (currentView) {
+          case "comprehensive":
+            console.log("Rendering ComprehensiveDashboard");
+            return (
+              <ComprehensiveDashboard
+                username={user.username}
+                onNavigate={handleNavigate}
+                onLogout={handleLogout}
+              />
+            );
+          case "dashboard":
+            console.log("Rendering Dashboard");
+            return (
+              <Dashboard
+                username={user.username}
+                onNavigate={handleNavigate}
+                onLogout={handleLogout}
+              />
+            );
+          case "sales":
+            console.log("Rendering SalesDashboard");
+            return (
+              <SalesDashboard
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+                onNavigate={handleNavigate}
+              />
+            );
+          case "sales-cart":
+            console.log("Rendering SalesCart");
+            return (
+              <SalesCart
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+                autoOpenScanner={true}
+              />
+            );
+          case "products":
+            console.log("Rendering ProductManagement");
+            return (
+              <ProductManagement
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "customers":
+            console.log("Rendering CustomerManagement");
+            return (
+              <CustomerManagement
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "transactions":
+            console.log("Rendering TransactionHistory");
+            return (
+              <TransactionHistory
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "analytics":
+            console.log("Rendering SalesAnalytics");
+            return (
+              <SalesAnalytics
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "employees":
+            console.log("Rendering EmployeeManagement");
+            return (
+              <EmployeeManagement
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "purchase":
+            console.log("Rendering PurchaseDashboard");
+            return (
+              <PurchaseDashboard
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+                onNavigate={handleNavigate}
+              />
+            );
+          case "suppliers":
+            console.log("Rendering SupplierManagement");
+            return (
+              <SupplierManagement
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "purchase-orders":
+            console.log("Rendering PurchaseOrders");
+            return (
+              <PurchaseOrders
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "finance":
+            console.log("Rendering FinanceDashboard");
+            return (
+              <FinanceDashboard
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+                onNavigate={handleNavigate}
+              />
+            );
+          case "expenses":
+            console.log("Rendering ExpenseManagement");
+            return (
+              <ExpenseManagement
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "returns":
+            console.log("Rendering ReturnsManagement");
+            return (
+              <ReturnsManagement
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "debts":
+            console.log("Rendering DebtManagement");
+            return (
+              <DebtManagement
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "customer-settlements":
+            console.log("Rendering CustomerSettlements");
+            return (
+              <CustomerSettlements
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "supplier-settlements":
+            console.log("Rendering SupplierSettlements");
+            return (
+              <SupplierSettlements
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "discounts":
+            console.log("Rendering DiscountManagement");
+            return (
+              <DiscountManagement
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "audit":
+            console.log("Rendering InventoryAudit");
+            return (
+              <InventoryAudit
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "access-logs":
+            console.log("Rendering AccessLogs");
+            return (
+              <AccessLogs
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "financial-reports":
+            console.log("Rendering FinancialReports");
+            return (
+              <FinancialReports
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "settings":
+            console.log("Rendering Settings");
+            return (
+              <Settings
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "automated":
+            console.log("Rendering AutomatedDashboard");
+            return (
+              <AutomatedDashboard
+                username={user.username}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          default:
+            console.log("Rendering default fallback for:", currentView);
+            return (
+              <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="text-center p-6 max-w-md">
+                  <h1 className="text-2xl font-bold mb-4">
+                    {String(currentView).charAt(0).toUpperCase() + String(currentView).slice(1)} Dashboard
+                  </h1>
+                  <p className="text-muted-foreground mb-4">This module is coming soon!</p>
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleBack();
+                    }}
+                    className="text-primary hover:underline px-4 py-2 border border-primary rounded-md"
+                  >
+                    ← Back to Dashboard
+                  </button>
+                </div>
+              </div>
+            );
+        }
+      })()}
+    </div>
+  );
 };
 
 export default Index;

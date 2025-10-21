@@ -4,7 +4,12 @@ import {
   Calculator, 
   Receipt, 
   BarChart3, 
-  Users 
+  Users,
+  ShoppingCart,
+  Package,
+  Percent,
+  Settings,
+  Scan
 } from "lucide-react";
 
 interface SalesDashboardProps {
@@ -18,27 +23,59 @@ export const SalesDashboard = ({ username, onBack, onLogout, onNavigate }: Sales
   const salesModules = [
     {
       id: "cart",
-      title: "Sales Cart",
+      title: "Sales Terminal",
       description: "Process new sales transactions and manage customer orders",
       icon: Calculator,
+      color: "bg-white border border-gray-200"
     },
     {
       id: "transactions",
       title: "Transaction History",
       description: "View and manage past sales transactions and receipts",
       icon: Receipt,
+      color: "bg-white border border-gray-200"
     },
     {
       id: "analytics",
       title: "Sales Analytics",
       description: "Analyze sales performance, trends, and customer insights",
       icon: BarChart3,
+      color: "bg-white border border-gray-200"
     },
     {
       id: "customers",
       title: "Customer Management",
       description: "Manage customer information and purchase history",
       icon: Users,
+      color: "bg-white border border-gray-200"
+    },
+    {
+      id: "products",
+      title: "Product Management",
+      description: "Manage product inventory and pricing",
+      icon: Package,
+      color: "bg-white border border-gray-200"
+    },
+    {
+      id: "discounts",
+      title: "Discount Management",
+      description: "Manage promotional discounts and offers",
+      icon: Percent,
+      color: "bg-white border border-gray-200"
+    },
+    {
+      id: "settings",
+      title: "System Settings",
+      description: "Configure POS system preferences and options",
+      icon: Settings,
+      color: "bg-white border border-gray-200"
+    },
+    {
+      id: "scanner",
+      title: "Scan Items",
+      description: "Quickly add products to cart using barcode scanner",
+      icon: Scan,
+      color: "bg-white border border-gray-200"
     },
   ];
 
@@ -59,7 +96,7 @@ export const SalesDashboard = ({ username, onBack, onLogout, onNavigate }: Sales
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {salesModules.map((module) => (
             <DashboardCard
               key={module.id}
@@ -67,6 +104,7 @@ export const SalesDashboard = ({ username, onBack, onLogout, onNavigate }: Sales
               description={module.description}
               icon={module.icon}
               onClick={() => onNavigate(module.id)}
+              className={module.color}
             />
           ))}
         </div>

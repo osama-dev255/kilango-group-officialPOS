@@ -1,4 +1,54 @@
-# Welcome to your Lovable project
+# Comprehensive POS System
+
+## Project Overview
+
+This is a fully-featured Point of Sale (POS) system built with modern web technologies. The system includes all essential modules for running a retail business.
+
+## Key Features Implemented
+
+### Core POS Functionality
+- **Sales Management**: Process sales transactions with customer selection, discounts, and multiple payment methods
+- **Product Management**: Complete inventory system with categories, stock tracking, and barcode support
+- **Customer Management**: Customer database with loyalty programs and purchase history
+- **Transaction History**: Complete record of all sales transactions
+
+### Financial Management
+- **Expense Tracking**: Monitor business expenses with categorization and payment methods
+- **Debt Management**: Track customer and supplier debts
+- **Settlements**: Manage customer and supplier payments
+- **Discount Management**: Create and manage promotional discounts and coupon codes
+- **Financial Reporting**: Analytics and reports on business performance
+
+### Supply Chain Management
+- **Supplier Management**: Maintain supplier database and relationships
+- **Purchase Orders**: Create and track purchase orders
+- **Inventory Audit**: Track discrepancies and manage inventory adjustments
+
+### Human Resources & Security
+- **Employee Management**: User roles, permissions, and access control
+- **Access Logs**: Monitor all system activities and user actions
+- **Role-Based Access**: Different permission levels for different user types
+
+### Additional Features
+- **Returns & Damages**: Handle product returns and damaged inventory
+- **Inventory Tracking**: Real-time stock levels and low stock alerts
+- **Multi-Device Support**: Responsive design for desktops, tablets, and mobile devices
+
+## Supabase Integration
+
+This project now includes Supabase integration for real-time data persistence. To set up Supabase:
+
+1. Create a Supabase account at [supabase.com](https://supabase.com/)
+2. Create a new project in your Supabase dashboard
+3. Copy your project's URL and anon key from the project settings
+4. Create a `.env` file in the root of your project with the following variables:
+   ```
+   VITE_SUPABASE_URL=your_supabase_project_url_here
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+   ```
+5. Refer to `.env.example` for a template
+
+The Supabase client is configured in `src/lib/supabaseClient.ts` and can be imported anywhere in your application.
 
 ## Project info
 
@@ -54,15 +104,25 @@ npm run dev
 
 This project is built with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- Vite (Build tool and development server)
+- TypeScript (Typed superset of JavaScript)
+- React (Frontend library for building user interfaces)
+- shadcn-ui (Accessible and customizable UI components)
+- Tailwind CSS (Utility-first CSS framework)
+- React Router (Declarative routing for React)
+- React Query (Data fetching and state management)
+- Lucide React (Beautiful SVG icons)
+- Recharts (Charting library for React)
 
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/9f9e30d6-d3f0-4c0d-990f-ab3b9f33d598) and click on Share -> Publish.
+
+Alternatively, you can deploy manually using services like:
+- Vercel
+- Netlify
+- GitHub Pages
+- Any static hosting provider
 
 ## Can I connect a custom domain to my Lovable project?
 
@@ -71,3 +131,13 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Future Enhancements
+
+This POS system can be further enhanced with:
+- Barcode scanner support
+- Receipt printing functionality
+- Multi-location support
+- Advanced reporting and analytics
+- Mobile app companion
+- API integration with payment processors

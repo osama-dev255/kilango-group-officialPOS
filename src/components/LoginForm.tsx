@@ -40,19 +40,19 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary">
-            <Building2 className="h-8 w-8 text-primary-foreground" />
+        <CardHeader className="text-center pb-4 sm:pb-6">
+          <div className="mx-auto mb-3 sm:mb-4 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-primary">
+            <Building2 className="h-6 w-6 sm:h-8 sm:w-8 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">Business POS</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-xl sm:text-2xl font-bold">Business POS</CardTitle>
+          <CardDescription className="text-sm sm:text-base">
             Sign in to access your business dashboard
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="pb-6 sm:pb-8">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username" className="text-sm sm:text-base">Username</Label>
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -61,12 +61,12 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                   placeholder="Enter your username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 py-5 sm:py-6 text-sm sm:text-base"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-sm sm:text-base">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -75,13 +75,13 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 py-5 sm:py-6 text-sm sm:text-base"
                 />
               </div>
             </div>
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full h-10 sm:h-12 text-sm sm:text-base"
               disabled={isLoading}
             >
               {isLoading ? "Signing in..." : "Sign In"}

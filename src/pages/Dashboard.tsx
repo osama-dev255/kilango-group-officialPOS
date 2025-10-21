@@ -4,7 +4,12 @@ import {
   Package, 
   ShoppingCart, 
   ShoppingBag, 
-  DollarSign 
+  Wallet,
+  Users,
+  Receipt,
+  BarChart3,
+  User,
+  Truck
 } from "lucide-react";
 
 interface DashboardProps {
@@ -17,27 +22,59 @@ export const Dashboard = ({ username, onNavigate, onLogout }: DashboardProps) =>
   const dashboards = [
     {
       id: "inventory",
-      title: "Inventory Dashboard",
+      title: "Inventory Management",
       description: "Manage your products, stock levels, and inventory tracking",
       icon: Package,
+      color: "bg-white border border-gray-200"
     },
     {
       id: "sales",
       title: "Sales Dashboard",
       description: "Process sales, manage transactions, and view sales analytics",
       icon: ShoppingCart,
+      color: "bg-white border border-gray-200"
     },
     {
       id: "purchase",
-      title: "Purchase Dashboard",
+      title: "Purchase Management",
       description: "Handle supplier orders, track purchases, and manage vendors",
       icon: ShoppingBag,
+      color: "bg-white border border-gray-200"
     },
     {
       id: "finance",
-      title: "Finance Dashboard",
-      description: "View financial reports, profits, and business analytics",
-      icon: DollarSign,
+      title: "Financial Management",
+      description: "Manage expenses, debts, and financial reporting",
+      icon: Wallet,
+      color: "bg-white border border-gray-200"
+    },
+    {
+      id: "customers",
+      title: "Customer Management",
+      description: "Manage customer information and loyalty programs",
+      icon: Users,
+      color: "bg-white border border-gray-200"
+    },
+    {
+      id: "transactions",
+      title: "Transaction History",
+      description: "View and manage all sales transactions",
+      icon: Receipt,
+      color: "bg-white border border-gray-200"
+    },
+    {
+      id: "reports",
+      title: "Business Analytics",
+      description: "Analyze sales performance and business metrics",
+      icon: BarChart3,
+      color: "bg-white border border-gray-200"
+    },
+    {
+      id: "employees",
+      title: "Employee Management",
+      description: "Manage staff members and permissions",
+      icon: User,
+      color: "bg-white border border-gray-200"
     },
   ];
 
@@ -57,7 +94,7 @@ export const Dashboard = ({ username, onNavigate, onLogout }: DashboardProps) =>
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {dashboards.map((dashboard) => (
             <DashboardCard
               key={dashboard.id}
@@ -65,6 +102,7 @@ export const Dashboard = ({ username, onNavigate, onLogout }: DashboardProps) =>
               description={dashboard.description}
               icon={dashboard.icon}
               onClick={() => onNavigate(dashboard.id)}
+              className={dashboard.color}
             />
           ))}
         </div>

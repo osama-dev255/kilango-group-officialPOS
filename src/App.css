@@ -1,7 +1,7 @@
 #root {
-  max-width: 1280px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0;
   text-align: center;
 }
 
@@ -39,4 +39,112 @@
 
 .read-the-docs {
   color: #888;
+}
+
+/* Splash Screen Animations */
+@keyframes splash-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-progress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.splash-fade-in {
+  animation: splash-fade-in 0.5s ease-out forwards;
+}
+
+.splash-progress {
+  animation: splash-progress 2s ease-out forwards;
+  animation-delay: 1s;
+  opacity: 0;
+  animation-fill-mode: both;
+}
+
+/* Responsive Utilities */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .text-responsive-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+  
+  .text-responsive-xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+  
+  .p-responsive {
+    padding: 0.5rem;
+  }
+  
+  .gap-responsive {
+    gap: 0.5rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  
+  .text-responsive-lg {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+  
+  .text-responsive-xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+  
+  .p-responsive {
+    padding: 1rem;
+  }
+  
+  .gap-responsive {
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1025px) {
+  .container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+  
+  .text-responsive-lg {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+  
+  .text-responsive-xl {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+  
+  .p-responsive {
+    padding: 1.5rem;
+  }
+  
+  .gap-responsive {
+    gap: 1.5rem;
+  }
 }

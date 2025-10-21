@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,53 +12,16 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
 import { AutomationService } from "@/services/automationService";
 import { ExportImportManager } from "@/components/ExportImportManager";
-
-interface Customer {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  loyaltyPoints: number;
-  totalSpent: number;
-  lastPurchase?: string;
-}
+// Import Supabase database service
+import { getCustomers, createCustomer, updateCustomer, deleteCustomer, Customer } from "@/services/databaseService";
 
 export const CustomerManagement = ({ username, onBack, onLogout }: { username: string; onBack: () => void; onLogout: () => void }) => {
-  const [customers, setCustomers] = useState<Customer[]>([
-    {
-      id: "1",
-      name: "John Smith",
-      email: "john@example.com",
-      phone: "(555) 123-4567",
-      address: "123 Main St, City, State 12345",
-      loyaltyPoints: 150,
-      totalSpent: 1250.75,
-      lastPurchase: "2023-05-15"
-    },
-    {
-      id: "2",
-      name: "Sarah Johnson",
-      email: "sarah@example.com",
-      phone: "(555) 987-6543",
-      loyaltyPoints: 320,
-      totalSpent: 2100.50,
-      lastPurchase: "2023-05-18"
-    },
-    {
-      id: "3",
-      name: "Mike Williams",
-      phone: "(555) 456-7890",
-      loyaltyPoints: 75,
-      totalSpent: 420.25,
-      lastPurchase: "2023-05-10"
-    }
-  ]);
-  
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [newCustomer, setNewCustomer] = useState<Omit<Customer, "id" | "loyaltyPoints" | "totalSpent">>({
+  const [newCustomer, setNewCustomer] = useState<Omit<Customer, "id" | "loyalty_points" | "created_at" | "updated_at">>({
     name: "",
     email: "",
     phone: "",
@@ -66,7 +29,29 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
   });
   const { toast } = useToast();
 
-  const handleAddCustomer = () => {
+  // Load customers from Supabase on component mount
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
+  const loadCustomers = async () => {
+    try {
+      setLoading(true);
+      const data = await getCustomers();
+      setCustomers(data);
+    } catch (error) {
+      console.error("Error loading customers:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load customers",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddCustomer = async () => {
     if (!newCustomer.name) {
       toast({
         title: "Error",
@@ -76,61 +61,89 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
       return;
     }
 
-    const customer: Customer = {
-      ...newCustomer,
-      id: Date.now().toString(),
-      loyaltyPoints: 0,
-      totalSpent: 0
-    };
-
-    setCustomers([...customers, customer]);
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Customer added successfully"
-    });
+    try {
+      const customerData = {
+        ...newCustomer,
+        loyalty_points: 0
+      };
+      
+      const customer = await createCustomer(customerData);
+      if (customer) {
+        setCustomers([...customers, customer]);
+        resetForm();
+        setIsDialogOpen(false);
+        
+        toast({
+          title: "Success",
+          description: "Customer added successfully"
+        });
+      } else {
+        throw new Error("Failed to create customer");
+      }
+    } catch (error) {
+      console.error("Error adding customer:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add customer",
+        variant: "destructive"
+      });
+    }
   };
 
   // Handle customer import
-  const handleImportCustomers = (importedCustomers: any[]) => {
-    const updatedCustomers = [...customers];
-    
-    importedCustomers.forEach(importedCustomer => {
-      // Check if customer already exists (by email)
-      const existingIndex = updatedCustomers.findIndex(c => 
-        c.email && importedCustomer.email && c.email === importedCustomer.email
-      );
+  const handleImportCustomers = async (importedCustomers: any[]) => {
+    try {
+      const results = [];
       
-      if (existingIndex >= 0) {
-        // Update existing customer
-        updatedCustomers[existingIndex] = {
-          ...updatedCustomers[existingIndex],
-          ...importedCustomer,
-          loyaltyPoints: Number(importedCustomer.loyaltyPoints) || updatedCustomers[existingIndex].loyaltyPoints,
-          totalSpent: Number(importedCustomer.totalSpent) || updatedCustomers[existingIndex].totalSpent
-        };
-      } else {
-        // Add new customer
-        updatedCustomers.push({
-          ...importedCustomer,
-          id: Date.now().toString() + Math.random(),
-          loyaltyPoints: Number(importedCustomer.loyaltyPoints) || 0,
-          totalSpent: Number(importedCustomer.totalSpent) || 0
-        });
+      for (const importedCustomer of importedCustomers) {
+        // Check if customer already exists (by email)
+        const existingCustomer = customers.find(c => 
+          c.email && importedCustomer.email && c.email === importedCustomer.email
+        );
+        
+        if (existingCustomer && existingCustomer.id) {
+          // Update existing customer
+          const updatedCustomer = await updateCustomer(existingCustomer.id, {
+            ...existingCustomer,
+            ...importedCustomer,
+            loyalty_points: Number(importedCustomer.loyalty_points) || existingCustomer.loyalty_points
+          });
+          
+          if (updatedCustomer) {
+            results.push(updatedCustomer);
+          }
+        } else {
+          // Add new customer
+          const newCustomerData = {
+            ...importedCustomer,
+            loyalty_points: Number(importedCustomer.loyalty_points) || 0
+          };
+          
+          const createdCustomer = await createCustomer(newCustomerData);
+          if (createdCustomer) {
+            results.push(createdCustomer);
+          }
+        }
       }
-    });
-    
-    setCustomers(updatedCustomers);
-    
-    toast({
-      title: "Import Successful",
-      description: `Successfully imported ${importedCustomers.length} customers`
-    });
+      
+      // Refresh customers list
+      await loadCustomers();
+      
+      toast({
+        title: "Import Successful",
+        description: `Successfully imported/updated ${results.length} customers`
+      });
+    } catch (error) {
+      console.error("Error importing customers:", error);
+      toast({
+        title: "Import Failed",
+        description: "Failed to import customers",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleUpdateCustomer = () => {
+  const handleUpdateCustomer = async () => {
     if (!editingCustomer || !editingCustomer.name) {
       toast({
         title: "Error",
@@ -140,22 +153,52 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
       return;
     }
 
-    setCustomers(customers.map(c => c.id === editingCustomer.id ? editingCustomer : c));
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Customer updated successfully"
-    });
+    try {
+      if (editingCustomer.id) {
+        const updatedCustomer = await updateCustomer(editingCustomer.id, editingCustomer);
+        if (updatedCustomer) {
+          setCustomers(customers.map(c => c.id === editingCustomer.id ? updatedCustomer : c));
+          resetForm();
+          setIsDialogOpen(false);
+          
+          toast({
+            title: "Success",
+            description: "Customer updated successfully"
+          });
+        } else {
+          throw new Error("Failed to update customer");
+        }
+      }
+    } catch (error) {
+      console.error("Error updating customer:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update customer",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeleteCustomer = (id: string) => {
-    setCustomers(customers.filter(c => c.id !== id));
-    toast({
-      title: "Success",
-      description: "Customer deleted successfully"
-    });
+  const handleDeleteCustomer = async (id: string) => {
+    try {
+      const success = await deleteCustomer(id);
+      if (success) {
+        setCustomers(customers.filter(c => c.id !== id));
+        toast({
+          title: "Success",
+          description: "Customer deleted successfully"
+        });
+      } else {
+        throw new Error("Failed to delete customer");
+      }
+    } catch (error) {
+      console.error("Error deleting customer:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete customer",
+        variant: "destructive"
+      });
+    }
   };
 
   const resetForm = () => {
@@ -199,21 +242,19 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
       <main className="container mx-auto p-6">
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-3xl font-bold">Customers</h2>
-            <p className="text-muted-foreground">Manage your customer database</p>
+            <h1 className="text-3xl font-bold">Customer Management</h1>
+            <p className="text-muted-foreground">Manage your customer database and loyalty programs</p>
           </div>
-          
-          <div className="flex gap-2">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search customers..."
-                className="pl-8 w-full sm:w-64"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
               />
             </div>
-            
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={openAddDialog}>
@@ -221,170 +262,222 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
                   Add Customer
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>
                     {editingCustomer ? "Edit Customer" : "Add New Customer"}
                   </DialogTitle>
                 </DialogHeader>
-                
                 <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Full Name *</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Customer Name *</Label>
                     <Input
                       id="name"
                       value={editingCustomer ? editingCustomer.name : newCustomer.name}
                       onChange={(e) => 
                         editingCustomer 
-                          ? setEditingCustomer({...editingCustomer, name: e.target.value}) 
+                          ? setEditingCustomer({...editingCustomer, name: e.target.value})
                           : setNewCustomer({...newCustomer, name: e.target.value})
                       }
+                      placeholder="Enter customer name"
                     />
                   </div>
                   
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={editingCustomer ? editingCustomer.email || "" : newCustomer.email || ""}
-                      onChange={(e) => 
-                        editingCustomer 
-                          ? setEditingCustomer({...editingCustomer, email: e.target.value}) 
-                          : setNewCustomer({...newCustomer, email: e.target.value})
-                      }
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={editingCustomer ? (editingCustomer.email || "") : (newCustomer.email || "")}
+                        onChange={(e) => 
+                          editingCustomer
+                            ? setEditingCustomer({...editingCustomer, email: e.target.value})
+                            : setNewCustomer({...newCustomer, email: e.target.value})
+                        }
+                        placeholder="Enter email address"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input
+                        id="phone"
+                        value={editingCustomer ? (editingCustomer.phone || "") : (newCustomer.phone || "")}
+                        onChange={(e) => 
+                          editingCustomer
+                            ? setEditingCustomer({...editingCustomer, phone: e.target.value})
+                            : setNewCustomer({...newCustomer, phone: e.target.value})
+                        }
+                        placeholder="Enter phone number"
+                      />
+                    </div>
                   </div>
                   
-                  <div className="grid gap-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      value={editingCustomer ? editingCustomer.phone || "" : newCustomer.phone || ""}
-                      onChange={(e) => 
-                        editingCustomer 
-                          ? setEditingCustomer({...editingCustomer, phone: e.target.value}) 
-                          : setNewCustomer({...newCustomer, phone: e.target.value})
-                      }
-                    />
-                  </div>
-                  
-                  <div className="grid gap-2">
+                  <div className="space-y-2">
                     <Label htmlFor="address">Address</Label>
                     <Input
                       id="address"
-                      value={editingCustomer ? editingCustomer.address || "" : newCustomer.address || ""}
+                      value={editingCustomer ? (editingCustomer.address || "") : (newCustomer.address || "")}
                       onChange={(e) => 
-                        editingCustomer 
-                          ? setEditingCustomer({...editingCustomer, address: e.target.value}) 
+                        editingCustomer
+                          ? setEditingCustomer({...editingCustomer, address: e.target.value})
                           : setNewCustomer({...newCustomer, address: e.target.value})
                       }
+                      placeholder="Enter address"
                     />
                   </div>
                 </div>
-                
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
                   <Button onClick={editingCustomer ? handleUpdateCustomer : handleAddCustomer}>
-                    {editingCustomer ? "Update" : "Add"} Customer
+                    {editingCustomer ? "Update Customer" : "Add Customer"}
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
           </div>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Customer Database
-                </CardTitle>
-              </CardHeader>
+
+        {/* Customer Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{customers.length}</div>
+              <p className="text-xs text-muted-foreground">Active customers</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">VIP Customers</CardTitle>
+              <Star className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {customers.filter(c => c.loyalty_points && c.loyalty_points > 200).length}
+              </div>
+              <p className="text-xs text-muted-foreground">Loyalty points &gt; 200</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg. Spend</CardTitle>
+              <Star className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {customers.length > 0 
+                  ? formatCurrency(customers.reduce((sum, c) => sum + (c.loyalty_points || 0), 0) / customers.length)
+                  : formatCurrency(0)
+                }
+              </div>
+              <p className="text-xs text-muted-foreground">Average loyalty points</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Export/Import Manager */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Import/Export Customers</CardTitle>
+          </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Loyalty Points</TableHead>
-                  <TableHead>Total Spent</TableHead>
-                  <TableHead>Last Purchase</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCustomers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No customers found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredCustomers.map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell>
-                        <div className="font-medium">{customer.name}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {customer.email && <div>{customer.email}</div>}
-                          {customer.phone && <div>{customer.phone}</div>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">{customer.loyaltyPoints} pts</Badge>
-                          <Badge 
-                            variant={customer.segment === 'Gold' ? 'default' : customer.segment === 'Silver' ? 'secondary' : 'outline'}
-                          >
-                            {customer.segment}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatCurrency(customer.totalSpent)}</TableCell>
-                      <TableCell>
-                        {customer.lastPurchase || "N/A"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => openEditDialog(customer)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => handleDeleteCustomer(customer.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+            <ExportImportManager 
+              onImport={handleImportCustomers}
+              dataType="customers"
+              templateFields={[
+                "name", "email", "phone", "address", "loyalty_points"
+              ]}
+            />
           </CardContent>
         </Card>
-          </div>
-          
-          <div>
-            <ExportImportManager 
-              data={customers}
-              dataType="customers"
-              onImport={handleImportCustomers}
-            />
-          </div>
-        </div>
+
+        {/* Customers Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Customer Database</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center items-center h-32">
+                <p>Loading customers...</p>
+              </div>
+            ) : filteredCustomers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                <Users className="h-8 w-8 mb-2" />
+                <p>No customers found</p>
+                <p className="text-sm">Add your first customer to get started</p>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead className="text-right">Loyalty Points</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCustomers.map((customer) => (
+                      <TableRow key={customer.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{customer.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {customer.address}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {customer.email && (
+                              <div>{customer.email}</div>
+                            )}
+                            {customer.phone && (
+                              <div>{customer.phone}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="secondary">
+                            {customer.loyalty_points || 0} pts
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditDialog(customer)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => customer.id && handleDeleteCustomer(customer.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </main>
     </div>
   );

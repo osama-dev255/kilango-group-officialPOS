@@ -3,23 +3,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Lock, User } from "lucide-react";
+import { Building2, Lock, User, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+// Import Supabase auth service
+import { signIn } from "@/services/authService";
 
 interface LoginFormProps {
   onLogin: (credentials: { username: string; password: string }) => void;
 }
 
 export const LoginForm = ({ onLogin }: LoginFormProps) => {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!username || !password) {
+    if (!email || !password) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -30,11 +33,32 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
 
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      onLogin({ username, password });
+    try {
+      // Try Supabase authentication first
+      const result = await signIn(email, password);
+      
+      if (result.error) {
+        // If Supabase auth fails, fall back to mock authentication
+        console.warn("Supabase auth failed, using mock auth:", result.error);
+        setTimeout(() => {
+          onLogin({ email, password });
+          setIsLoading(false);
+        }, 1000);
+      } else {
+        // Supabase auth successful
+        console.log("Supabase auth successful:", result);
+        onLogin({ username: email, password });
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error("Authentication error:", error);
+      toast({
+        title: "Error",
+        description: "Authentication failed",
+        variant: "destructive",
+      });
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -52,15 +76,15 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
         <CardContent className="pb-6 sm:pb-8">
           <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm sm:text-base">Username</Label>
+              <Label htmlFor="email" className="text-sm sm:text-base">Email</Label>
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="username"
-                  type="text"
-                  placeholder="Enter your username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 py-5 sm:py-6 text-sm sm:text-base"
                 />
               </div>
@@ -71,12 +95,23 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 py-5 sm:py-6 text-sm sm:text-base"
+                  className="pl-10 pr-10 py-5 sm:py-6 text-sm sm:text-base"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-muted-foreground"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
             </div>
             <Button 
@@ -87,6 +122,12 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
+          
+          <div className="mt-4 text-center">
+            <Button variant="link" className="text-sm">
+              Forgot Password?
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

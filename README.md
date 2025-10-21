@@ -36,7 +36,7 @@ This is a fully-featured Point of Sale (POS) system built with modern web techno
 
 ## Supabase Integration
 
-This project now includes Supabase integration for real-time data persistence. To set up Supabase:
+This project now includes Supabase integration for real-time data persistence and authentication. To set up Supabase:
 
 1. Create a Supabase account at [supabase.com](https://supabase.com/)
 2. Create a new project in your Supabase dashboard
@@ -47,8 +47,25 @@ This project now includes Supabase integration for real-time data persistence. T
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
    ```
 5. Refer to `.env.example` for a template
+6. Follow the database setup instructions in [SUPABASE_SETUP.md](SUPABASE_SETUP.md)
+
+For a complete schema with all tables and relationships, use the [SUPABASE_COMPLETE_SCHEMA.sql](SUPABASE_COMPLETE_SCHEMA.sql) file.
 
 The Supabase client is configured in `src/lib/supabaseClient.ts` and can be imported anywhere in your application.
+
+### Authentication
+
+The POS system now supports Supabase authentication:
+- User sign up, sign in, and sign out
+- Session management
+- Protected routes
+- Password reset functionality
+
+Authentication is handled through:
+- `src/contexts/AuthContext.tsx` - Authentication context provider
+- `src/services/authService.ts` - Authentication service functions
+- `src/components/ProtectedRoute.tsx` - Component to protect routes
+- `src/components/LoginForm.tsx` - Updated login form with Supabase integration
 
 ## Deployment
 

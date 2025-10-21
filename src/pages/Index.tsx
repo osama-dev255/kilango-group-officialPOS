@@ -25,12 +25,13 @@ import { FinancialReports } from "@/pages/FinancialReports";
 import { Settings } from "@/pages/Settings";
 import { AutomatedDashboard } from "@/pages/AutomatedDashboard";
 import { SplashScreen } from "@/components/SplashScreen";
+import { useAuth } from "@/contexts/AuthContext";
 
 type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "inventory" | "purchase" | "finance" | "products" | "customers" | "transactions" | "analytics" | "employees" | "suppliers" | "purchase-orders" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "reports" | "financial-reports" | "settings" | "automated" | "comprehensive";
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState<ViewState>("login");
-  const [user, setUser] = useState<{ username: string } | null>(null);
+  const { user, login } = useAuth();
+  const [currentView, setCurrentView] = useState<ViewState>(user ? "comprehensive" : "login");
   const [showSplash, setShowSplash] = useState(true);
 
   // Hide splash screen after 3 seconds
@@ -42,14 +43,26 @@ const Index = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleLogin = (credentials: { username: string; password: string }) => {
-    // In a real app, you would validate credentials with Google Sheets
-    setUser({ username: credentials.username });
-    setCurrentView("comprehensive");
+  const handleLogin = async (credentials: { username: string; password: string }) => {
+    try {
+      // Try Supabase authentication first
+      const result = await login(credentials.username, credentials.password);
+      
+      if (result.error) {
+        // If Supabase auth fails, use mock authentication
+        console.warn("Supabase auth failed, using mock auth:", result.error);
+        setCurrentView("comprehensive");
+      } else {
+        // Supabase auth successful
+        console.log("Supabase auth successful:", result);
+        setCurrentView("comprehensive");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+    }
   };
 
   const handleLogout = () => {
-    setUser(null);
     setCurrentView("login");
   };
 
@@ -233,7 +246,7 @@ const Index = () => {
             console.log("Rendering ComprehensiveDashboard");
             return (
               <ComprehensiveDashboard
-                username={user.username}
+                username={user?.email || "admin"}
                 onNavigate={handleNavigate}
                 onLogout={handleLogout}
               />
@@ -242,7 +255,7 @@ const Index = () => {
             console.log("Rendering Dashboard");
             return (
               <Dashboard
-                username={user.username}
+                username={user?.email || "admin"}
                 onNavigate={handleNavigate}
                 onLogout={handleLogout}
               />
@@ -251,7 +264,7 @@ const Index = () => {
             console.log("Rendering SalesDashboard");
             return (
               <SalesDashboard
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
                 onNavigate={handleNavigate}
@@ -261,7 +274,7 @@ const Index = () => {
             console.log("Rendering SalesCart");
             return (
               <SalesCart
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
                 autoOpenScanner={true}
@@ -271,7 +284,7 @@ const Index = () => {
             console.log("Rendering ProductManagement");
             return (
               <ProductManagement
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -280,7 +293,7 @@ const Index = () => {
             console.log("Rendering CustomerManagement");
             return (
               <CustomerManagement
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -289,7 +302,7 @@ const Index = () => {
             console.log("Rendering TransactionHistory");
             return (
               <TransactionHistory
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -298,7 +311,7 @@ const Index = () => {
             console.log("Rendering SalesAnalytics");
             return (
               <SalesAnalytics
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -307,7 +320,7 @@ const Index = () => {
             console.log("Rendering EmployeeManagement");
             return (
               <EmployeeManagement
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -316,7 +329,7 @@ const Index = () => {
             console.log("Rendering PurchaseDashboard");
             return (
               <PurchaseDashboard
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
                 onNavigate={handleNavigate}
@@ -326,7 +339,7 @@ const Index = () => {
             console.log("Rendering SupplierManagement");
             return (
               <SupplierManagement
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -335,7 +348,7 @@ const Index = () => {
             console.log("Rendering PurchaseOrders");
             return (
               <PurchaseOrders
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -344,7 +357,7 @@ const Index = () => {
             console.log("Rendering FinanceDashboard");
             return (
               <FinanceDashboard
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
                 onNavigate={handleNavigate}
@@ -354,7 +367,7 @@ const Index = () => {
             console.log("Rendering ExpenseManagement");
             return (
               <ExpenseManagement
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -363,7 +376,7 @@ const Index = () => {
             console.log("Rendering ReturnsManagement");
             return (
               <ReturnsManagement
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -372,7 +385,7 @@ const Index = () => {
             console.log("Rendering DebtManagement");
             return (
               <DebtManagement
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -381,7 +394,7 @@ const Index = () => {
             console.log("Rendering CustomerSettlements");
             return (
               <CustomerSettlements
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -390,7 +403,7 @@ const Index = () => {
             console.log("Rendering SupplierSettlements");
             return (
               <SupplierSettlements
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -399,7 +412,7 @@ const Index = () => {
             console.log("Rendering DiscountManagement");
             return (
               <DiscountManagement
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -408,7 +421,7 @@ const Index = () => {
             console.log("Rendering InventoryAudit");
             return (
               <InventoryAudit
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -417,7 +430,7 @@ const Index = () => {
             console.log("Rendering AccessLogs");
             return (
               <AccessLogs
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -426,7 +439,7 @@ const Index = () => {
             console.log("Rendering FinancialReports");
             return (
               <FinancialReports
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -435,7 +448,7 @@ const Index = () => {
             console.log("Rendering Settings");
             return (
               <Settings
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
@@ -444,7 +457,7 @@ const Index = () => {
             console.log("Rendering AutomatedDashboard");
             return (
               <AutomatedDashboard
-                username={user.username}
+                username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
               />

@@ -148,6 +148,39 @@ export class PrintUtils {
               `).join('')}
             </div>
             
+            ${transaction.customer ? `
+            <div class="customer-info" style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #000;">
+              <div class="total-row">
+                <div><strong>Customer:</strong></div>
+                <div>${transaction.customer.name}</div>
+              </div>
+              ${transaction.customer.address ? `
+              <div class="total-row">
+                <div><strong>Address:</strong></div>
+                <div>${transaction.customer.address}</div>
+              </div>
+              ` : ''}
+              ${transaction.customer.email ? `
+              <div class="total-row">
+                <div><strong>Email:</strong></div>
+                <div>${transaction.customer.email}</div>
+              </div>
+              ` : ''}
+              ${transaction.customer.phone ? `
+              <div class="total-row">
+                <div><strong>Phone:</strong></div>
+                <div>${transaction.customer.phone}</div>
+              </div>
+              ` : ''}
+              ${transaction.customer.loyaltyPoints ? `
+              <div class="total-row">
+                <div><strong>Loyalty Points:</strong></div>
+                <div>${transaction.customer.loyaltyPoints}</div>
+              </div>
+              ` : ''}
+            </div>
+            ` : ''}
+            
             <div class="totals">
               <div class="total-row">
                 <div>Subtotal:</div>

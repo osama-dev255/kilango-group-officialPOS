@@ -336,8 +336,8 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
     // Sorting logic
     if (sortBy === "name") {
       return sortOrder === "asc" 
-        ? a.name.localeCompare(b.name) 
-        : b.name.localeCompare(a.name);
+        ? (a.name || "").localeCompare(b.name || "") 
+        : (b.name || "").localeCompare(a.name || "");
     } else if (sortBy === "price") {
       return sortOrder === "asc" 
         ? a.selling_price - b.selling_price 

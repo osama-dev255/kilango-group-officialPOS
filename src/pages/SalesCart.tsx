@@ -16,7 +16,7 @@ import { AutomationService } from "@/services/automationService";
 import { PrintUtils } from "@/utils/printUtils";
 import { ExportUtils } from "@/utils/exportUtils";
 // Import Supabase database service
-import { getProducts, getCustomers, updateProductStock, Product, Customer as DatabaseCustomer } from "@/services/databaseService";
+import { getProducts, getCustomers, updateProductStock, createCustomer, Product, Customer as DatabaseCustomer } from "@/services/databaseService";
 
 interface CartItem {
   id: string;
@@ -29,6 +29,9 @@ interface Customer {
   id: string;
   name: string;
   loyaltyPoints: number;
+  address?: string;
+  email?: string;
+  phone?: string;
 }
 
 // Update the temporary product interface to match the Product type
@@ -68,6 +71,14 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [completedTransaction, setCompletedTransaction] = useState<any>(null); // Store completed transaction for printing
+  const [isAddingNewCustomer, setIsAddingNewCustomer] = useState(false); // State for adding new customer
+  const [newCustomer, setNewCustomer] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    address: ""
+  }); // State for new customer data
   const { toast } = useToast();
 
   // Load products and customers from Supabase on component mount
@@ -85,7 +96,10 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
         const formattedCustomers = customerData.map(customer => ({
           id: customer.id || '',
           name: `${customer.first_name} ${customer.last_name}`,
-          loyaltyPoints: customer.loyalty_points || 0
+          loyaltyPoints: customer.loyalty_points || 0,
+          address: customer.address || '',
+          email: customer.email || '',
+          phone: customer.phone || ''
         }));
         setCustomers(formattedCustomers);
       } catch (error) {
@@ -104,7 +118,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
   }, []);
 
   const filteredProducts = products.filter(product => 
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (product.name && product.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (product.barcode && product.barcode.includes(searchTerm)) ||
     (product.sku && product.sku.includes(searchTerm))
   );
@@ -209,7 +223,8 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       total: totalWithTax, // Actual total without tax effect
       paymentMethod: paymentMethod,
       amountReceived: parseFloat(amountReceived) || 0,
-      change: change
+      change: change,
+      customer: selectedCustomer // Include customer information
     };
 
     // Update stock quantities for each item in the cart
@@ -268,6 +283,75 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       change: change
     };
     PrintUtils.printReceipt(mockTransaction);
+  };
+
+  const handleCreateCustomer = async () => {
+    if (!newCustomer.first_name || !newCustomer.last_name) {
+      toast({
+        title: "Error",
+        description: "First name and last name are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const customerData = {
+        first_name: newCustomer.first_name,
+        last_name: newCustomer.last_name,
+        email: newCustomer.email || "",
+        phone: newCustomer.phone || "",
+        address: newCustomer.address || "",
+        loyalty_points: 0,
+        is_active: true
+      };
+
+      const createdCustomer = await createCustomer(customerData);
+      
+      if (createdCustomer) {
+        // Format the created customer to match our Customer interface
+        const formattedCustomer: Customer = {
+          id: createdCustomer.id || '',
+          name: `${createdCustomer.first_name} ${createdCustomer.last_name}`,
+          loyaltyPoints: createdCustomer.loyalty_points || 0,
+          address: createdCustomer.address || '',
+          email: createdCustomer.email || '',
+          phone: createdCustomer.phone || ''
+        };
+        
+        // Add the new customer to the customers list
+        setCustomers([...customers, formattedCustomer]);
+        
+        // Select the newly created customer
+        setSelectedCustomer(formattedCustomer);
+        
+        // Close the dialog
+        setIsCustomerDialogOpen(false);
+        
+        // Reset the new customer form
+        setNewCustomer({
+          first_name: "",
+          last_name: "",
+          email: "",
+          phone: "",
+          address: ""
+        });
+        
+        toast({
+          title: "Success",
+          description: "Customer added successfully",
+        });
+      } else {
+        throw new Error("Failed to create customer");
+      }
+    } catch (error) {
+      console.error("Error creating customer:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add customer",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -590,43 +674,149 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
         </div>
 
         {/* Customer Selection Dialog */}
-        <Dialog open={isCustomerDialogOpen} onOpenChange={setIsCustomerDialogOpen}>
-          <DialogContent>
+        <Dialog open={isCustomerDialogOpen} onOpenChange={(open) => {
+          setIsCustomerDialogOpen(open);
+          if (!open) {
+            // Reset new customer form when dialog is closed
+            setIsAddingNewCustomer(false);
+            setNewCustomer({
+              first_name: "",
+              last_name: "",
+              email: "",
+              phone: "",
+              address: ""
+            });
+          }
+        }}>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Select Customer</DialogTitle>
+              <DialogTitle>
+                {isAddingNewCustomer ? "Add New Customer" : "Select Customer"}
+              </DialogTitle>
             </DialogHeader>
-            <div className="max-h-96 overflow-y-auto">
-              {loading ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  Loading customers...
-                </div>
-              ) : customers.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  No customers found
-                </div>
-              ) : (
+            
+            {isAddingNewCustomer ? (
+              // New Customer Form
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  {customers.map((customer) => (
-                    <div
-                      key={customer.id}
-                      className="p-3 border rounded-lg hover:bg-muted cursor-pointer flex justify-between items-center"
-                      onClick={() => {
-                        setSelectedCustomer(customer);
-                        setIsCustomerDialogOpen(false);
-                      }}
-                    >
-                      <div>
-                        <div className="font-medium">{customer.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {customer.loyaltyPoints} loyalty points
-                        </div>
-                      </div>
-                      <Star className="h-4 w-4 text-yellow-500" />
-                    </div>
-                  ))}
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    value={newCustomer.first_name}
+                    onChange={(e) => setNewCustomer({...newCustomer, first_name: e.target.value})}
+                    placeholder="Enter first name"
+                  />
                 </div>
-              )}
-            </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                    id="lastName"
+                    value={newCustomer.last_name}
+                    onChange={(e) => setNewCustomer({...newCustomer, last_name: e.target.value})}
+                    placeholder="Enter last name"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newCustomer.email}
+                    onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                    placeholder="Enter email"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    value={newCustomer.phone}
+                    onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Input
+                    id="address"
+                    value={newCustomer.address}
+                    onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})}
+                    placeholder="Enter address"
+                  />
+                </div>
+                
+                <div className="flex justify-end gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setIsAddingNewCustomer(false);
+                      setNewCustomer({
+                        first_name: "",
+                        last_name: "",
+                        email: "",
+                        phone: "",
+                        address: ""
+                      });
+                    }}
+                  >
+                    Back
+                  </Button>
+                  <Button onClick={handleCreateCustomer}>
+                    Add Customer
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              // Customer Selection List
+              <div className="max-h-96 overflow-y-auto">
+                {loading ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    Loading customers...
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Button 
+                      className="w-full"
+                      onClick={() => setIsAddingNewCustomer(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New Customer
+                    </Button>
+                    
+                    {customers.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No customers found
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {customers.map((customer) => (
+                          <div
+                            key={customer.id}
+                            className="p-3 border rounded-lg hover:bg-muted cursor-pointer flex justify-between items-center"
+                            onClick={() => {
+                              setSelectedCustomer(customer);
+                              setIsCustomerDialogOpen(false);
+                            }}
+                          >
+                            <div>
+                              <div className="font-medium">{customer.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {customer.loyaltyPoints} loyalty points
+                              </div>
+                            </div>
+                            <Star className="h-4 w-4 text-yellow-500" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 

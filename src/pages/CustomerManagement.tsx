@@ -227,7 +227,7 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
   const segmentedCustomers = AutomationService.segmentCustomers(customers);
   
   const filteredCustomers = segmentedCustomers.filter(customer => 
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (customer.name && customer.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (customer.phone && customer.phone.includes(searchTerm))
   );

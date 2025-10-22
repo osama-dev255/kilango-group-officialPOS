@@ -16,7 +16,7 @@ import { AutomationService } from "@/services/automationService";
 import { PrintUtils } from "@/utils/printUtils";
 import { ExportUtils } from "@/utils/exportUtils";
 // Import Supabase database service
-import { getProducts, getCustomers, Product, Customer as DatabaseCustomer } from "@/services/databaseService";
+import { getProducts, getCustomers, updateProductStock, Product, Customer as DatabaseCustomer } from "@/services/databaseService";
 
 interface CartItem {
   id: string;
@@ -110,6 +110,16 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
   );
 
   const addToCart = (product: Product) => {
+    // Check if product is out of stock
+    if (product.stock_quantity <= 0) {
+      toast({
+        title: "Out of Stock",
+        description: `${product.name} is currently out of stock`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const existingItem = cart.find(item => item.id === product.id);
     
     if (existingItem) {
@@ -123,7 +133,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
         id: product.id || '',
         name: product.name,
         price: product.selling_price,
-        quantity: 1, // Fixed: should be 1, not 0
+        quantity: 0, // Changed to 0 as requested
       };
       setCart([...cart, newItem]);
     }
@@ -134,7 +144,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
   const updateQuantity = (id: string, change: number) => {
     setCart(cart.map(item => {
       if (item.id === id) {
-        const newQuantity = Math.max(1, item.quantity + change);
+        const newQuantity = Math.max(0, item.quantity + change);
         return { ...item, quantity: newQuantity };
       }
       return item;
@@ -173,7 +183,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
     setIsPaymentDialogOpen(true);
   };
 
-  const completeTransaction = () => {
+  const completeTransaction = async () => {
     if (paymentMethod === "cash" && change < 0) {
       toast({
         title: "Error",
@@ -201,6 +211,33 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       amountReceived: parseFloat(amountReceived) || 0,
       change: change
     };
+
+    // Update stock quantities for each item in the cart
+    try {
+      for (const item of cart) {
+        if (item.quantity > 0) {
+          // Find the original product to get current stock
+          const product = products.find(p => p.id === item.id);
+          if (product) {
+            // Calculate new stock quantity
+            const newStock = Math.max(0, product.stock_quantity - item.quantity);
+            // Update stock in database
+            await updateProductStock(item.id, newStock);
+          }
+        }
+      }
+      
+      // Reload products to get updated stock quantities
+      const updatedProducts = await getProducts();
+      setProducts(updatedProducts);
+    } catch (error) {
+      console.error("Error updating stock quantities:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update stock quantities",
+        variant: "destructive",
+      });
+    }
 
     // Store transaction for potential printing
     setCompletedTransaction(transaction);
@@ -302,6 +339,16 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                               <div className="text-sm text-muted-foreground">
                                 {product.barcode && `Barcode: ${product.barcode}`}
                                 {product.sku && `SKU: ${product.sku}`}
+                                <div className="flex items-center mt-1">
+                                  <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                                    Stock: {product.stock_quantity}
+                                  </span>
+                                  {product.stock_quantity === 0 && (
+                                    <span className="text-xs bg-red-100 text-red-800 px-1 rounded ml-1">
+                                      Out of Stock
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                             <div className="font-medium">{formatCurrency(product.selling_price)}</div>
@@ -329,20 +376,31 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                 ) : (
                   <div className="space-y-4">
                     {cart.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={item.id} className={`flex items-center justify-between p-3 border rounded-lg ${item.quantity === 0 ? 'opacity-50' : ''}`}>
                         <div className="flex-1">
                           <div className="font-medium">{item.name}</div>
                           <div className="text-sm text-muted-foreground">
                             {formatCurrency(item.price)} × {item.quantity}
+                            {item.quantity === 0 && <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-1 rounded">Not counted</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Input
                             type="number"
-                            min="1"
+                            min="0"
                             value={item.quantity}
                             onChange={(e) => {
-                              const newQuantity = Math.max(1, parseInt(e.target.value) || 1);
+                              const newQuantity = Math.max(0, parseInt(e.target.value) || 0);
+                              // Check if the new quantity exceeds available stock
+                              const product = products.find(p => p.id === item.id);
+                              if (product && newQuantity > product.stock_quantity) {
+                                toast({
+                                  title: "Insufficient Stock",
+                                  description: `Only ${product.stock_quantity} units available for ${product.name}`,
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
                               setCart(cart.map(cartItem => 
                                 cartItem.id === item.id 
                                   ? { ...cartItem, quantity: newQuantity } 

@@ -19,6 +19,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
 import { saveTemplateConfig } from "@/utils/templateUtils";
+// Import language context
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface SettingsProps {
   username: string;
@@ -28,6 +30,7 @@ interface SettingsProps {
 
 export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
   const { toast } = useToast();
+  const { language, setLanguage, t } = useLanguage();
   const [activeTab, setActiveTab] = useState("general");
   
   // General settings
@@ -66,7 +69,6 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
   
   // Display settings
   const [darkMode, setDarkMode] = useState(false);
-  const [language, setLanguage] = useState("en");
   const [displayFontSize, setDisplayFontSize] = useState("medium");
   
   // Load settings from localStorage on component mount
@@ -161,7 +163,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
     };
     
     loadSettings();
-  }, []);
+  }, [setLanguage]);
   
   const handleSave = () => {
     // Save general settings
@@ -218,8 +220,8 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
     localStorage.setItem('displayFontSize', displayFontSize);
     
     toast({
-      title: "Settings Saved",
-      description: "Your settings have been successfully updated.",
+      title: t("settingsSaved"),
+      description: t("settingsSavedDescription"),
     });
   };
   
@@ -257,23 +259,23 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
     setDisplayFontSize("medium");
     
     toast({
-      title: "Settings Reset",
-      description: "Settings have been reset to default values.",
+      title: t("settingsReset"),
+      description: t("settingsResetDescription"),
     });
   };
   
   const tabs = [
-    { id: "general", label: "General", icon: Building },
-    { id: "receipt", label: "Receipt", icon: Printer },
-    { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "security", label: "Security", icon: Shield },
-    { id: "display", label: "Display", icon: Palette },
+    { id: "general", label: t("general"), icon: Building },
+    { id: "receipt", label: t("receipt"), icon: Printer },
+    { id: "notifications", label: t("notifications"), icon: Bell },
+    { id: "security", label: t("security"), icon: Shield },
+    { id: "display", label: t("display"), icon: Palette },
   ];
   
   return (
     <div className="min-h-screen bg-background">
       <Navigation 
-        title="Settings" 
+        title={t("systemSettings")} 
         onBack={onBack}
         onLogout={onLogout} 
         username={username}
@@ -281,9 +283,9 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
       
       <main className="container mx-auto p-6">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">System Settings</h2>
+          <h2 className="text-3xl font-bold mb-2">{t("systemSettings")}</h2>
           <p className="text-muted-foreground">
-            Configure your POS system preferences and options
+            {t("configureSystemPreferences")}
           </p>
         </div>
         
@@ -292,7 +294,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
           <div className="lg:w-1/4">
             <Card>
               <CardHeader>
-                <CardTitle>Settings Categories</CardTitle>
+                <CardTitle>{t("settingsCategories")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <nav className="space-y-1">
@@ -324,16 +326,16 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle>
-                    {tabs.find(tab => tab.id === activeTab)?.label} Settings
+                    {tabs.find(tab => tab.id === activeTab)?.label} {t("settings")}
                   </CardTitle>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={handleReset}>
                       <RotateCcw className="h-4 w-4 mr-2" />
-                      Reset
+                      {t("reset")}
                     </Button>
                     <Button onClick={handleSave}>
                       <Save className="h-4 w-4 mr-2" />
-                      Save Changes
+                      {t("saveChanges")}
                     </Button>
                   </div>
                 </div>
@@ -343,7 +345,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="business-name">Business Name</Label>
+                        <Label htmlFor="business-name">{t("businessName")}</Label>
                         <Input
                           id="business-name"
                           value={businessName}
@@ -351,7 +353,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="business-phone">Business Phone</Label>
+                        <Label htmlFor="business-phone">{t("businessPhone")}</Label>
                         <Input
                           id="business-phone"
                           value={businessPhone}
@@ -361,7 +363,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="business-address">Business Address</Label>
+                      <Label htmlFor="business-address">{t("businessAddress")}</Label>
                       <Input
                         id="business-address"
                         value={businessAddress}
@@ -371,7 +373,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="currency">Currency</Label>
+                        <Label htmlFor="currency">{t("currency")}</Label>
                         <Select value={currency} onValueChange={setCurrency}>
                           <SelectTrigger>
                             <SelectValue />
@@ -385,7 +387,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="timezone">Timezone</Label>
+                        <Label htmlFor="timezone">{t("timezone")}</Label>
                         <Select value={timezone} onValueChange={setTimezone}>
                           <SelectTrigger>
                             <SelectValue />
@@ -406,9 +408,9 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Print Receipts</Label>
+                        <Label>{t("printReceipts")}</Label>
                         <p className="text-sm text-muted-foreground">
-                          Automatically print receipts after each transaction
+                          {t("printReceiptsDescription")}
                         </p>
                       </div>
                       <Switch
@@ -418,7 +420,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="receipt-header">Receipt Header Message</Label>
+                      <Label htmlFor="receipt-header">{t("receiptHeader")}</Label>
                       <Input
                         id="receipt-header"
                         value={receiptHeader}
@@ -428,9 +430,9 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                     
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Show Logo on Receipt</Label>
+                        <Label>{t("showLogo")}</Label>
                         <p className="text-sm text-muted-foreground">
-                          Display business logo on printed receipts
+                          {t("showLogoDescription")}
                         </p>
                       </div>
                       <Switch
@@ -441,13 +443,13 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                     
                     {/* Custom Receipt Template Settings */}
                     <div className="border-t pt-6">
-                      <h3 className="text-lg font-medium mb-4">Custom Receipt Template</h3>
+                      <h3 className="text-lg font-medium mb-4">{t("customReceiptTemplate")}</h3>
                       
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <Label>Enable Custom Template</Label>
+                          <Label>{t("enableCustomTemplate")}</Label>
                           <p className="text-sm text-muted-foreground">
-                            Use custom template for receipt printing
+                            {t("enableCustomTemplateDescription")}
                           </p>
                         </div>
                         <Switch
@@ -459,54 +461,54 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                       {customTemplate && (
                         <div className="space-y-4 pl-2 border-l-2 border-primary ml-2">
                           <div className="space-y-2">
-                            <Label htmlFor="template-header">Receipt Header</Label>
+                            <Label htmlFor="template-header">{t("receiptHeaderTemplate")}</Label>
                             <textarea
                               id="template-header"
                               value={templateHeader}
                               onChange={(e) => setTemplateHeader(e.target.value)}
                               className="w-full min-h-[80px] p-2 border rounded-md"
-                              placeholder="Enter receipt header text..."
+                              placeholder={t("enterReceiptHeader")}
                             />
                           </div>
                           
                           <div className="space-y-2">
-                            <Label htmlFor="template-footer">Receipt Footer</Label>
+                            <Label htmlFor="template-footer">{t("receiptFooter")}</Label>
                             <textarea
                               id="template-footer"
                               value={templateFooter}
                               onChange={(e) => setTemplateFooter(e.target.value)}
                               className="w-full min-h-[80px] p-2 border rounded-md"
-                              placeholder="Enter receipt footer text..."
+                              placeholder={t("enterReceiptFooter")}
                             />
                           </div>
                           
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <Label htmlFor="font-size">Font Size</Label>
+                              <Label htmlFor="font-size">{t("fontSize")}</Label>
                               <Select value={fontSize} onValueChange={setFontSize}>
                                 <SelectTrigger>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="10px">10px (Small)</SelectItem>
-                                  <SelectItem value="12px">12px (Medium)</SelectItem>
-                                  <SelectItem value="14px">14px (Large)</SelectItem>
-                                  <SelectItem value="16px">16px (Extra Large)</SelectItem>
+                                  <SelectItem value="10px">10px ({t("small")})</SelectItem>
+                                  <SelectItem value="12px">12px ({t("medium")})</SelectItem>
+                                  <SelectItem value="14px">14px ({t("large")})</SelectItem>
+                                  <SelectItem value="16px">16px ({t("extraLarge")})</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
                             
                             <div className="space-y-2">
-                              <Label htmlFor="paper-width">Paper Width</Label>
+                              <Label htmlFor="paper-width">{t("paperWidth")}</Label>
                               <Select value={paperWidth} onValueChange={setPaperWidth}>
                                 <SelectTrigger>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="280px">280px (Narrow)</SelectItem>
-                                  <SelectItem value="320px">320px (Standard)</SelectItem>
-                                  <SelectItem value="360px">360px (Wide)</SelectItem>
-                                  <SelectItem value="400px">400px (Extra Wide)</SelectItem>
+                                  <SelectItem value="280px">280px ({t("narrow")})</SelectItem>
+                                  <SelectItem value="320px">320px ({t("standard")})</SelectItem>
+                                  <SelectItem value="360px">360px ({t("wide")})</SelectItem>
+                                  <SelectItem value="400px">400px ({t("extraWide")})</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -515,7 +517,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                           <div className="grid grid-cols-2 gap-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <Label>Show Business Info</Label>
+                                <Label>{t("showBusinessInfo")}</Label>
                               </div>
                               <Switch
                                 checked={showBusinessInfo}
@@ -525,7 +527,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                             
                             <div className="flex items-center justify-between">
                               <div>
-                                <Label>Show Transaction Details</Label>
+                                <Label>{t("showTransactionDetails")}</Label>
                               </div>
                               <Switch
                                 checked={showTransactionDetails}
@@ -535,7 +537,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                             
                             <div className="flex items-center justify-between">
                               <div>
-                                <Label>Show Item Details</Label>
+                                <Label>{t("showItemDetails")}</Label>
                               </div>
                               <Switch
                                 checked={showItemDetails}
@@ -545,7 +547,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                             
                             <div className="flex items-center justify-between">
                               <div>
-                                <Label>Show Totals</Label>
+                                <Label>{t("showTotals")}</Label>
                               </div>
                               <Switch
                                 checked={showTotals}
@@ -555,7 +557,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                             
                             <div className="flex items-center justify-between">
                               <div>
-                                <Label>Show Payment Info</Label>
+                                <Label>{t("showPaymentInfo")}</Label>
                               </div>
                               <Switch
                                 checked={showPaymentInfo}
@@ -573,9 +575,9 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Email Notifications</Label>
+                        <Label>{t("emailNotifications")}</Label>
                         <p className="text-sm text-muted-foreground">
-                          Receive email notifications for important events
+                          {t("emailNotificationsDescription")}
                         </p>
                       </div>
                       <Switch
@@ -586,9 +588,9 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                     
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Low Stock Alerts</Label>
+                        <Label>{t("lowStockAlerts")}</Label>
                         <p className="text-sm text-muted-foreground">
-                          Get notified when inventory levels are low
+                          {t("lowStockAlertsDescription")}
                         </p>
                       </div>
                       <Switch
@@ -599,9 +601,9 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                     
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Daily Reports</Label>
+                        <Label>{t("dailyReports")}</Label>
                         <p className="text-sm text-muted-foreground">
-                          Receive daily summary reports via email
+                          {t("dailyReportsDescription")}
                         </p>
                       </div>
                       <Switch
@@ -616,9 +618,9 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Require Password for Returns</Label>
+                        <Label>{t("requirePassword")}</Label>
                         <p className="text-sm text-muted-foreground">
-                          Require manager password for processing returns
+                          {t("requirePasswordDescription")}
                         </p>
                       </div>
                       <Switch
@@ -628,25 +630,25 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="session-timeout">Session Timeout (minutes)</Label>
+                      <Label htmlFor="session-timeout">{t("sessionTimeout")}</Label>
                       <Select value={sessionTimeout} onValueChange={setSessionTimeout}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="5">5 minutes</SelectItem>
-                          <SelectItem value="15">15 minutes</SelectItem>
-                          <SelectItem value="30">30 minutes</SelectItem>
-                          <SelectItem value="60">60 minutes</SelectItem>
+                          <SelectItem value="5">5 {t("minutes")}</SelectItem>
+                          <SelectItem value="15">15 {t("minutes")}</SelectItem>
+                          <SelectItem value="30">30 {t("minutes")}</SelectItem>
+                          <SelectItem value="60">60 {t("minutes")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Two-Factor Authentication</Label>
+                        <Label>{t("twoFactorAuth")}</Label>
                         <p className="text-sm text-muted-foreground">
-                          Add an extra layer of security to your account
+                          {t("twoFactorAuthDescription")}
                         </p>
                       </div>
                       <Switch
@@ -661,9 +663,9 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>Dark Mode</Label>
+                        <Label>{t("darkMode")}</Label>
                         <p className="text-sm text-muted-foreground">
-                          Enable dark theme for the application
+                          {t("darkModeDescription")}
                         </p>
                       </div>
                       <Switch
@@ -673,7 +675,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="language">Language</Label>
+                      <Label htmlFor="language">{t("language")}</Label>
                       <Select value={language} onValueChange={setLanguage}>
                         <SelectTrigger>
                           <SelectValue />
@@ -686,15 +688,15 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="display-font-size">Font Size</Label>
+                      <Label htmlFor="display-font-size">{t("displayFontSize")}</Label>
                       <Select value={displayFontSize} onValueChange={setDisplayFontSize}>
                         <SelectTrigger id="display-font-size">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="small">Small</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="large">Large</SelectItem>
+                          <SelectItem value="small">{t("small")}</SelectItem>
+                          <SelectItem value="medium">{t("medium")}</SelectItem>
+                          <SelectItem value="large">{t("large")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

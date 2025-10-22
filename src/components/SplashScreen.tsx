@@ -26,13 +26,13 @@ export const SplashScreen = () => {
         </div>
 
         <h1 className="text-4xl md:text-5xl font-bold mb-3 text-foreground splash-fade-in">
-          Bulletproof POS
+          Kilango Group Food Suppliers & General 🫱🏽‍🫲🏻
         </h1>
 
         <div className="w-24 h-1 bg-primary mx-auto mb-6 splash-fade-in"></div>
 
         <p className="text-lg md:text-xl mb-8 text-muted-foreground splash-fade-in">
-          Professional Point of Sale Solution
+          Biashara kidigitaly 💫
         </p>
 
         <div className="flex justify-center space-x-4 mb-8">

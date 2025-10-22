@@ -109,6 +109,7 @@ export interface SaleItem {
   tax_amount: number;
   total_price: number;
   created_at?: string;
+
 }
 
 export interface PurchaseOrder {
@@ -134,6 +135,7 @@ export interface PurchaseOrderItem {
   unit_cost: number;
   total_cost: number;
   created_at?: string;
+
 }
 
 export interface Expense {
@@ -224,6 +226,7 @@ export interface CustomerSettlement {
   notes?: string;
   settlement_date?: string;
   created_at?: string;
+
 }
 
 export interface SupplierSettlement {
@@ -236,6 +239,7 @@ export interface SupplierSettlement {
   notes?: string;
   settlement_date?: string;
   created_at?: string;
+
 }
 
 // Function to initialize the database schema
@@ -285,6 +289,7 @@ export const getProducts = async (): Promise<Product[]> => {
   }
 };
 
+// Enhanced getProductById with better error handling
 export const getProductById = async (id: string): Promise<Product | null> => {
   try {
     const { data, error } = await supabase
@@ -293,17 +298,84 @@ export const getProductById = async (id: string): Promise<Product | null> => {
       .eq('id', id)
       .single();
       
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching product by ID:', error);
+      return null;
+    }
     return data || null;
   } catch (error) {
-    console.error('Error fetching product:', error);
+    console.error('Exception fetching product by ID:', error);
     return null;
   }
 };
 
+// Add getProductByBarcode (we already have this in the enhanced version)
+export const getProductByBarcode = async (barcode: string): Promise<Product | null> => {
+  try {
+    // Handle empty barcode
+    if (!barcode) return null;
+    
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('barcode', barcode)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching product by barcode:', error);
+      return null;
+    }
+    return data || null;
+  } catch (error) {
+    console.error('Exception fetching product by barcode:', error);
+    return null;
+  }
+};
+
+// Add getProductBySKU (we already have this in the enhanced version)
+export const getProductBySKU = async (sku: string): Promise<Product | null> => {
+  try {
+    // Handle empty SKU
+    if (!sku) return null;
+    
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('sku', sku)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching product by SKU:', error);
+      return null;
+    }
+    return data || null;
+  } catch (error) {
+    console.error('Exception fetching product by SKU:', error);
+    return null;
+  }
+};
+
+// Enhanced createProduct with better validation
 export const createProduct = async (product: Omit<Product, 'id'>): Promise<Product | null> => {
   try {
     console.log('Creating product with data:', product);
+    
+    // Validate required fields
+    if (!product.name) {
+      throw new Error('Product name is required');
+    }
+    
+    if (product.selling_price < 0) {
+      throw new Error('Selling price must be zero or positive');
+    }
+    
+    if (product.cost_price < 0) {
+      throw new Error('Cost price must be zero or positive');
+    }
+    
+    if (product.stock_quantity < 0) {
+      throw new Error('Stock quantity must be zero or positive');
+    }
     
     // Remove created_at and updated_at from the product object since they have database defaults
     const { created_at, updated_at, ...productData } = product;
@@ -345,8 +417,28 @@ export const createProduct = async (product: Omit<Product, 'id'>): Promise<Produ
   }
 };
 
+// Enhanced updateProduct with better validation
 export const updateProduct = async (id: string, product: Partial<Product>): Promise<Product | null> => {
   try {
+    // Validate ID
+    if (!id) {
+      throw new Error('Product ID is required');
+    }
+    
+    // Validate price fields if provided
+    if (product.selling_price !== undefined && product.selling_price < 0) {
+      throw new Error('Selling price must be zero or positive');
+    }
+    
+    if (product.cost_price !== undefined && product.cost_price < 0) {
+      throw new Error('Cost price must be zero or positive');
+    }
+    
+    // Validate stock quantity if provided
+    if (product.stock_quantity !== undefined && product.stock_quantity < 0) {
+      throw new Error('Stock quantity must be zero or positive');
+    }
+    
     // Remove updated_at from the product object since it has a database default
     const { updated_at, ...productData } = product;
     
@@ -365,7 +457,10 @@ export const updateProduct = async (id: string, product: Partial<Product>): Prom
       .select()
       .single();
       
-    if (error) throw error;
+    if (error) {
+      console.error('Error updating product:', error);
+      throw error;
+    }
     return data || null;
   } catch (error) {
     console.error('Error updating product:', error);
@@ -373,17 +468,78 @@ export const updateProduct = async (id: string, product: Partial<Product>): Prom
   }
 };
 
+// Enhanced deleteProduct with better error handling
 export const deleteProduct = async (id: string): Promise<boolean> => {
   try {
+    // Validate ID
+    if (!id) {
+      throw new Error('Product ID is required');
+    }
+    
     const { error } = await supabase
       .from('products')
       .delete()
       .eq('id', id);
       
-    if (error) throw error;
+    if (error) {
+      console.error('Error deleting product:', error);
+      throw error;
+    }
     return true;
   } catch (error) {
     console.error('Error deleting product:', error);
+    return false;
+  }
+};
+
+// Bulk delete products
+export const bulkDeleteProducts = async (ids: string[]): Promise<boolean> => {
+  try {
+    // Validate IDs
+    if (!ids || ids.length === 0) {
+      throw new Error('Product IDs are required');
+    }
+    
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .in('id', ids);
+      
+    if (error) {
+      console.error('Error bulk deleting products:', error);
+      throw error;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error bulk deleting products:', error);
+    return false;
+  }
+};
+
+// Bulk update products
+export const bulkUpdateProducts = async (updates: { id: string; data: Partial<Product> }[]): Promise<boolean> => {
+  try {
+    // Validate updates
+    if (!updates || updates.length === 0) {
+      throw new Error('Updates are required');
+    }
+    
+    // Process each update
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('products')
+        .update({ ...update.data, updated_at: new Date().toISOString() })
+        .eq('id', update.id);
+        
+      if (error) {
+        console.error(`Error updating product ${update.id}:`, error);
+        throw error;
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error bulk updating products:', error);
     return false;
   }
 };
@@ -1191,6 +1347,154 @@ export const getSupplierSettlements = async (): Promise<SupplierSettlement[]> =>
     return data || [];
   } catch (error) {
     console.error('Error fetching supplier settlements:', error);
+    return [];
+  }
+};
+
+// Get low stock products
+export const getLowStockProducts = async (threshold: number = 10): Promise<Product[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .lt('stock_quantity', threshold)
+      .order('stock_quantity', { ascending: true });
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching low stock products:', error);
+    return [];
+  }
+};
+
+// Get out of stock products
+export const getOutOfStockProducts = async (): Promise<Product[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('stock_quantity', 0)
+      .order('name');
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching out of stock products:', error);
+    return [];
+  }
+};
+
+// Update product stock quantity
+export const updateProductStock = async (id: string, quantity: number): Promise<Product | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .update({ stock_quantity: quantity, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error updating product stock:', error);
+    return null;
+  }
+};
+
+// Get products by category
+export const getProductsByCategory = async (categoryId: string): Promise<Product[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('category_id', categoryId)
+      .order('name');
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching products by category:', error);
+    return [];
+  }
+};
+
+// Get inventory statistics
+export const getInventoryStats = async (): Promise<{
+  totalProducts: number;
+  totalValue: number;
+  lowStockItems: number;
+  outOfStockItems: number;
+}> => {
+  try {
+    // Get all products for calculations
+    const products = await getProducts();
+    
+    const totalProducts = products.length;
+    const totalValue = products.reduce((sum, product) => sum + (product.selling_price * product.stock_quantity), 0);
+    const lowStockItems = products.filter(p => p.stock_quantity < (p.min_stock_level || 10)).length;
+    const outOfStockItems = products.filter(p => p.stock_quantity === 0).length;
+    
+    return {
+      totalProducts,
+      totalValue,
+      lowStockItems,
+      outOfStockItems
+    };
+  } catch (error) {
+    console.error('Error fetching inventory stats:', error);
+    return {
+      totalProducts: 0,
+      totalValue: 0,
+      lowStockItems: 0,
+      outOfStockItems: 0
+    };
+  }
+};
+
+// Search products with advanced filtering
+export const searchProducts = async (query: string, filters?: {
+  categoryId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  inStockOnly?: boolean;
+}): Promise<Product[]> => {
+  try {
+    let supabaseQuery = supabase
+      .from('products')
+      .select('*');
+    
+    // Apply text search
+    if (query) {
+      supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,barcode.ilike.%${query}%,sku.ilike.%${query}%`);
+    }
+    
+    // Apply category filter
+    if (filters?.categoryId) {
+      supabaseQuery = supabaseQuery.eq('category_id', filters.categoryId);
+    }
+    
+    // Apply price filters
+    if (filters?.minPrice !== undefined) {
+      supabaseQuery = supabaseQuery.gte('selling_price', filters.minPrice);
+    }
+    
+    if (filters?.maxPrice !== undefined) {
+      supabaseQuery = supabaseQuery.lte('selling_price', filters.maxPrice);
+    }
+    
+    // Apply stock filter
+    if (filters?.inStockOnly) {
+      supabaseQuery = supabaseQuery.gt('stock_quantity', 0);
+    }
+    
+    const { data, error } = await supabaseQuery.order('name');
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error searching products:', error);
     return [];
   }
 };

@@ -1271,6 +1271,54 @@ export const getDebts = async (): Promise<Debt[]> => {
   }
 };
 
+export const createDebt = async (debt: Omit<Debt, 'id'>): Promise<Debt | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('debts')
+      .insert([{ ...debt, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error creating debt:', error);
+    return null;
+  }
+};
+
+export const updateDebt = async (id: string, debt: Partial<Debt>): Promise<Debt | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('debts')
+      .update({ ...debt, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error updating debt:', error);
+    return null;
+  }
+};
+
+export const deleteDebt = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('debts')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting debt:', error);
+    return false;
+  }
+};
+
 // Discounts CRUD operations
 export const getDiscounts = async (): Promise<Discount[]> => {
   try {

@@ -16,7 +16,7 @@ import { AutomationService } from "@/services/automationService";
 import { PrintUtils } from "@/utils/printUtils";
 import { ExportUtils } from "@/utils/exportUtils";
 // Import Supabase database service
-import { getProducts, getCustomers, updateProductStock, createCustomer, Product, Customer as DatabaseCustomer } from "@/services/databaseService";
+import { getProducts, getCustomers, updateProductStock, createCustomer, createSale, createSaleItem, createDebt, Product, Customer as DatabaseCustomer } from "@/services/databaseService";
 
 interface CartItem {
   id: string;
@@ -198,6 +198,26 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
   };
 
   const completeTransaction = async () => {
+    if (cart.length === 0) {
+      toast({
+        title: "Error",
+        description: "Cart is empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if payment method is Debt and customer details are required
+    if (paymentMethod === "debt" && !selectedCustomer) {
+      toast({
+        title: "Error",
+        description: "Customer details are required for Debt transactions",
+        variant: "destructive",
+      });
+      setIsCustomerDialogOpen(true); // Open customer selection dialog
+      return;
+    }
+
     if (paymentMethod === "cash" && change < 0) {
       toast({
         title: "Error",
@@ -212,60 +232,120 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       ? AutomationService.calculateLoyaltyPoints(total) // Use total without tax for loyalty points
       : 0;
 
-    // Create transaction object for printing
-    const transaction = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      items: cart,
-      subtotal: subtotal,
-      tax: tax, // Display only tax (18%)
-      discount: discountAmount,
-      total: totalWithTax, // Actual total without tax effect
-      paymentMethod: paymentMethod,
-      amountReceived: parseFloat(amountReceived) || 0,
-      change: change,
-      customer: selectedCustomer // Include customer information
-    };
-
-    // Update stock quantities for each item in the cart
     try {
-      for (const item of cart) {
-        if (item.quantity > 0) {
-          // Find the original product to get current stock
-          const product = products.find(p => p.id === item.id);
-          if (product) {
-            // Calculate new stock quantity
-            const newStock = Math.max(0, product.stock_quantity - item.quantity);
-            // Update stock in database
-            await updateProductStock(item.id, newStock);
-          }
+      // Create the sale record in the database
+      const saleData = {
+        customer_id: selectedCustomer?.id || null,
+        user_id: null, // In a real app, this would be the current user ID
+        invoice_number: `INV-${Date.now()}`,
+        sale_date: new Date().toISOString(),
+        subtotal: subtotal,
+        discount_amount: discountAmount,
+        tax_amount: tax, // Display only tax (18%)
+        total_amount: totalWithTax, // Actual total without tax effect
+        amount_paid: paymentMethod === "debt" ? 0 : (parseFloat(amountReceived) || totalWithTax),
+        change_amount: paymentMethod === "debt" ? 0 : change,
+        payment_method: paymentMethod,
+        payment_status: paymentMethod === "debt" ? "unpaid" : "paid",
+        sale_status: "completed",
+        notes: paymentMethod === "debt" ? "Debt transaction - payment pending" : ""
+      };
+
+      const createdSale = await createSale(saleData);
+      
+      if (!createdSale) {
+        throw new Error("Failed to create sale record");
+      }
+
+      // Create sale items for each product in the cart
+      const itemsWithQuantity = cart.filter(item => item.quantity > 0);
+      for (const item of itemsWithQuantity) {
+        const saleItemData = {
+          sale_id: createdSale.id || '',
+          product_id: item.id,
+          quantity: item.quantity,
+          unit_price: item.price,
+          discount_amount: 0, // In a real app, this would be calculated
+          tax_amount: item.price * item.quantity * 0.18, // Display only tax (18%)
+          total_price: item.price * item.quantity
+        };
+        
+        await createSaleItem(saleItemData);
+      }
+
+      // Create debt record for debt transactions
+      if (paymentMethod === "debt" && selectedCustomer) {
+        const debtData = {
+          customer_id: selectedCustomer.id,
+          debt_type: "customer",
+          amount: totalWithTax,
+          description: `Debt for sale ${createdSale.id || 'unknown'}`,
+          status: "outstanding",
+          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 30 days from now
+        };
+
+        const createdDebt = await createDebt(debtData);
+        if (!createdDebt) {
+          console.warn("Failed to create debt record for transaction");
+        }
+      }
+
+      // Update stock quantities for each item in the cart
+      for (const item of itemsWithQuantity) {
+        // Find the original product to get current stock
+        const product = products.find(p => p.id === item.id);
+        if (product) {
+          // Calculate new stock quantity
+          const newStock = Math.max(0, product.stock_quantity - item.quantity);
+          // Update stock in database
+          await updateProductStock(item.id, newStock);
         }
       }
       
       // Reload products to get updated stock quantities
       const updatedProducts = await getProducts();
       setProducts(updatedProducts);
+
+      // Create transaction object for printing
+      const transaction = {
+        id: createdSale.id || Date.now().toString(),
+        date: createdSale.sale_date || new Date().toISOString(),
+        items: cart,
+        subtotal: subtotal,
+        tax: tax, // Display only tax (18%)
+        discount: discountAmount,
+        total: totalWithTax, // Actual total without tax effect
+        paymentMethod: paymentMethod,
+        amountReceived: paymentMethod === "debt" ? 0 : (parseFloat(amountReceived) || 0),
+        change: paymentMethod === "debt" ? 0 : change,
+        customer: selectedCustomer // Include customer information
+      };
+
+      // Store transaction for potential printing
+      setCompletedTransaction(transaction);
+
+      // Show transaction complete dialog instead of toast
+      setIsPaymentDialogOpen(false);
+      setIsTransactionCompleteDialogOpen(true);
+      
+      // Clear cart and reset form (but don't show toast yet)
+      setCart([]);
+      setSelectedCustomer(null);
+      setDiscountValue("");
+      setAmountReceived("");
+      
+      toast({
+        title: "Success",
+        description: `Transaction completed successfully${paymentMethod === "debt" ? " as Debt" : ""}`,
+      });
     } catch (error) {
-      console.error("Error updating stock quantities:", error);
+      console.error("Error completing transaction:", error);
       toast({
         title: "Error",
-        description: "Failed to update stock quantities",
+        description: "Failed to complete transaction: " + (error as Error).message,
         variant: "destructive",
       });
     }
-
-    // Store transaction for potential printing
-    setCompletedTransaction(transaction);
-
-    // Show transaction complete dialog instead of toast
-    setIsPaymentDialogOpen(false);
-    setIsTransactionCompleteDialogOpen(true);
-    
-    // Clear cart and reset form (but don't show toast yet)
-    setCart([]);
-    setSelectedCustomer(null);
-    setDiscountValue("");
-    setAmountReceived("");
   };
 
   // Print receipt
@@ -631,10 +711,10 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                             Cash
                           </div>
                         </SelectItem>
-                        <SelectItem value="card">
+                        <SelectItem value="debt">
                           <div className="flex items-center gap-2">
                             <CreditCard className="h-4 w-4" />
-                            Credit Card
+                            Debt
                           </div>
                         </SelectItem>
                       </SelectContent>

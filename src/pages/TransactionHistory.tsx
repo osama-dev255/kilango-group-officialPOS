@@ -12,7 +12,7 @@ import { ExportUtils } from "@/utils/exportUtils";
 import { PrintUtils } from "@/utils/printUtils";
 import { ExcelUtils } from "@/utils/excelUtils";
 // Import Supabase database service
-import { getSales, Sale } from "@/services/databaseService";
+import { getSales, Sale, getCustomers, Customer, getSaleItems } from "@/services/databaseService";
 import { useToast } from "@/hooks/use-toast";
 
 interface Transaction {
@@ -31,29 +31,77 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const { toast } = useToast();
+
+  // Load customers for customer name lookup
+  useEffect(() => {
+    const loadCustomers = async () => {
+      try {
+        const customerData = await getCustomers();
+        setCustomers(customerData);
+      } catch (error) {
+        console.error("Error loading customers:", error);
+      }
+    };
+
+    loadCustomers();
+  }, []);
 
   // Load transactions from Supabase on component mount
   useEffect(() => {
     const loadTransactions = async () => {
       try {
         setLoading(true);
+        console.log("Loading sales data...");
         const salesData = await getSales();
-        const formattedTransactions = salesData.map(sale => ({
-          id: sale.id || '',
-          date: sale.sale_date || new Date().toISOString(),
-          customer: sale.customer_id || 'Walk-in Customer',
-          items: 1, // In a real implementation, this would be calculated from sale items
-          total: sale.total_amount || 0,
-          paymentMethod: sale.payment_method || 'Unknown',
-          status: (sale.sale_status as "completed" | "refunded" | "pending") || 'completed'
-        }));
+        console.log("Sales data loaded:", salesData.length, "records");
+        
+        // Get customer names for display
+        const customerMap = new Map<string, string>();
+        customers.forEach(customer => {
+          if (customer.id) {
+            customerMap.set(customer.id, `${customer.first_name} ${customer.last_name}`);
+          }
+        });
+        
+        // For each sale, get the actual number of items
+        const formattedTransactions = [];
+        for (const sale of salesData) {
+          // Get customer name or use default
+          let customerName = 'Walk-in Customer';
+          if (sale.customer_id) {
+            customerName = customerMap.get(sale.customer_id) || 'Unknown Customer';
+          }
+          
+          // Get actual number of items in this sale
+          let itemCount = 0;
+          try {
+            const saleItems = await getSaleItems(sale.id || '');
+            itemCount = saleItems.length;
+          } catch (error) {
+            console.error("Error loading sale items for sale", sale.id, error);
+            itemCount = 1; // Default fallback
+          }
+          
+          formattedTransactions.push({
+            id: sale.id || '',
+            date: sale.sale_date || new Date().toISOString(),
+            customer: customerName,
+            items: itemCount,
+            total: sale.total_amount || 0,
+            paymentMethod: sale.payment_method || 'Unknown',
+            status: (sale.sale_status as "completed" | "refunded" | "pending") || 'completed'
+          });
+        }
+        
+        console.log("Formatted transactions:", formattedTransactions);
         setTransactions(formattedTransactions);
       } catch (error) {
         console.error("Error loading transactions:", error);
         toast({
           title: "Error",
-          description: "Failed to load transactions",
+          description: "Failed to load transactions: " + (error as Error).message,
           variant: "destructive",
         });
       } finally {
@@ -61,18 +109,170 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
       }
     };
 
-    loadTransactions();
+    // Only load transactions if customers are loaded
+    if (customers.length > 0) {
+      loadTransactions();
+    } else {
+      // Load transactions after customers are loaded
+      const loadCustomersAndTransactions = async () => {
+        try {
+          setLoading(true);
+          const customerData = await getCustomers();
+          setCustomers(customerData);
+          
+          const salesData = await getSales();
+          console.log("Sales data loaded:", salesData.length, "records");
+          
+          // Get customer names for display
+          const customerMap = new Map<string, string>();
+          customerData.forEach(customer => {
+            if (customer.id) {
+              customerMap.set(customer.id, `${customer.first_name} ${customer.last_name}`);
+            }
+          });
+          
+          // For each sale, get the actual number of items
+          const formattedTransactions = [];
+          for (const sale of salesData) {
+            // Get customer name or use default
+            let customerName = 'Walk-in Customer';
+            if (sale.customer_id) {
+              customerName = customerMap.get(sale.customer_id) || 'Unknown Customer';
+            }
+            
+            // Get actual number of items in this sale
+            let itemCount = 0;
+            try {
+              if (sale.id) {
+                const saleItems = await getSaleItems(sale.id);
+                itemCount = saleItems.length;
+              }
+            } catch (error) {
+              console.error("Error loading sale items for sale", sale.id, error);
+              itemCount = 1; // Default fallback
+            }
+            
+            formattedTransactions.push({
+              id: sale.id || '',
+              date: sale.sale_date || new Date().toISOString(),
+              customer: customerName,
+              items: itemCount,
+              total: sale.total_amount || 0,
+              paymentMethod: sale.payment_method || 'Unknown',
+              status: (sale.sale_status as "completed" | "refunded" | "pending") || 'completed'
+            });
+          }
+          
+          console.log("Formatted transactions:", formattedTransactions);
+          setTransactions(formattedTransactions);
+        } catch (error) {
+          console.error("Error loading data:", error);
+          toast({
+            title: "Error",
+            description: "Failed to load data: " + (error as Error).message,
+            variant: "destructive",
+          });
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      loadCustomersAndTransactions();
+    }
   }, []);
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = 
-      transaction.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (transaction.id && transaction.id.toLowerCase().includes(searchTerm.toLowerCase())) ||
       transaction.customer.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || transaction.status === statusFilter;
     
-    return matchesSearch && matchesStatus;
+    // Date filter implementation
+    const transactionDate = new Date(transaction.date);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    let matchesDate = true;
+    if (dateFilter === "today") {
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      matchesDate = transactionDate >= today && transactionDate < tomorrow;
+    } else if (dateFilter === "week") {
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      matchesDate = transactionDate >= weekAgo && transactionDate <= today;
+    } else if (dateFilter === "month") {
+      const monthAgo = new Date(today);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      matchesDate = transactionDate >= monthAgo && transactionDate <= today;
+    }
+    
+    return matchesSearch && matchesStatus && matchesDate;
   });
+
+  // Refresh transactions
+  const refreshTransactions = async () => {
+    try {
+      setLoading(true);
+      const salesData = await getSales();
+      
+      // Get customer names for display
+      const customerMap = new Map<string, string>();
+      customers.forEach(customer => {
+        if (customer.id) {
+          customerMap.set(customer.id, `${customer.first_name} ${customer.last_name}`);
+        }
+      });
+      
+      // For each sale, get the actual number of items
+      const formattedTransactions = [];
+      for (const sale of salesData) {
+        // Get customer name or use default
+        let customerName = 'Walk-in Customer';
+        if (sale.customer_id) {
+          customerName = customerMap.get(sale.customer_id) || 'Unknown Customer';
+        }
+        
+        // Get actual number of items in this sale
+        let itemCount = 0;
+        try {
+          if (sale.id) {
+            const saleItems = await getSaleItems(sale.id);
+            itemCount = saleItems.length;
+          }
+        } catch (error) {
+          console.error("Error loading sale items for sale", sale.id, error);
+          itemCount = 1; // Default fallback
+        }
+        
+        formattedTransactions.push({
+          id: sale.id || '',
+          date: sale.sale_date || new Date().toISOString(),
+          customer: customerName,
+          items: itemCount,
+          total: sale.total_amount || 0,
+          paymentMethod: sale.payment_method || 'Unknown',
+          status: (sale.sale_status as "completed" | "refunded" | "pending") || 'completed'
+        });
+      }
+      
+      setTransactions(formattedTransactions);
+      toast({
+        title: "Success",
+        description: "Transactions refreshed successfully",
+      });
+    } catch (error) {
+      console.error("Error refreshing transactions:", error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh transactions",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -129,6 +329,10 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
                   </SelectContent>
                 </Select>
                 
+                <Button onClick={refreshTransactions} variant="outline">
+                  Refresh
+                </Button>
+                
                 <Button onClick={() => PrintUtils.printSalesReport(filteredTransactions)}>
                   <Printer className="h-4 w-4 mr-2" />
                   Print Report
@@ -162,6 +366,13 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
                 <Receipt className="h-8 w-8 mb-2" />
                 <p>No transactions found</p>
                 <p className="text-sm">Process a sale to see transactions here</p>
+                <Button 
+                  variant="outline" 
+                  className="mt-2"
+                  onClick={refreshTransactions}
+                >
+                  Refresh Data
+                </Button>
               </div>
             ) : (
               <div className="rounded-md border">
@@ -180,8 +391,8 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
                   <TableBody>
                     {filteredTransactions.map((transaction) => (
                       <TableRow key={transaction.id}>
-                        <TableCell className="font-medium">{transaction.id.substring(0, 8)}</TableCell>
-                        <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
+                        <TableCell className="font-medium">{transaction.id ? transaction.id.substring(0, 8) : 'N/A'}</TableCell>
+                        <TableCell>{transaction.date ? new Date(transaction.date).toLocaleDateString() : 'N/A'}</TableCell>
                         <TableCell>{transaction.customer}</TableCell>
                         <TableCell>{transaction.items}</TableCell>
                         <TableCell className="text-right">{formatCurrency(transaction.total)}</TableCell>

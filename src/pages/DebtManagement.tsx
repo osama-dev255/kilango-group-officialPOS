@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Plus, Edit, Trash2, Users, Truck, Wallet, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
+// Import database service functions
+import { getDebts, createDebt, updateDebt, deleteDebt, getCustomers, getSuppliers, Customer as DatabaseCustomer, Supplier as DatabaseSupplier } from "@/services/databaseService";
 
 interface Debt {
   id: string;
@@ -26,44 +28,8 @@ interface Debt {
 }
 
 export const DebtManagement = ({ username, onBack, onLogout }: { username: string; onBack: () => void; onLogout: () => void }) => {
-  const [debts, setDebts] = useState<Debt[]>([
-    {
-      id: "1",
-      partyId: "1",
-      partyName: "John Smith",
-      partyType: "customer",
-      amount: 150.00,
-      dueDate: "2023-06-15",
-      status: "outstanding",
-      description: "Outstanding balance from previous purchases",
-      createdAt: "2023-05-15",
-      updatedAt: "2023-05-15"
-    },
-    {
-      id: "2",
-      partyId: "2",
-      partyName: "Global Home Goods",
-      partyType: "supplier",
-      amount: 500.00,
-      dueDate: "2023-05-30",
-      status: "overdue",
-      description: "Payment for purchase order PO-002",
-      createdAt: "2023-05-10",
-      updatedAt: "2023-05-10"
-    },
-    {
-      id: "3",
-      partyId: "3",
-      partyName: "Sarah Johnson",
-      partyType: "customer",
-      amount: 75.50,
-      status: "outstanding",
-      description: "Partial payment for recent transaction",
-      createdAt: "2023-05-18",
-      updatedAt: "2023-05-18"
-    }
-  ]);
-  
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [partyTypeFilter, setPartyTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -79,7 +45,65 @@ export const DebtManagement = ({ username, onBack, onLogout }: { username: strin
   });
   const { toast } = useToast();
 
-  const handleAddDebt = () => {
+  // Load debts and related data from database on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // Load debts
+        const debtData = await getDebts();
+        
+        // Load customers and suppliers for name resolution
+        const customerData = await getCustomers();
+        const supplierData = await getSuppliers();
+        
+        // Map database debts to UI format
+        const mappedDebts = debtData.map(debt => {
+          let partyName = "Unknown";
+          let partyType: "customer" | "supplier" = "customer";
+          
+          if (debt.customer_id) {
+            const customer = customerData.find(c => c.id === debt.customer_id);
+            partyName = customer ? `${customer.first_name} ${customer.last_name}` : "Unknown Customer";
+            partyType = "customer";
+          } else if (debt.supplier_id) {
+            const supplier = supplierData.find(s => s.id === debt.supplier_id);
+            partyName = supplier ? supplier.name : "Unknown Supplier";
+            partyType = "supplier";
+          }
+          
+          return {
+            id: debt.id || '',
+            partyId: debt.customer_id || debt.supplier_id || '',
+            partyName,
+            partyType,
+            amount: debt.amount,
+            dueDate: debt.due_date || undefined,
+            status: debt.status as "outstanding" | "paid" | "overdue",
+            description: debt.description || '',
+            createdAt: debt.created_at ? new Date(debt.created_at).toISOString().split('T')[0] : '',
+            updatedAt: debt.updated_at ? new Date(debt.updated_at).toISOString().split('T')[0] : ''
+          };
+        });
+        
+        setDebts(mappedDebts);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load debt records",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const handleAddDebt = async () => {
     if (!newDebt.partyName || newDebt.amount <= 0) {
       toast({
         title: "Error",
@@ -89,24 +113,58 @@ export const DebtManagement = ({ username, onBack, onLogout }: { username: strin
       return;
     }
 
-    const debt: Debt = {
-      ...newDebt,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0]
-    };
+    try {
+      // Prepare debt data for database
+      const debtData = {
+        // For now, we'll just create customer debts since we don't have supplier ID mapping
+        customer_id: newDebt.partyType === "customer" ? newDebt.partyId || null : null,
+        supplier_id: newDebt.partyType === "supplier" ? newDebt.partyId || null : null,
+        debt_type: newDebt.partyType,
+        amount: newDebt.amount,
+        description: newDebt.description,
+        due_date: newDebt.dueDate || null,
+        status: newDebt.status
+      };
 
-    setDebts([...debts, debt]);
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Debt record added successfully"
-    });
+      const createdDebt = await createDebt(debtData);
+      
+      if (createdDebt) {
+        // Map to UI format
+        const mappedDebt: Debt = {
+          id: createdDebt.id || '',
+          partyId: createdDebt.customer_id || createdDebt.supplier_id || '',
+          partyName: newDebt.partyName,
+          partyType: newDebt.partyType,
+          amount: createdDebt.amount,
+          dueDate: createdDebt.due_date || undefined,
+          status: createdDebt.status as "outstanding" | "paid" | "overdue",
+          description: createdDebt.description || '',
+          createdAt: createdDebt.created_at ? new Date(createdDebt.created_at).toISOString().split('T')[0] : '',
+          updatedAt: createdDebt.updated_at ? new Date(createdDebt.updated_at).toISOString().split('T')[0] : ''
+        };
+
+        setDebts([...debts, mappedDebt]);
+        resetForm();
+        setIsDialogOpen(false);
+        
+        toast({
+          title: "Success",
+          description: "Debt record added successfully"
+        });
+      } else {
+        throw new Error("Failed to create debt record");
+      }
+    } catch (error) {
+      console.error("Error creating debt:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add debt record: " + (error as Error).message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleUpdateDebt = () => {
+  const handleUpdateDebt = async () => {
     if (!editingDebt || !editingDebt.partyName || editingDebt.amount <= 0) {
       toast({
         title: "Error",
@@ -116,25 +174,78 @@ export const DebtManagement = ({ username, onBack, onLogout }: { username: strin
       return;
     }
 
-    setDebts(debts.map(d => d.id === editingDebt.id ? {
-      ...editingDebt,
-      updatedAt: new Date().toISOString().split('T')[0]
-    } : d));
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Debt record updated successfully"
-    });
+    try {
+      // Prepare debt data for database
+      const debtData = {
+        // For now, we'll just update customer debts since we don't have supplier ID mapping
+        customer_id: editingDebt.partyType === "customer" ? editingDebt.partyId || null : null,
+        supplier_id: editingDebt.partyType === "supplier" ? editingDebt.partyId || null : null,
+        debt_type: editingDebt.partyType,
+        amount: editingDebt.amount,
+        description: editingDebt.description,
+        due_date: editingDebt.dueDate || null,
+        status: editingDebt.status
+      };
+
+      const updatedDebt = await updateDebt(editingDebt.id, debtData);
+      
+      if (updatedDebt) {
+        // Map to UI format
+        const mappedDebt: Debt = {
+          id: updatedDebt.id || '',
+          partyId: updatedDebt.customer_id || updatedDebt.supplier_id || '',
+          partyName: editingDebt.partyName,
+          partyType: editingDebt.partyType,
+          amount: updatedDebt.amount,
+          dueDate: updatedDebt.due_date || undefined,
+          status: updatedDebt.status as "outstanding" | "paid" | "overdue",
+          description: updatedDebt.description || '',
+          createdAt: updatedDebt.created_at ? new Date(updatedDebt.created_at).toISOString().split('T')[0] : '',
+          updatedAt: updatedDebt.updated_at ? new Date(updatedDebt.updated_at).toISOString().split('T')[0] : ''
+        };
+
+        setDebts(debts.map(d => d.id === editingDebt.id ? mappedDebt : d));
+        resetForm();
+        setIsDialogOpen(false);
+        
+        toast({
+          title: "Success",
+          description: "Debt record updated successfully"
+        });
+      } else {
+        throw new Error("Failed to update debt record");
+      }
+    } catch (error) {
+      console.error("Error updating debt:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update debt record: " + (error as Error).message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteDebt = (id: string) => {
-    setDebts(debts.filter(d => d.id !== id));
-    toast({
-      title: "Success",
-      description: "Debt record deleted successfully"
-    });
+  const handleDeleteDebt = async (id: string) => {
+    try {
+      const success = await deleteDebt(id);
+      
+      if (success) {
+        setDebts(debts.filter(d => d.id !== id));
+        toast({
+          title: "Success",
+          description: "Debt record deleted successfully"
+        });
+      } else {
+        throw new Error("Failed to delete debt record");
+      }
+    } catch (error) {
+      console.error("Error deleting debt:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete debt record: " + (error as Error).message,
+        variant: "destructive",
+      });
+    }
   };
 
   const resetForm = () => {
@@ -207,11 +318,10 @@ export const DebtManagement = ({ username, onBack, onLogout }: { username: strin
             
             <Select value={partyTypeFilter} onValueChange={setPartyTypeFilter}>
               <SelectTrigger className="w-32">
-                <Users className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Party Type" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Parties</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="customer">Customers</SelectItem>
                 <SelectItem value="supplier">Suppliers</SelectItem>
               </SelectContent>
@@ -219,7 +329,7 @@ export const DebtManagement = ({ username, onBack, onLogout }: { username: strin
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-32">
-                <SelectValue placeholder="Status" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
@@ -404,77 +514,83 @@ export const DebtManagement = ({ username, onBack, onLogout }: { username: strin
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Party</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredDebts.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading debt records...
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No debt records found
-                    </TableCell>
+                    <TableHead>Party</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filteredDebts.map((debt) => (
-                    <TableRow key={debt.id}>
-                      <TableCell>
-                        <div className="font-medium">{debt.partyName}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={debt.partyType === "customer" ? "default" : "secondary"}>
-                          {debt.partyType === "customer" ? (
-                            <Users className="h-3 w-3 mr-1" />
-                          ) : (
-                            <Truck className="h-3 w-3 mr-1" />
-                          )}
-                          {debt.partyType}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">{debt.description}</TableCell>
-                      <TableCell className="font-medium">{formatCurrency(debt.amount)}</TableCell>
-                      <TableCell>{debt.dueDate || "N/A"}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={
-                            debt.status === "paid" ? "default" : 
-                            debt.status === "outstanding" ? "secondary" : "destructive"
-                          }
-                        >
-                          {debt.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => openEditDialog(debt)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => handleDeleteDebt(debt.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredDebts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No debt records found
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredDebts.map((debt) => (
+                      <TableRow key={debt.id}>
+                        <TableCell>
+                          <div className="font-medium">{debt.partyName}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={debt.partyType === "customer" ? "default" : "secondary"}>
+                            {debt.partyType === "customer" ? (
+                              <Users className="h-3 w-3 mr-1" />
+                            ) : (
+                              <Truck className="h-3 w-3 mr-1" />
+                            )}
+                            {debt.partyType}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">{debt.description}</TableCell>
+                        <TableCell className="font-medium">{formatCurrency(debt.amount)}</TableCell>
+                        <TableCell>{debt.dueDate || "N/A"}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              debt.status === "paid" ? "default" : 
+                              debt.status === "outstanding" ? "secondary" : "destructive"
+                            }
+                          >
+                            {debt.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => openEditDialog(debt)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => handleDeleteDebt(debt.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </main>

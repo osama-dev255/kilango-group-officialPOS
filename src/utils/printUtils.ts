@@ -133,21 +133,6 @@ export class PrintUtils {
               <div>Time: ${new Date().toLocaleTimeString()}</div>
             </div>
             
-            <div class="items">
-              ${formattedItems.map((item: any) => `
-                <div class="item">
-                  <div class="item-name">${item.name}</div>
-                </div>
-                <div class="item">
-                  <div class="item-details">
-                    <span class="item-quantity">${item.quantity}</span>
-                    <span class="item-price">${item.price.toFixed(2)}</span>
-                    <span class="item-total">${item.total.toFixed(2)}</span>
-                </div>
-              </div>
-              `).join('')}
-            </div>
-            
             ${transaction.customer ? `
             <div class="customer-info" style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #000;">
               <div class="total-row">
@@ -180,6 +165,21 @@ export class PrintUtils {
               ` : ''}
             </div>
             ` : ''}
+            
+            <div class="items">
+              ${formattedItems.map((item: any) => `
+                <div class="item">
+                  <div class="item-name">${item.name}</div>
+                </div>
+                <div class="item">
+                  <div class="item-details">
+                    <span class="item-quantity">${item.quantity}</span>
+                    <span class="item-price">${item.price.toFixed(2)}</span>
+                    <span class="item-total">${item.total.toFixed(2)}</span>
+                </div>
+              </div>
+              `).join('')}
+            </div>
             
             <div class="totals">
               <div class="total-row">

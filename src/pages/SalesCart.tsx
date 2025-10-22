@@ -60,12 +60,14 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isTransactionCompleteDialogOpen, setIsTransactionCompleteDialogOpen] = useState(false);
   const [amountReceived, setAmountReceived] = useState("");
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [transactionId, setTransactionId] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [completedTransaction, setCompletedTransaction] = useState<any>(null); // Store completed transaction for printing
   const { toast } = useToast();
 
   // Load products and customers from Supabase on component mount
@@ -121,7 +123,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
         id: product.id || '',
         name: product.name,
         price: product.selling_price,
-        quantity: 1,
+        quantity: 1, // Fixed: should be 1, not 0
       };
       setCart([...cart, newItem]);
     }
@@ -151,11 +153,12 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
     
   const total = subtotal - discountAmount;
   
-  const tax = total * 0.08; // 8% tax
-  const totalWithTax = total + tax;
+  // Tax is displayed as 18% but doesn't affect calculation (for display purposes only)
+  const tax = total * 0.18; // 18% tax for display
+  const totalWithTax = total; // Tax doesn't affect the actual total
   
   const amountReceivedNum = parseFloat(amountReceived) || 0;
-  const change = amountReceivedNum - totalWithTax;
+  const change = amountReceivedNum - total; // Change calculation based on actual total without tax
 
   const processTransaction = () => {
     if (cart.length === 0) {
@@ -182,7 +185,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
 
     // Calculate loyalty points automatically
     const loyaltyPoints = selectedCustomer 
-      ? AutomationService.calculateLoyaltyPoints(totalWithTax)
+      ? AutomationService.calculateLoyaltyPoints(total) // Use total without tax for loyalty points
       : 0;
 
     // Create transaction object for printing
@@ -191,25 +194,26 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       date: new Date().toISOString(),
       items: cart,
       subtotal: subtotal,
-      tax: tax,
+      tax: tax, // Display only tax (18%)
       discount: discountAmount,
-      total: totalWithTax,
+      total: totalWithTax, // Actual total without tax effect
       paymentMethod: paymentMethod,
       amountReceived: parseFloat(amountReceived) || 0,
       change: change
     };
 
-    // Simulate processing transaction
-    toast({
-      title: "Transaction Processed",
-      description: `Sale completed for $${totalWithTax.toFixed(2)}${loyaltyPoints > 0 ? ` (${loyaltyPoints} points earned)` : ''}`,
-    });
+    // Store transaction for potential printing
+    setCompletedTransaction(transaction);
+
+    // Show transaction complete dialog instead of toast
+    setIsPaymentDialogOpen(false);
+    setIsTransactionCompleteDialogOpen(true);
     
+    // Clear cart and reset form (but don't show toast yet)
     setCart([]);
     setSelectedCustomer(null);
     setDiscountValue("");
     setAmountReceived("");
-    setIsPaymentDialogOpen(false);
   };
 
   // Print receipt
@@ -219,9 +223,9 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       id: Date.now().toString(),
       items: cart,
       subtotal: subtotal,
-      tax: tax,
+      tax: tax, // Display only tax (18%)
       discount: discountAmount,
-      total: totalWithTax,
+      total: totalWithTax, // Actual total without tax effect
       paymentMethod: paymentMethod,
       amountReceived: parseFloat(amountReceived) || totalWithTax,
       change: change
@@ -333,21 +337,20 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateQuantity(item.id, -1)}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-8 text-center">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateQuantity(item.id, 1)}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const newQuantity = Math.max(1, parseInt(e.target.value) || 1);
+                              setCart(cart.map(cartItem => 
+                                cartItem.id === item.id 
+                                  ? { ...cartItem, quantity: newQuantity } 
+                                  : cartItem
+                              ));
+                            }}
+                            className="w-16"
+                          />
                           <Button
                             variant="outline"
                             size="sm"
@@ -374,10 +377,10 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                         <span>-{formatCurrency(discountAmount)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Tax (8%):</span>
+                        <span>Tax (18%):</span>
                         <span>{formatCurrency(tax)}</span>
                       </div>
-                      <div className="flex justify-between font-bold text-lg">
+                      <div className="flex justify-between font-bold">
                         <span>Total:</span>
                         <span>{formatCurrency(totalWithTax)}</span>
                       </div>
@@ -416,7 +419,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                     <div className="flex items-center gap-2 text-sm">
                       <Star className="h-4 w-4 text-yellow-500" />
                       <span>
-                        Earn {AutomationService.calculateLoyaltyPoints(totalWithTax)} points
+                        Earn {AutomationService.calculateLoyaltyPoints(total)} points
                       </span>
                     </div>
                   </div>
@@ -458,7 +461,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                   </Select>
                   <Input
                     type="number"
-                    placeholder={discountType === "percentage" ? "0%" : "$0.00"}
+                    placeholder={discountType === "percentage" ? "0%" : "Tsh0.00"}
                     value={discountValue}
                     onChange={(e) => setDiscountValue(e.target.value)}
                   />
@@ -506,7 +509,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                       <span>-{formatCurrency(discountAmount)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Tax (8%):</span>
+                      <span>Tax (18%):</span>
                       <span>{formatCurrency(tax)}</span>
                     </div>
                     <div className="flex justify-between font-bold">
@@ -619,6 +622,46 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                 </Button>
                 <Button onClick={completeTransaction}>
                   Complete Sale
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Transaction Complete Dialog */}
+        <Dialog open={isTransactionCompleteDialogOpen} onOpenChange={setIsTransactionCompleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Transaction Complete</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="text-center py-4">
+                <div className="text-2xl font-bold text-green-600 mb-2">Success!</div>
+                <p className="text-muted-foreground">
+                  Transaction processed successfully for {formatCurrency(totalWithTax)}
+                </p>
+              </div>
+              
+              <div className="flex justify-center gap-4">
+                <Button variant="outline" onClick={() => {
+                  // Just close the dialog and reset
+                  setIsTransactionCompleteDialogOpen(false);
+                }}>
+                  Quit Cart
+                </Button>
+                <Button onClick={() => {
+                  // Print receipt and then close
+                  if (completedTransaction) {
+                    PrintUtils.printReceipt(completedTransaction);
+                  }
+                  setIsTransactionCompleteDialogOpen(false);
+                  toast({
+                    title: "Transaction Processed",
+                    description: `Sale completed for ${formatCurrency(totalWithTax)}${selectedCustomer ? ` (${AutomationService.calculateLoyaltyPoints(total)} points earned)` : ''}`,
+                  });
+                }}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print Receipt
                 </Button>
               </div>
             </div>

@@ -7,7 +7,8 @@ import {
   FileText,
   BarChart3,
   Settings,
-  CreditCard
+  CreditCard,
+  History
 } from "lucide-react";
 
 interface PurchaseDashboardProps {
@@ -41,14 +42,14 @@ export const PurchaseDashboard = ({ username, onBack, onLogout, onNavigate }: Pu
       color: "bg-white border border-gray-200"
     },
     {
-      id: "inventory",
-      title: "Inventory Receiving",
-      description: "Receive and process incoming inventory",
-      icon: Package,
+      id: "purchase-transactions",
+      title: "Purchase History",
+      description: "View and manage purchase transaction history",
+      icon: History,
       color: "bg-white border border-gray-200"
     },
     {
-      id: "reports",
+      id: "purchase-reports",
       title: "Purchase Reports",
       description: "Analyze purchasing trends and supplier performance",
       icon: FileText,

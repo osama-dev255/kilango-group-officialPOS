@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
-import { saveTemplateConfig } from "@/utils/templateUtils";
+import { saveTemplateConfig, savePurchaseTemplateConfig } from "@/utils/templateUtils";
 // Import language context
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -42,6 +42,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
   
   // Receipt settings
   const [printReceipts, setPrintReceipts] = useState(true);
+  const [printPurchaseReceipts, setPrintPurchaseReceipts] = useState(true);
   const [receiptHeader, setReceiptHeader] = useState("Thank you for your business!");
   const [showLogo, setShowLogo] = useState(true);
   
@@ -56,6 +57,19 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
   const [showPaymentInfo, setShowPaymentInfo] = useState(true);
   const [fontSize, setFontSize] = useState("12px");
   const [paperWidth, setPaperWidth] = useState("320px");
+  
+  // Custom purchase receipt template settings
+  const [customPurchaseTemplate, setCustomPurchaseTemplate] = useState(false);
+  const [purchaseTemplateHeader, setPurchaseTemplateHeader] = useState("POS BUSINESS\n123 Business St, City, Country\nPhone: (123) 456-7890");
+  const [purchaseTemplateFooter, setPurchaseTemplateFooter] = useState("Thank you for your business!\nItems purchased are not returnable\nVisit us again soon");
+  const [showPurchaseBusinessInfo, setShowPurchaseBusinessInfo] = useState(true);
+  const [showPurchaseTransactionDetails, setShowPurchaseTransactionDetails] = useState(true);
+  const [showPurchaseItemDetails, setShowPurchaseItemDetails] = useState(true);
+  const [showPurchaseTotals, setShowPurchaseTotals] = useState(true);
+  const [showPurchasePaymentInfo, setShowPurchasePaymentInfo] = useState(true);
+  const [showPurchaseSupplierInfo, setShowPurchaseSupplierInfo] = useState(true);
+  const [purchaseFontSize, setPurchaseFontSize] = useState("12px");
+  const [purchasePaperWidth, setPurchasePaperWidth] = useState("320px");
   
   // Notification settings
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -94,6 +108,9 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
       const savedPrintReceipts = localStorage.getItem('printReceipts');
       if (savedPrintReceipts) setPrintReceipts(savedPrintReceipts === 'true');
       
+      const savedPrintPurchaseReceipts = localStorage.getItem('printPurchaseReceipts');
+      if (savedPrintPurchaseReceipts) setPrintPurchaseReceipts(savedPrintPurchaseReceipts === 'true');
+      
       const savedReceiptHeader = localStorage.getItem('receiptHeader');
       if (savedReceiptHeader) setReceiptHeader(savedReceiptHeader);
       
@@ -130,6 +147,40 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
       
       const savedPaperWidth = localStorage.getItem('paperWidth');
       if (savedPaperWidth) setPaperWidth(savedPaperWidth);
+      
+      // Load purchase template settings
+      const savedCustomPurchaseTemplate = localStorage.getItem('customPurchaseTemplate');
+      if (savedCustomPurchaseTemplate) setCustomPurchaseTemplate(savedCustomPurchaseTemplate === 'true');
+      
+      const savedPurchaseTemplateHeader = localStorage.getItem('purchaseTemplateHeader');
+      if (savedPurchaseTemplateHeader) setPurchaseTemplateHeader(savedPurchaseTemplateHeader);
+      
+      const savedPurchaseTemplateFooter = localStorage.getItem('purchaseTemplateFooter');
+      if (savedPurchaseTemplateFooter) setPurchaseTemplateFooter(savedPurchaseTemplateFooter);
+      
+      const savedShowPurchaseBusinessInfo = localStorage.getItem('showPurchaseBusinessInfo');
+      if (savedShowPurchaseBusinessInfo) setShowPurchaseBusinessInfo(savedShowPurchaseBusinessInfo === 'true');
+      
+      const savedShowPurchaseTransactionDetails = localStorage.getItem('showPurchaseTransactionDetails');
+      if (savedShowPurchaseTransactionDetails) setShowPurchaseTransactionDetails(savedShowPurchaseTransactionDetails === 'true');
+      
+      const savedShowPurchaseItemDetails = localStorage.getItem('showPurchaseItemDetails');
+      if (savedShowPurchaseItemDetails) setShowPurchaseItemDetails(savedShowPurchaseItemDetails === 'true');
+      
+      const savedShowPurchaseTotals = localStorage.getItem('showPurchaseTotals');
+      if (savedShowPurchaseTotals) setShowPurchaseTotals(savedShowPurchaseTotals === 'true');
+      
+      const savedShowPurchasePaymentInfo = localStorage.getItem('showPurchasePaymentInfo');
+      if (savedShowPurchasePaymentInfo) setShowPurchasePaymentInfo(savedShowPurchasePaymentInfo === 'true');
+      
+      const savedShowPurchaseSupplierInfo = localStorage.getItem('showPurchaseSupplierInfo');
+      if (savedShowPurchaseSupplierInfo) setShowPurchaseSupplierInfo(savedShowPurchaseSupplierInfo === 'true');
+      
+      const savedPurchaseFontSize = localStorage.getItem('purchaseFontSize');
+      if (savedPurchaseFontSize) setPurchaseFontSize(savedPurchaseFontSize);
+      
+      const savedPurchasePaperWidth = localStorage.getItem('purchasePaperWidth');
+      if (savedPurchasePaperWidth) setPurchasePaperWidth(savedPurchasePaperWidth);
       
       // Load notification settings
       const savedEmailNotifications = localStorage.getItem('emailNotifications');
@@ -175,6 +226,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
     
     // Save receipt settings
     localStorage.setItem('printReceipts', printReceipts.toString());
+    localStorage.setItem('printPurchaseReceipts', printPurchaseReceipts.toString());
     localStorage.setItem('receiptHeader', receiptHeader);
     localStorage.setItem('showLogo', showLogo.toString());
     
@@ -190,6 +242,19 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
     localStorage.setItem('fontSize', fontSize);
     localStorage.setItem('paperWidth', paperWidth);
     
+    // Save purchase template settings
+    localStorage.setItem('customPurchaseTemplate', customPurchaseTemplate.toString());
+    localStorage.setItem('purchaseTemplateHeader', purchaseTemplateHeader);
+    localStorage.setItem('purchaseTemplateFooter', purchaseTemplateFooter);
+    localStorage.setItem('showPurchaseBusinessInfo', showPurchaseBusinessInfo.toString());
+    localStorage.setItem('showPurchaseTransactionDetails', showPurchaseTransactionDetails.toString());
+    localStorage.setItem('showPurchaseItemDetails', showPurchaseItemDetails.toString());
+    localStorage.setItem('showPurchaseTotals', showPurchaseTotals.toString());
+    localStorage.setItem('showPurchasePaymentInfo', showPurchasePaymentInfo.toString());
+    localStorage.setItem('showPurchaseSupplierInfo', showPurchaseSupplierInfo.toString());
+    localStorage.setItem('purchaseFontSize', purchaseFontSize);
+    localStorage.setItem('purchasePaperWidth', purchasePaperWidth);
+    
     // Save template config for printing utilities
     saveTemplateConfig({
       customTemplate,
@@ -202,6 +267,21 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
       showPaymentInfo,
       fontSize,
       paperWidth
+    });
+    
+    // Save purchase template config for printing utilities
+    savePurchaseTemplateConfig({
+      customTemplate: customPurchaseTemplate,
+      templateHeader: purchaseTemplateHeader,
+      templateFooter: purchaseTemplateFooter,
+      showBusinessInfo: showPurchaseBusinessInfo,
+      showTransactionDetails: showPurchaseTransactionDetails,
+      showItemDetails: showPurchaseItemDetails,
+      showTotals: showPurchaseTotals,
+      showPaymentInfo: showPurchasePaymentInfo,
+      showSupplierInfo: showPurchaseSupplierInfo,
+      fontSize: purchaseFontSize,
+      paperWidth: purchasePaperWidth
     });
     
     // Save notification settings
@@ -233,6 +313,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
     setCurrency("TZS");
     setTimezone("Africa/Dar_es_Salaam");
     setPrintReceipts(true);
+    setPrintPurchaseReceipts(true);
     setReceiptHeader("Thank you for your business!");
     setShowLogo(true);
     
@@ -247,6 +328,19 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
     setShowPaymentInfo(true);
     setFontSize("12px");
     setPaperWidth("320px");
+    
+    // Reset purchase template settings
+    setCustomPurchaseTemplate(false);
+    setPurchaseTemplateHeader("POS BUSINESS\n123 Business St, City, Country\nPhone: (123) 456-7890");
+    setPurchaseTemplateFooter("Thank you for your business!\nItems purchased are not returnable\nVisit us again soon");
+    setShowPurchaseBusinessInfo(true);
+    setShowPurchaseTransactionDetails(true);
+    setShowPurchaseItemDetails(true);
+    setShowPurchaseTotals(true);
+    setShowPurchasePaymentInfo(true);
+    setShowPurchaseSupplierInfo(true);
+    setPurchaseFontSize("12px");
+    setPurchasePaperWidth("320px");
     
     setEmailNotifications(true);
     setLowStockAlerts(true);
@@ -267,6 +361,7 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
   const tabs = [
     { id: "general", label: t("general"), icon: Building },
     { id: "receipt", label: t("receipt"), icon: Printer },
+    { id: "purchaseReceipt", label: t("purchaseReceipt"), icon: Printer },
     { id: "notifications", label: t("notifications"), icon: Bell },
     { id: "security", label: t("security"), icon: Shield },
     { id: "display", label: t("display"), icon: Palette },
@@ -562,6 +657,161 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                               <Switch
                                 checked={showPaymentInfo}
                                 onCheckedChange={setShowPaymentInfo}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {activeTab === "purchaseReceipt" && (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>{t("printPurchaseReceipts")}</Label>
+                        <p className="text-sm text-muted-foreground">
+                          {t("printPurchaseReceiptsDescription")}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={printPurchaseReceipts}
+                        onCheckedChange={setPrintPurchaseReceipts}
+                      />
+                    </div>
+                    
+                    {/* Custom Purchase Receipt Template Settings */}
+                    <div className="border-t pt-6">
+                      <h3 className="text-lg font-medium mb-4">{t("customPurchaseReceiptTemplate")}</h3>
+                      
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <Label>{t("enableCustomPurchaseTemplate")}</Label>
+                          <p className="text-sm text-muted-foreground">
+                            {t("enableCustomPurchaseTemplateDescription")}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={customPurchaseTemplate}
+                          onCheckedChange={setCustomPurchaseTemplate}
+                        />
+                      </div>
+                      
+                      {customPurchaseTemplate && (
+                        <div className="space-y-4 pl-2 border-l-2 border-primary ml-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="purchase-template-header">{t("receiptHeaderTemplate")}</Label>
+                            <textarea
+                              id="purchase-template-header"
+                              value={purchaseTemplateHeader}
+                              onChange={(e) => setPurchaseTemplateHeader(e.target.value)}
+                              className="w-full min-h-[80px] p-2 border rounded-md"
+                              placeholder={t("enterReceiptHeader")}
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="purchase-template-footer">{t("receiptFooter")}</Label>
+                            <textarea
+                              id="purchase-template-footer"
+                              value={purchaseTemplateFooter}
+                              onChange={(e) => setPurchaseTemplateFooter(e.target.value)}
+                              className="w-full min-h-[80px] p-2 border rounded-md"
+                              placeholder={t("enterReceiptFooter")}
+                            />
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="purchase-font-size">{t("fontSize")}</Label>
+                              <Select value={purchaseFontSize} onValueChange={setPurchaseFontSize}>
+                                <SelectTrigger id="purchase-font-size">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="10px">10px ({t("small")})</SelectItem>
+                                  <SelectItem value="12px">12px ({t("medium")})</SelectItem>
+                                  <SelectItem value="14px">14px ({t("large")})</SelectItem>
+                                  <SelectItem value="16px">16px ({t("extraLarge")})</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor="purchase-paper-width">{t("paperWidth")}</Label>
+                              <Select value={purchasePaperWidth} onValueChange={setPurchasePaperWidth}>
+                                <SelectTrigger id="purchase-paper-width">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="280px">280px ({t("narrow")})</SelectItem>
+                                  <SelectItem value="320px">320px ({t("standard")})</SelectItem>
+                                  <SelectItem value="360px">360px ({t("wide")})</SelectItem>
+                                  <SelectItem value="400px">400px ({t("extraWide")})</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label>{t("showBusinessInfo")}</Label>
+                              </div>
+                              <Switch
+                                checked={showPurchaseBusinessInfo}
+                                onCheckedChange={setShowPurchaseBusinessInfo}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label>{t("showTransactionDetails")}</Label>
+                              </div>
+                              <Switch
+                                checked={showPurchaseTransactionDetails}
+                                onCheckedChange={setShowPurchaseTransactionDetails}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label>{t("showItemDetails")}</Label>
+                              </div>
+                              <Switch
+                                checked={showPurchaseItemDetails}
+                                onCheckedChange={setShowPurchaseItemDetails}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label>{t("showTotals")}</Label>
+                              </div>
+                              <Switch
+                                checked={showPurchaseTotals}
+                                onCheckedChange={setShowPurchaseTotals}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label>{t("showPaymentInfo")}</Label>
+                              </div>
+                              <Switch
+                                checked={showPurchasePaymentInfo}
+                                onCheckedChange={setShowPurchasePaymentInfo}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label>{t("showSupplierInfo")}</Label>
+                              </div>
+                              <Switch
+                                checked={showPurchaseSupplierInfo}
+                                onCheckedChange={setShowPurchaseSupplierInfo}
                               />
                             </div>
                           </div>

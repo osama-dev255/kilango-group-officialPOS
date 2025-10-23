@@ -8,10 +8,11 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Minus, Trash2, ShoppingCart, Search, User, Percent, CreditCard, Wallet, Scan, Star, Printer, Download, Truck } from "lucide-react";
+import { Plus, Minus, Trash2, ShoppingCart, Search, User, Percent, CreditCard, Wallet, Scan, Star, Printer, Download, Truck, Package, PackagePlus, FileText, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
+import { PrintUtils } from "@/utils/printUtils";
 // Import Supabase database service
 import { getProducts, getSuppliers, updateProductStock, createSupplier, createPurchaseOrder, createPurchaseOrderItem, Product, Supplier as DatabaseSupplier } from "@/services/databaseService";
 
@@ -132,10 +133,14 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
 
   const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   
+  // Display only tax (18% of subtotal) - for informational purposes only
+  const displayTax = subtotal * 0.18;
+  
   const discountAmount = discountType === "percentage" 
     ? subtotal * (parseFloat(discountValue) / 100 || 0)
     : parseFloat(discountValue) || 0;
     
+  // Actual total calculation (tax not included in computation)
   const total = subtotal - discountAmount;
   
   const amountReceivedNum = parseFloat(amountReceived) || 0;
@@ -164,6 +169,16 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
       return;
     }
 
+    // Check if supplier is selected
+    if (!selectedSupplier) {
+      toast({
+        title: "Error",
+        description: "Please select a supplier before completing the purchase",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (paymentMethod === "cash" && change < 0) {
       toast({
         title: "Error",
@@ -176,7 +191,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
     try {
       // Create the purchase order record in the database
       const purchaseOrderData = {
-        supplier_id: selectedSupplier?.id || null,
+        supplier_id: selectedSupplier.id, // Now required, no longer allows null
         user_id: null, // In a real app, this would be the current user ID
         order_number: `PO-${Date.now()}`,
         order_date: new Date().toISOString(),
@@ -222,15 +237,9 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
       const updatedProducts = await getProducts();
       setProducts(updatedProducts);
 
-      // Show transaction complete dialog
+      // Show transaction complete dialog (without clearing cart yet)
       setIsPaymentDialogOpen(false);
       setIsTransactionCompleteDialogOpen(true);
-      
-      // Clear cart and reset form
-      setCart([]);
-      setSelectedSupplier(null);
-      setDiscountValue("");
-      setAmountReceived("");
       
       toast({
         title: "Success",
@@ -323,16 +332,16 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
       <main className="container mx-auto p-6">
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Purchase Terminal</h1>
+            <h1 className="text-3xl font-bold text-blue-600">Purchase Terminal</h1>
             <p className="text-muted-foreground">Process supplier purchases and manage incoming inventory</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsScannerOpen(true)}>
+            <Button variant="outline" className="border-blue-500 text-blue-600 hover:bg-blue-50" onClick={() => setIsScannerOpen(true)}>
               <Scan className="h-4 w-4 mr-2" />
               Scan Item
             </Button>
-            <Button onClick={processTransaction}>
-              <ShoppingCart className="h-4 w-4 mr-2" />
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={processTransaction}>
+              <PackagePlus className="h-4 w-4 mr-2" />
               Process Purchase
             </Button>
           </div>
@@ -342,9 +351,12 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
           {/* Product Search and Cart */}
           <div className="lg:col-span-2 space-y-6">
             {/* Product Search */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Product Search</CardTitle>
+            <Card className="border-blue-200">
+              <CardHeader className="bg-blue-50">
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5 text-blue-600" />
+                  Product Search
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="relative">
@@ -353,12 +365,12 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                     placeholder="Search products by name, barcode, or SKU..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 border-blue-200"
                   />
                 </div>
                 
                 {searchTerm && (
-                  <div className="mt-2 border rounded-md max-h-60 overflow-y-auto">
+                  <div className="mt-2 border border-blue-200 rounded-md max-h-60 overflow-y-auto">
                     {loading ? (
                       <div className="p-4 text-center text-muted-foreground">
                         Loading products...
@@ -368,11 +380,11 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                         No products found
                       </div>
                     ) : (
-                      <div className="divide-y">
+                      <div className="divide-y divide-blue-100">
                         {filteredProducts.map((product) => (
                           <div 
                             key={product.id}
-                            className="p-3 hover:bg-muted cursor-pointer flex justify-between items-center"
+                            className="p-3 hover:bg-blue-50 cursor-pointer flex justify-between items-center"
                             onClick={() => addToCart(product)}
                           >
                             <div>
@@ -387,7 +399,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                                 </div>
                               </div>
                             </div>
-                            <div className="font-medium">{formatCurrency(product.cost_price)}</div>
+                            <div className="font-medium text-blue-600">{formatCurrency(product.cost_price)}</div>
                           </div>
                         ))}
                       </div>
@@ -397,22 +409,25 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
               </CardContent>
             </Card>
 
-            {/* Shopping Cart */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Purchase Cart</CardTitle>
+            {/* Purchase Cart */}
+            <Card className="border-blue-200">
+              <CardHeader className="bg-blue-50">
+                <CardTitle className="flex items-center gap-2">
+                  <ShoppingCart className="h-5 w-5 text-blue-600" />
+                  Purchase Cart
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {cart.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <ShoppingCart className="h-12 w-12 mx-auto mb-4" />
-                    <p>Your cart is empty</p>
+                    <Package className="h-12 w-12 mx-auto mb-4 text-blue-300" />
+                    <p>Your purchase cart is empty</p>
                     <p className="text-sm">Add products using the search above</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {cart.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={item.id} className="flex items-center justify-between p-3 border border-blue-200 rounded-lg bg-blue-50">
                         <div className="flex-1">
                           <div className="font-medium">{item.name}</div>
                           <div className="text-sm text-muted-foreground">
@@ -420,49 +435,56 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const newQuantity = Math.max(0, parseInt(e.target.value) || 0);
+                              setCart(cart.map(cartItem => 
+                                cartItem.id === item.id 
+                                  ? { ...cartItem, quantity: newQuantity } 
+                                  : cartItem
+                              ));
+                            }}
+                            className="w-16 border-blue-300"
+                          />
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => updateQuantity(item.id, -1)}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-8 text-center">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateQuantity(item.id, 1)}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
+                            className="border-red-300 text-red-600 hover:bg-red-100"
                             onClick={() => removeItem(item.id)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
-                        <div className="font-medium ml-4">
+                        <div className="font-medium ml-4 text-blue-600">
                           {formatCurrency(item.price * item.quantity)}
                         </div>
                       </div>
                     ))}
                     
-                    <Separator />
+                    <Separator className="bg-blue-200" />
                     
-                    <div className="space-y-2">
+                    <div className="space-y-2 bg-blue-50 p-3 rounded-lg">
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
-                        <span>{formatCurrency(subtotal)}</span>
+                        <span className="font-medium">{formatCurrency(subtotal)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Discount:</span>
-                        <span>-{formatCurrency(discountAmount)}</span>
+                        <span className="font-medium">-{formatCurrency(discountAmount)}</span>
                       </div>
-                      <div className="flex justify-between font-bold">
+                      <div className="flex justify-between">
+                        <span>Tax (18%):</span>
+                        <span className="font-medium">{formatCurrency(displayTax)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-blue-700">
                         <span>Total:</span>
                         <span>{formatCurrency(total)}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-2">
+                        Note: Tax is for display purposes only and not included in calculations
                       </div>
                     </div>
                   </div>
@@ -474,9 +496,12 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
           {/* Supplier and Transaction Info */}
           <div className="space-y-6">
             {/* Supplier Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Supplier</CardTitle>
+            <Card className="border-blue-200">
+              <CardHeader className="bg-blue-50">
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="h-5 w-5 text-blue-600" />
+                  Supplier
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {selectedSupplier ? (
@@ -491,6 +516,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                       <Button
                         variant="outline"
                         size="sm"
+                        className="border-blue-300 text-blue-600 hover:bg-blue-100"
                         onClick={() => setSelectedSupplier(null)}
                       >
                         Change
@@ -500,7 +526,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                 ) : (
                   <div className="space-y-3">
                     <Button 
-                      className="w-full"
+                      className="w-full bg-blue-600 hover:bg-blue-700"
                       onClick={() => setIsSupplierDialogOpen(true)}
                     >
                       <User className="h-4 w-4 mr-2" />
@@ -512,9 +538,12 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
             </Card>
 
             {/* Discount */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Discount</CardTitle>
+            <Card className="border-blue-200">
+              <CardHeader className="bg-blue-50">
+                <CardTitle className="flex items-center gap-2">
+                  <Percent className="h-5 w-5 text-blue-600" />
+                  Discount
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-2">
@@ -522,7 +551,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                     value={discountType} 
                     onValueChange={(value) => setDiscountType(value as "percentage" | "amount")}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-blue-200">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -535,22 +564,26 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                     placeholder={discountType === "percentage" ? "0%" : "Tsh0.00"}
                     value={discountValue}
                     onChange={(e) => setDiscountValue(e.target.value)}
+                    className="border-blue-200"
                   />
                 </div>
               </CardContent>
             </Card>
 
             {/* Payment Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Summary</CardTitle>
+            <Card className="border-blue-200">
+              <CardHeader className="bg-blue-50">
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  Payment Summary
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-2">
                     <Label>Payment Method</Label>
                     <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <SelectTrigger>
+                      <SelectTrigger className="border-blue-200">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -570,7 +603,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                     </Select>
                   </div>
                   
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-2 text-sm bg-blue-50 p-3 rounded-lg">
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
                       <span>{formatCurrency(subtotal)}</span>
@@ -579,14 +612,18 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                       <span>Discount:</span>
                       <span>-{formatCurrency(discountAmount)}</span>
                     </div>
-                    <div className="flex justify-between font-bold">
+                    <div className="flex justify-between">
+                      <span>Tax (18%):</span>
+                      <span>{formatCurrency(displayTax)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-blue-700">
                       <span>Total:</span>
                       <span>{formatCurrency(total)}</span>
                     </div>
                   </div>
                   
                   <Button 
-                    className="w-full" 
+                    className="w-full bg-blue-600 hover:bg-blue-700" 
                     onClick={processTransaction}
                     disabled={cart.length === 0}
                   >
@@ -629,6 +666,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                     value={newSupplier.name}
                     onChange={(e) => setNewSupplier({...newSupplier, name: e.target.value})}
                     placeholder="Enter supplier name"
+                    className="border-blue-200"
                   />
                 </div>
                 
@@ -639,6 +677,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                     value={newSupplier.contact_person}
                     onChange={(e) => setNewSupplier({...newSupplier, contact_person: e.target.value})}
                     placeholder="Enter contact person"
+                    className="border-blue-200"
                   />
                 </div>
                 
@@ -650,6 +689,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                     value={newSupplier.email}
                     onChange={(e) => setNewSupplier({...newSupplier, email: e.target.value})}
                     placeholder="Enter email"
+                    className="border-blue-200"
                   />
                 </div>
                 
@@ -660,12 +700,14 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                     value={newSupplier.phone}
                     onChange={(e) => setNewSupplier({...newSupplier, phone: e.target.value})}
                     placeholder="Enter phone number"
+                    className="border-blue-200"
                   />
                 </div>
                 
                 <div className="flex justify-end gap-2">
                   <Button 
                     variant="outline" 
+                    className="border-blue-300 text-blue-600 hover:bg-blue-100"
                     onClick={() => {
                       setIsAddingNewSupplier(false);
                       setNewSupplier({
@@ -678,7 +720,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                   >
                     Back
                   </Button>
-                  <Button onClick={handleCreateSupplier}>
+                  <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleCreateSupplier}>
                     Add Supplier
                   </Button>
                 </div>
@@ -693,7 +735,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                 ) : (
                   <div className="space-y-3">
                     <Button 
-                      className="w-full"
+                      className="w-full bg-blue-600 hover:bg-blue-700"
                       onClick={() => setIsAddingNewSupplier(true)}
                     >
                       <Plus className="h-4 w-4 mr-2" />
@@ -709,7 +751,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                         {suppliers.map((supplier) => (
                           <div
                             key={supplier.id}
-                            className="p-3 border rounded-lg hover:bg-muted cursor-pointer flex justify-between items-center"
+                            className="p-3 border border-blue-200 rounded-lg hover:bg-blue-50 cursor-pointer flex justify-between items-center"
                             onClick={() => {
                               setSelectedSupplier(supplier);
                               setIsSupplierDialogOpen(false);
@@ -721,7 +763,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                                 {supplier.contactPerson && `Contact: ${supplier.contactPerson}`}
                               </div>
                             </div>
-                            <Truck className="h-4 w-4 text-muted-foreground" />
+                            <Truck className="h-4 w-4 text-blue-500" />
                           </div>
                         ))}
                       </div>
@@ -743,15 +785,15 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Total Amount</Label>
-                  <div className="text-2xl font-bold">{formatCurrency(total)}</div>
+                  <div className="text-2xl font-bold text-blue-600">{formatCurrency(total)}</div>
                 </div>
                 <div>
                   <Label>Payment Method</Label>
                   <div className="flex items-center gap-2">
                     {paymentMethod === "cash" ? (
-                      <Wallet className="h-4 w-4" />
+                      <Wallet className="h-4 w-4 text-blue-500" />
                     ) : (
-                      <CreditCard className="h-4 w-4" />
+                      <CreditCard className="h-4 w-4 text-blue-500" />
                     )}
                     <span className="capitalize">{paymentMethod}</span>
                   </div>
@@ -766,6 +808,7 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                     placeholder="0.00"
                     value={amountReceived}
                     onChange={(e) => setAmountReceived(e.target.value)}
+                    className="border-blue-200"
                   />
                   {amountReceived && (
                     <div className="mt-2 text-sm">
@@ -778,10 +821,10 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
               )}
               
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>
+                <Button variant="outline" className="border-blue-300 text-blue-600 hover:bg-blue-100" onClick={() => setIsPaymentDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={completeTransaction}>
+                <Button className="bg-blue-600 hover:bg-blue-700" onClick={completeTransaction}>
                   Complete Purchase
                 </Button>
               </div>
@@ -803,12 +846,51 @@ export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: str
                 </p>
               </div>
               
-              <div className="flex justify-center gap-4">
-                <Button variant="outline" onClick={() => {
+              <div className="flex flex-col gap-3">
+                <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => {
+                  // Prepare transaction data for printing
+                  const transactionData = {
+                    orderNumber: `PO-${Date.now()}`,
+                    date: new Date().toISOString(),
+                    supplier: selectedSupplier,
+                    items: cart.map(item => ({
+                      name: item.name,
+                      quantity: item.quantity,
+                      price: item.price,
+                      total: item.price * item.quantity
+                    })),
+                    subtotal: subtotal,
+                    discount: discountAmount,
+                    total: total,
+                    paymentMethod: paymentMethod,
+                    amountReceived: amountReceivedNum,
+                    change: change
+                  };
+                  
+                  // Print receipt
+                  PrintUtils.printPurchaseReceipt(transactionData);
+                  
+                  // Keep dialog open to allow user to choose again
+                }}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print Receipt
+                </Button>
+                
+                <Button variant="outline" className="border-blue-300 text-blue-600 hover:bg-blue-100" onClick={() => {
+                  // Clear cart and reset form
+                  setCart([]);
+                  setSelectedSupplier(null);
+                  setDiscountValue("");
+                  setAmountReceived("");
                   setIsTransactionCompleteDialogOpen(false);
                 }}>
-                  Close
+                  <X className="h-4 w-4 mr-2" />
+                  Quit Cart
                 </Button>
+              </div>
+              
+              <div className="text-center text-sm text-muted-foreground">
+                Choose an option above to continue
               </div>
             </div>
           </DialogContent>

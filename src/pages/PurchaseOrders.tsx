@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Edit, Trash2, ShoppingCart, Truck, Calendar } from "lucide-react";
+import { Search, Plus, Edit, Trash2, ShoppingCart, Truck, Calendar, X, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatCurrency } from "@/lib/currency";
+import { getPurchaseOrders, createPurchaseOrder, updatePurchaseOrder, deletePurchaseOrderWithItems, getSuppliers, getPurchaseOrderItems, createPurchaseOrderItem, updatePurchaseOrderItem, getProducts } from "@/services/databaseService";
 
 interface PurchaseOrderItem {
   id: string;
@@ -35,83 +37,8 @@ interface PurchaseOrder {
 }
 
 export const PurchaseOrders = ({ username, onBack, onLogout }: { username: string; onBack: () => void; onLogout: () => void }) => {
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([
-    {
-      id: "1",
-      poNumber: "PO-001",
-      supplierId: "1",
-      supplierName: "Tech Distributors Inc.",
-      orderDate: "2023-05-10",
-      expectedDelivery: "2023-05-20",
-      status: "received",
-      items: [
-        {
-          id: "1-1",
-          productId: "1",
-          productName: "Wireless Headphones",
-          quantity: 20,
-          unitPrice: 45.00,
-          total: 900.00
-        },
-        {
-          id: "1-2",
-          productId: "2",
-          productName: "Smartphone",
-          quantity: 10,
-          unitPrice: 300.00,
-          total: 3000.00
-        }
-      ],
-      subtotal: 3900.00,
-      tax: 312.00,
-      total: 4212.00
-    },
-    {
-      id: "2",
-      poNumber: "PO-002",
-      supplierId: "2",
-      supplierName: "Global Home Goods",
-      orderDate: "2023-05-15",
-      expectedDelivery: "2023-05-25",
-      status: "ordered",
-      items: [
-        {
-          id: "2-1",
-          productId: "3",
-          productName: "Coffee Maker",
-          quantity: 15,
-          unitPrice: 35.00,
-          total: 525.00
-        }
-      ],
-      subtotal: 525.00,
-      tax: 42.00,
-      total: 567.00
-    },
-    {
-      id: "3",
-      poNumber: "PO-003",
-      supplierId: "1",
-      supplierName: "Tech Distributors Inc.",
-      orderDate: "2023-05-18",
-      expectedDelivery: "2023-05-28",
-      status: "draft",
-      items: [
-        {
-          id: "3-1",
-          productId: "4",
-          productName: "Laptop",
-          quantity: 5,
-          unitPrice: 600.00,
-          total: 3000.00
-        }
-      ],
-      subtotal: 3000.00,
-      tax: 240.00,
-      total: 3240.00
-    }
-  ]);
-  
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -123,23 +50,71 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
     expectedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: "draft"
   });
+  // State for managing items in the dialog
+  const [poItems, setPoItems] = useState<PurchaseOrderItem[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<{id: string, name: string, price: number} | null>(null);
+  const [itemQuantity, setItemQuantity] = useState(1);
   const { toast } = useToast();
 
-  const suppliers = [
-    { id: "1", name: "Tech Distributors Inc." },
-    { id: "2", name: "Global Home Goods" },
-    { id: "3", name: "Fashion Wholesale Co." }
-  ];
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
+  const [products, setProducts] = useState<{ id: string; name: string; price: number }[]>([]);
 
-  const products = [
-    { id: "1", name: "Wireless Headphones", price: 45.00 },
-    { id: "2", name: "Smartphone", price: 300.00 },
-    { id: "3", name: "Coffee Maker", price: 35.00 },
-    { id: "4", name: "Laptop", price: 600.00 },
-    { id: "5", name: "Running Shoes", price: 65.00 }
-  ];
+  // Load purchase orders, suppliers, and products from database
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // Load suppliers
+        const supplierData = await getSuppliers();
+        const formattedSuppliers = supplierData.map(supplier => ({
+          id: supplier.id || '',
+          name: supplier.name || 'Unknown Supplier'
+        }));
+        setSuppliers(formattedSuppliers);
+        
+        // Load products
+        const productData = await getProducts();
+        const formattedProducts = productData.map(product => ({
+          id: product.id || '',
+          name: product.name || 'Unknown Product',
+          price: product.cost_price || 0
+        }));
+        setProducts(formattedProducts);
+        
+        // Load purchase orders
+        const orders = await getPurchaseOrders();
+        // Convert database orders to component format
+        const formattedOrders = orders.map(order => ({
+          id: order.id || '',
+          poNumber: order.order_number || `PO-${order.id?.substring(0, 8) || '001'}`,
+          supplierId: order.supplier_id || '',
+          supplierName: supplierData.find(s => s.id === order.supplier_id)?.name || 'Unknown Supplier',
+          orderDate: order.order_date || new Date().toISOString(),
+          expectedDelivery: order.expected_delivery_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          status: (order.status as "draft" | "ordered" | "received" | "cancelled") || "draft",
+          items: [], // Will be loaded when needed
+          subtotal: 0, // Will be calculated
+          tax: 0, // Will be calculated
+          total: order.total_amount || 0
+        }));
+        setPurchaseOrders(formattedOrders);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load data",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleAddPO = () => {
+    loadData();
+  }, []);
+
+  const handleAddPO = async () => {
     if (!newPO.supplierId || !newPO.supplierName) {
       toast({
         title: "Error",
@@ -149,29 +124,92 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
       return;
     }
 
-    const poNumber = `PO-${String(purchaseOrders.length + 1).padStart(3, '0')}`;
-    
-    const purchaseOrder: PurchaseOrder = {
-      ...newPO,
-      id: Date.now().toString(),
-      poNumber,
-      items: [],
-      subtotal: 0,
-      tax: 0,
-      total: 0
-    };
+    try {
+      // Create the purchase order
+      const poData = {
+        supplier_id: newPO.supplierId,
+        order_date: newPO.orderDate,
+        expected_delivery_date: newPO.expectedDelivery,
+        status: newPO.status,
+        total_amount: 0 // Will be updated after items are added
+      };
 
-    setPurchaseOrders([...purchaseOrders, purchaseOrder]);
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Purchase order created successfully"
-    });
+      const createdPO = await createPurchaseOrder(poData);
+      
+      if (!createdPO) {
+        throw new Error("Failed to create purchase order");
+      }
+
+      // Add items to the purchase order
+      let totalAmount = 0;
+      for (const item of poItems) {
+        const itemData = {
+          purchase_order_id: createdPO.id!,
+          product_id: item.productId,
+          quantity_ordered: item.quantity,
+          quantity_received: item.quantity,
+          unit_cost: item.unitPrice,
+          total_cost: item.total
+        };
+        
+        await createPurchaseOrderItem(itemData);
+        totalAmount += item.total;
+      }
+
+      // Update the purchase order with the correct total amount
+      await updatePurchaseOrder(createdPO.id!, { total_amount: totalAmount });
+
+      // Refresh all data
+      const supplierData = await getSuppliers();
+      const formattedSuppliers = supplierData.map(supplier => ({
+        id: supplier.id || '',
+        name: supplier.name || 'Unknown Supplier'
+      }));
+      setSuppliers(formattedSuppliers);
+      
+      const productData = await getProducts();
+      const formattedProducts = productData.map(product => ({
+        id: product.id || '',
+        name: product.name || 'Unknown Product',
+        price: product.cost_price || 0
+      }));
+      setProducts(formattedProducts);
+      
+      const orders = await getPurchaseOrders();
+      // Convert database orders to component format
+      const formattedOrders = orders.map(order => ({
+        id: order.id || '',
+        poNumber: order.order_number || `PO-${order.id?.substring(0, 8) || '001'}`,
+        supplierId: order.supplier_id || '',
+        supplierName: supplierData.find(s => s.id === order.supplier_id)?.name || 'Unknown Supplier',
+        orderDate: order.order_date || new Date().toISOString(),
+        expectedDelivery: order.expected_delivery_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        status: (order.status as "draft" | "ordered" | "received" | "cancelled") || "draft",
+        items: [], // Will be loaded when needed
+        subtotal: 0, // Will be calculated
+        tax: 0, // Will be calculated
+        total: order.total_amount || 0
+      }));
+      setPurchaseOrders(formattedOrders);
+      
+      resetForm();
+      setIsDialogOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Purchase order created successfully"
+      });
+    } catch (error) {
+      console.error("Error creating purchase order:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create purchase order: " + (error as Error).message,
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleUpdatePO = () => {
+  const handleUpdatePO = async () => {
     if (!editingPO || !editingPO.supplierId || !editingPO.supplierName) {
       toast({
         title: "Error",
@@ -181,22 +219,125 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
       return;
     }
 
-    setPurchaseOrders(purchaseOrders.map(po => po.id === editingPO.id ? editingPO : po));
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Purchase order updated successfully"
-    });
+    try {
+      // Update the purchase order
+      const poData = {
+        supplier_id: editingPO.supplierId,
+        order_date: editingPO.orderDate,
+        expected_delivery_date: editingPO.expectedDelivery,
+        status: editingPO.status,
+        total_amount: editingPO.total
+      };
+
+      const updatedPO = await updatePurchaseOrder(editingPO.id, poData);
+      
+      if (!updatedPO) {
+        throw new Error("Failed to update purchase order");
+      }
+
+      // Refresh all data
+      const supplierData = await getSuppliers();
+      const formattedSuppliers = supplierData.map(supplier => ({
+        id: supplier.id || '',
+        name: supplier.name || 'Unknown Supplier'
+      }));
+      setSuppliers(formattedSuppliers);
+      
+      const productData = await getProducts();
+      const formattedProducts = productData.map(product => ({
+        id: product.id || '',
+        name: product.name || 'Unknown Product',
+        price: product.cost_price || 0
+      }));
+      setProducts(formattedProducts);
+      
+      const orders = await getPurchaseOrders();
+      // Convert database orders to component format
+      const formattedOrders = orders.map(order => ({
+        id: order.id || '',
+        poNumber: order.order_number || `PO-${order.id?.substring(0, 8) || '001'}`,
+        supplierId: order.supplier_id || '',
+        supplierName: supplierData.find(s => s.id === order.supplier_id)?.name || 'Unknown Supplier',
+        orderDate: order.order_date || new Date().toISOString(),
+        expectedDelivery: order.expected_delivery_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        status: (order.status as "draft" | "ordered" | "received" | "cancelled") || "draft",
+        items: [], // Will be loaded when needed
+        subtotal: 0, // Will be calculated
+        tax: 0, // Will be calculated
+        total: order.total_amount || 0
+      }));
+      setPurchaseOrders(formattedOrders);
+      
+      resetForm();
+      setIsDialogOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Purchase order updated successfully"
+      });
+    } catch (error) {
+      console.error("Error updating purchase order:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update purchase order: " + (error as Error).message,
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeletePO = (id: string) => {
-    setPurchaseOrders(purchaseOrders.filter(po => po.id !== id));
-    toast({
-      title: "Success",
-      description: "Purchase order deleted successfully"
-    });
+  const handleDeletePO = async (id: string) => {
+    try {
+      const success = await deletePurchaseOrderWithItems(id);
+      
+      if (!success) {
+        throw new Error("Failed to delete purchase order");
+      }
+
+      // Refresh all data
+      const supplierData = await getSuppliers();
+      const formattedSuppliers = supplierData.map(supplier => ({
+        id: supplier.id || '',
+        name: supplier.name || 'Unknown Supplier'
+      }));
+      setSuppliers(formattedSuppliers);
+      
+      const productData = await getProducts();
+      const formattedProducts = productData.map(product => ({
+        id: product.id || '',
+        name: product.name || 'Unknown Product',
+        price: product.cost_price || 0
+      }));
+      setProducts(formattedProducts);
+      
+      const orders = await getPurchaseOrders();
+      // Convert database orders to component format
+      const formattedOrders = orders.map(order => ({
+        id: order.id || '',
+        poNumber: order.order_number || `PO-${order.id?.substring(0, 8) || '001'}`,
+        supplierId: order.supplier_id || '',
+        supplierName: supplierData.find(s => s.id === order.supplier_id)?.name || 'Unknown Supplier',
+        orderDate: order.order_date || new Date().toISOString(),
+        expectedDelivery: order.expected_delivery_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        status: (order.status as "draft" | "ordered" | "received" | "cancelled") || "draft",
+        items: [], // Will be loaded when needed
+        subtotal: 0, // Will be calculated
+        tax: 0, // Will be calculated
+        total: order.total_amount || 0
+      }));
+      setPurchaseOrders(formattedOrders);
+      
+      toast({
+        title: "Success",
+        description: "Purchase order deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting purchase order:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete purchase order: " + (error as Error).message,
+        variant: "destructive"
+      });
+    }
   };
 
   const resetForm = () => {
@@ -208,11 +349,36 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
       status: "draft"
     });
     setEditingPO(null);
+    setPoItems([]);
+    setSelectedProduct(null);
+    setItemQuantity(1);
   };
 
-  const openEditDialog = (po: PurchaseOrder) => {
-    setEditingPO(po);
-    setIsDialogOpen(true);
+  const openEditDialog = async (po: PurchaseOrder) => {
+    try {
+      // Load the purchase order items
+      const items = await getPurchaseOrderItems(po.id);
+      const productData = await getProducts();
+      const formattedItems = items.map(item => ({
+        id: item.id || '',
+        productId: item.product_id || '',
+        productName: productData.find(p => p.id === item.product_id)?.name || 'Unknown Product',
+        quantity: item.quantity_ordered,
+        unitPrice: item.unit_cost,
+        total: item.total_cost
+      }));
+      
+      setEditingPO(po);
+      setPoItems(formattedItems);
+      setIsDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading purchase order items:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load purchase order items",
+        variant: "destructive"
+      });
+    }
   };
 
   const openAddDialog = () => {
@@ -237,6 +403,45 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
         });
       }
     }
+  };
+
+  // Add item to the purchase order
+  const handleAddItem = () => {
+    if (!selectedProduct) {
+      toast({
+        title: "Error",
+        description: "Please select a product",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (itemQuantity <= 0) {
+      toast({
+        title: "Error",
+        description: "Quantity must be greater than 0",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newItem: PurchaseOrderItem = {
+      id: `item-${Date.now()}`,
+      productId: selectedProduct.id,
+      productName: selectedProduct.name,
+      quantity: itemQuantity,
+      unitPrice: selectedProduct.price,
+      total: selectedProduct.price * itemQuantity
+    };
+
+    setPoItems([...poItems, newItem]);
+    setSelectedProduct(null);
+    setItemQuantity(1);
+  };
+
+  // Remove item from the purchase order
+  const handleRemoveItem = (itemId: string) => {
+    setPoItems(poItems.filter(item => item.id !== itemId));
   };
 
   const filteredPOs = purchaseOrders.filter(po => {
@@ -296,7 +501,7 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                   New PO
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
                     {editingPO ? "Edit Purchase Order" : "Create Purchase Order"}
@@ -374,6 +579,89 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {/* Add Item Section */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-medium mb-3">Add Items</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                      <div className="md:col-span-2">
+                        <Label htmlFor="product">Product</Label>
+                        <Select
+                          value={selectedProduct?.id || ""}
+                          onValueChange={(value) => {
+                            const product = products.find(p => p.id === value);
+                            if (product) {
+                              setSelectedProduct(product);
+                            }
+                          }}
+                        >
+                          <SelectTrigger id="product">
+                            <SelectValue placeholder="Select product" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {products.map(product => (
+                              <SelectItem key={product.id} value={product.id}>
+                                {product.name} - {formatCurrency(product.price)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="quantity">Quantity</Label>
+                        <Input
+                          id="quantity"
+                          type="number"
+                          min="1"
+                          value={itemQuantity}
+                          onChange={(e) => setItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        />
+                      </div>
+                      
+                      <div className="flex items-end">
+                        <Button 
+                          onClick={handleAddItem}
+                          className="w-full"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Item
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Items List */}
+                  {poItems.length > 0 && (
+                    <div className="border rounded-lg p-4">
+                      <h3 className="font-medium mb-3">Items</h3>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {poItems.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between p-2 border rounded">
+                            <div>
+                              <div className="font-medium">{item.productName}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {item.quantity} × {formatCurrency(item.unitPrice)} = {formatCurrency(item.total)}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveItem(item.id)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="flex justify-between">
+                          <span>Subtotal:</span>
+                          <span>{formatCurrency(poItems.reduce((sum, item) => sum + item.total, 0))}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex justify-end gap-2">
@@ -425,13 +713,13 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                       <TableCell>{po.orderDate}</TableCell>
                       <TableCell>{po.expectedDelivery}</TableCell>
                       <TableCell>{po.items.length}</TableCell>
-                      <TableCell>${po.total.toFixed(2)}</TableCell>
+                      <TableCell>{formatCurrency(po.total)}</TableCell>
                       <TableCell>
                         <Badge 
                           variant={
                             po.status === "draft" ? "secondary" :
                             po.status === "ordered" ? "default" :
-                            po.status === "received" ? "success" : "destructive"
+                            po.status === "received" ? "default" : "destructive"
                           }
                         >
                           {po.status.charAt(0).toUpperCase() + po.status.slice(1)}

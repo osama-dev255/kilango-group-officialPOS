@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import { Dashboard } from "./pages/Dashboard";
 import { SalesDashboard } from "./pages/SalesDashboard";
 import { SalesCart } from "./pages/SalesCart";
+import { PurchaseTerminal } from "./pages/PurchaseTerminal";
 import TestPage from "./pages/TestPage";
 import { useEffect } from "react";
 // Import authentication context
@@ -55,6 +56,7 @@ const App = () => {
                 <Route path="/dashboard" element={<Dashboard username="admin" onNavigate={() => {}} onLogout={() => {}} />} />
                 <Route path="/sales" element={<SalesDashboard username="admin" onBack={() => {}} onLogout={() => {}} onNavigate={() => {}} />} />
                 <Route path="/sales/cart" element={<SalesCart username="admin" onBack={() => {}} onLogout={() => {}} />} />
+                <Route path="/purchase/terminal" element={<PurchaseTerminal username="admin" onBack={() => {}} onLogout={() => {}} />} />
                 <Route path="/test" element={<TestPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

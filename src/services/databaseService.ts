@@ -1158,6 +1158,27 @@ export const getPurchaseOrders = async (): Promise<PurchaseOrder[]> => {
   }
 };
 
+export const getPurchaseOrdersWithItems = async (): Promise<(PurchaseOrder & { items: PurchaseOrderItem[] })[]> => {
+  try {
+    // First get all purchase orders
+    const purchaseOrders = await getPurchaseOrders();
+    
+    // Then get all items for each purchase order
+    const purchaseOrdersWithItems = [];
+    for (const po of purchaseOrders) {
+      if (po.id) {
+        const items = await getPurchaseOrderItems(po.id);
+        purchaseOrdersWithItems.push({ ...po, items });
+      }
+    }
+    
+    return purchaseOrdersWithItems;
+  } catch (error) {
+    console.error('Error fetching purchase orders with items:', error);
+    return [];
+  }
+};
+
 export const getPurchaseOrderById = async (id: string): Promise<PurchaseOrder | null> => {
   try {
     const { data, error } = await supabase
@@ -1170,6 +1191,19 @@ export const getPurchaseOrderById = async (id: string): Promise<PurchaseOrder | 
     return data || null;
   } catch (error) {
     console.error('Error fetching purchase order:', error);
+    return null;
+  }
+};
+
+export const getPurchaseOrderWithItems = async (id: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[] }) | null> => {
+  try {
+    const purchaseOrder = await getPurchaseOrderById(id);
+    if (!purchaseOrder) return null;
+    
+    const items = await getPurchaseOrderItems(id);
+    return { ...purchaseOrder, items };
+  } catch (error) {
+    console.error('Error fetching purchase order with items:', error);
     return null;
   }
 };
@@ -1190,6 +1224,40 @@ export const createPurchaseOrder = async (purchaseOrder: Omit<PurchaseOrder, 'id
   }
 };
 
+export const createPurchaseOrderWithItems = async (
+  purchaseOrder: Omit<PurchaseOrder, 'id'>,
+  items: Omit<PurchaseOrderItem, 'id' | 'purchase_order_id'>[]
+): Promise<{ purchaseOrder: PurchaseOrder | null; items: PurchaseOrderItem[] }> => {
+  try {
+    // Create the purchase order first
+    const createdPurchaseOrder = await createPurchaseOrder(purchaseOrder);
+    
+    if (!createdPurchaseOrder || !createdPurchaseOrder.id) {
+      throw new Error('Failed to create purchase order');
+    }
+    
+    // Create all purchase order items
+    const createdItems: PurchaseOrderItem[] = [];
+    
+    for (const item of items) {
+      const purchaseOrderItem: Omit<PurchaseOrderItem, 'id'> = {
+        purchase_order_id: createdPurchaseOrder.id,
+        ...item
+      };
+      
+      const createdItem = await createPurchaseOrderItem(purchaseOrderItem);
+      if (createdItem) {
+        createdItems.push(createdItem);
+      }
+    }
+    
+    return { purchaseOrder: createdPurchaseOrder, items: createdItems };
+  } catch (error) {
+    console.error('Error creating purchase order with items:', error);
+    return { purchaseOrder: null, items: [] };
+  }
+};
+
 export const updatePurchaseOrder = async (id: string, purchaseOrder: Partial<PurchaseOrder>): Promise<PurchaseOrder | null> => {
   try {
     const { data, error } = await supabase
@@ -1204,6 +1272,89 @@ export const updatePurchaseOrder = async (id: string, purchaseOrder: Partial<Pur
   } catch (error) {
     console.error('Error updating purchase order:', error);
     return null;
+  }
+};
+
+export const updatePurchaseOrderWithItems = async (
+  id: string,
+  purchaseOrder: Partial<PurchaseOrder>,
+  items: { id?: string; data: Omit<PurchaseOrderItem, 'id' | 'purchase_order_id'> }[]
+): Promise<{ purchaseOrder: PurchaseOrder | null; items: PurchaseOrderItem[] }> => {
+  try {
+    // Update the purchase order
+    const updatedPurchaseOrder = await updatePurchaseOrder(id, purchaseOrder);
+    
+    if (!updatedPurchaseOrder) {
+      throw new Error('Failed to update purchase order');
+    }
+    
+    // Update or create purchase order items
+    const updatedItems: PurchaseOrderItem[] = [];
+    
+    for (const item of items) {
+      let updatedItem: PurchaseOrderItem | null = null;
+      
+      if (item.id) {
+        // Update existing item
+        updatedItem = await updatePurchaseOrderItem(item.id, {
+          purchase_order_id: id,
+          ...item.data
+        });
+      } else {
+        // Create new item
+        const purchaseOrderItem: Omit<PurchaseOrderItem, 'id'> = {
+          purchase_order_id: id,
+          ...item.data
+        };
+        updatedItem = await createPurchaseOrderItem(purchaseOrderItem);
+      }
+      
+      if (updatedItem) {
+        updatedItems.push(updatedItem);
+      }
+    }
+    
+    return { purchaseOrder: updatedPurchaseOrder, items: updatedItems };
+  } catch (error) {
+    console.error('Error updating purchase order with items:', error);
+    return { purchaseOrder: null, items: [] };
+  }
+};
+
+export const deletePurchaseOrder = async (id: string): Promise<boolean> => {
+  try {
+    // First delete all purchase order items associated with this purchase order
+    const { error: itemsError } = await supabase
+      .from('purchase_order_items')
+      .delete()
+      .eq('purchase_order_id', id);
+      
+    if (itemsError) throw itemsError;
+    
+    // Then delete the purchase order itself
+    const { error } = await supabase
+      .from('purchase_orders')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting purchase order:', error);
+    return false;
+  }
+};
+
+export const deletePurchaseOrderWithItems = async (id: string): Promise<boolean> => {
+  try {
+    // First delete all purchase order items associated with this purchase order
+    await deletePurchaseOrderItemsByPurchaseOrderId(id);
+    
+    // Then delete the purchase order itself
+    return await deletePurchaseOrder(id);
+  } catch (error) {
+    console.error('Error deleting purchase order with items:', error);
+    return false;
   }
 };
 
@@ -1223,6 +1374,51 @@ export const getPurchaseOrderItems = async (purchaseOrderId: string): Promise<Pu
   }
 };
 
+export const deletePurchaseOrderItem = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('purchase_order_items')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting purchase order item:', error);
+    return false;
+  }
+};
+
+export const deletePurchaseOrderItemsByIds = async (ids: string[]): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('purchase_order_items')
+      .delete()
+      .in('id', ids);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting purchase order items by IDs:', error);
+    return false;
+  }
+};
+
+export const deletePurchaseOrderItemsByPurchaseOrderId = async (purchaseOrderId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('purchase_order_items')
+      .delete()
+      .eq('purchase_order_id', purchaseOrderId);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting purchase order items by purchase order ID:', error);
+    return false;
+  }
+};
+
 export const createPurchaseOrderItem = async (purchaseOrderItem: Omit<PurchaseOrderItem, 'id'>): Promise<PurchaseOrderItem | null> => {
   try {
     const { data, error } = await supabase
@@ -1236,6 +1432,40 @@ export const createPurchaseOrderItem = async (purchaseOrderItem: Omit<PurchaseOr
   } catch (error) {
     console.error('Error creating purchase order item:', error);
     return null;
+  }
+};
+
+export const updatePurchaseOrderItem = async (id: string, purchaseOrderItem: Partial<PurchaseOrderItem>): Promise<PurchaseOrderItem | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('purchase_order_items')
+      .update(purchaseOrderItem)
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error updating purchase order item:', error);
+    return null;
+  }
+};
+
+export const updatePurchaseOrderItems = async (updates: { id: string; data: Partial<PurchaseOrderItem> }[]): Promise<boolean> => {
+  try {
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('purchase_order_items')
+        .update(update.data)
+        .eq('id', update.id);
+        
+      if (error) throw error;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error updating purchase order items:', error);
+    return false;
   }
 };
 

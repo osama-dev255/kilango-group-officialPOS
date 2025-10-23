@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, Edit, Trash2, Truck, Phone, Mail, MapPin, BarChart3, User, Download, Upload } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Truck, Phone, Mail, MapPin, BarChart3, User, Download, Upload, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AutomationService } from "@/services/automationService";
 import { ExportImportManager } from "@/components/ExportImportManager";
+import { getSuppliers, createSupplier, updateSupplier, deleteSupplier } from "@/services/databaseService";
 
 interface Supplier {
   id: string;
@@ -26,41 +27,8 @@ interface Supplier {
 }
 
 export const SupplierManagement = ({ username, onBack, onLogout }: { username: string; onBack: () => void; onLogout: () => void }) => {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([
-    {
-      id: "1",
-      name: "Tech Distributors Inc.",
-      contactPerson: "Robert Chen",
-      email: "robert@techdistributors.com",
-      phone: "(555) 123-4567",
-      address: "123 Tech Street, San Francisco, CA 94103",
-      products: ["Electronics", "Accessories"],
-      status: "active",
-      lastOrder: "2023-05-10"
-    },
-    {
-      id: "2",
-      name: "Global Home Goods",
-      contactPerson: "Maria Garcia",
-      email: "maria@globalhome.com",
-      phone: "(555) 987-6543",
-      address: "456 Home Avenue, New York, NY 10001",
-      products: ["Home & Garden", "Kitchenware"],
-      status: "active",
-      lastOrder: "2023-05-15"
-    },
-    {
-      id: "3",
-      name: "Fashion Wholesale Co.",
-      contactPerson: "James Wilson",
-      email: "james@fashionwholesale.com",
-      phone: "(555) 456-7890",
-      address: "789 Fashion Blvd, Los Angeles, CA 90001",
-      products: ["Clothing", "Accessories"],
-      status: "inactive"
-    }
-  ]);
-  
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -75,7 +43,40 @@ export const SupplierManagement = ({ username, onBack, onLogout }: { username: s
   });
   const { toast } = useToast();
 
-  const handleAddSupplier = () => {
+  // Load suppliers from database
+  useEffect(() => {
+    const loadSuppliers = async () => {
+      try {
+        setLoading(true);
+        const supplierData = await getSuppliers();
+        const formattedSuppliers = supplierData.map(supplier => ({
+          id: supplier.id || '',
+          name: supplier.name,
+          contactPerson: supplier.contact_person || '',
+          email: supplier.email || '',
+          phone: supplier.phone || '',
+          address: supplier.address || '',
+          products: [], // Will need to be loaded from a separate table or field
+          status: supplier.is_active ? "active" as const : "inactive" as const,
+          // lastOrder would need to be calculated from purchase orders
+        }));
+        setSuppliers(formattedSuppliers);
+      } catch (error) {
+        console.error("Error loading suppliers:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load suppliers",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSuppliers();
+  }, []);
+
+  const handleAddSupplier = async () => {
     if (!newSupplier.name || !newSupplier.contactPerson) {
       toast({
         title: "Error",
@@ -85,23 +86,54 @@ export const SupplierManagement = ({ username, onBack, onLogout }: { username: s
       return;
     }
 
-    const supplier: Supplier = {
-      ...newSupplier,
-      id: Date.now().toString()
-    };
+    try {
+      const supplierData = {
+        name: newSupplier.name,
+        contact_person: newSupplier.contactPerson,
+        email: newSupplier.email,
+        phone: newSupplier.phone,
+        address: newSupplier.address,
+        is_active: newSupplier.status === "active"
+      };
 
-    setSuppliers([...suppliers, supplier]);
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Supplier added successfully"
-    });
+      const createdSupplier = await createSupplier(supplierData);
+      
+      if (createdSupplier) {
+        const formattedSupplier: Supplier = {
+          id: createdSupplier.id || '',
+          name: createdSupplier.name,
+          contactPerson: createdSupplier.contact_person || '',
+          email: createdSupplier.email || '',
+          phone: createdSupplier.phone || '',
+          address: createdSupplier.address || '',
+          products: [],
+          status: createdSupplier.is_active ? "active" as const : "inactive" as const
+        };
+
+        setSuppliers([...suppliers, formattedSupplier]);
+        resetForm();
+        setIsDialogOpen(false);
+        
+        toast({
+          title: "Success",
+          description: "Supplier added successfully"
+        });
+      } else {
+        throw new Error("Failed to create supplier");
+      }
+    } catch (error) {
+      console.error("Error creating supplier:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add supplier: " + (error as Error).message,
+        variant: "destructive"
+      });
+    }
   };
 
   // Handle supplier import
   const handleImportSuppliers = (importedSuppliers: any[]) => {
+    // This would need to be updated to work with the database
     const updatedSuppliers = [...suppliers];
     
     importedSuppliers.forEach(importedSupplier => {
@@ -131,7 +163,7 @@ export const SupplierManagement = ({ username, onBack, onLogout }: { username: s
     });
   };
 
-  const handleUpdateSupplier = () => {
+  const handleUpdateSupplier = async () => {
     if (!editingSupplier || !editingSupplier.name || !editingSupplier.contactPerson) {
       toast({
         title: "Error",
@@ -141,22 +173,72 @@ export const SupplierManagement = ({ username, onBack, onLogout }: { username: s
       return;
     }
 
-    setSuppliers(suppliers.map(s => s.id === editingSupplier.id ? editingSupplier : s));
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Supplier updated successfully"
-    });
+    try {
+      const supplierData = {
+        name: editingSupplier.name,
+        contact_person: editingSupplier.contactPerson,
+        email: editingSupplier.email,
+        phone: editingSupplier.phone,
+        address: editingSupplier.address,
+        is_active: editingSupplier.status === "active"
+      };
+
+      const updatedSupplier = await updateSupplier(editingSupplier.id, supplierData);
+      
+      if (updatedSupplier) {
+        const formattedSupplier: Supplier = {
+          id: updatedSupplier.id || '',
+          name: updatedSupplier.name,
+          contactPerson: updatedSupplier.contact_person || '',
+          email: updatedSupplier.email || '',
+          phone: updatedSupplier.phone || '',
+          address: updatedSupplier.address || '',
+          products: [],
+          status: updatedSupplier.is_active ? "active" as const : "inactive" as const
+        };
+
+        setSuppliers(suppliers.map(s => s.id === editingSupplier.id ? formattedSupplier : s));
+        resetForm();
+        setIsDialogOpen(false);
+        
+        toast({
+          title: "Success",
+          description: "Supplier updated successfully"
+        });
+      } else {
+        throw new Error("Failed to update supplier");
+      }
+    } catch (error) {
+      console.error("Error updating supplier:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update supplier: " + (error as Error).message,
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeleteSupplier = (id: string) => {
-    setSuppliers(suppliers.filter(s => s.id !== id));
-    toast({
-      title: "Success",
-      description: "Supplier deleted successfully"
-    });
+  const handleDeleteSupplier = async (id: string) => {
+    try {
+      const success = await deleteSupplier(id);
+      
+      if (success) {
+        setSuppliers(suppliers.filter(s => s.id !== id));
+        toast({
+          title: "Success",
+          description: "Supplier deleted successfully"
+        });
+      } else {
+        throw new Error("Failed to delete supplier");
+      }
+    } catch (error) {
+      console.error("Error deleting supplier:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete supplier: " + (error as Error).message,
+        variant: "destructive"
+      });
+    }
   };
 
   const resetForm = () => {
@@ -180,6 +262,38 @@ export const SupplierManagement = ({ username, onBack, onLogout }: { username: s
   const openAddDialog = () => {
     resetForm();
     setIsDialogOpen(true);
+  };
+
+  // Refresh suppliers from database
+  const refreshSuppliers = async () => {
+    try {
+      setLoading(true);
+      const supplierData = await getSuppliers();
+      const formattedSuppliers = supplierData.map(supplier => ({
+        id: supplier.id || '',
+        name: supplier.name,
+        contactPerson: supplier.contact_person || '',
+        email: supplier.email || '',
+        phone: supplier.phone || '',
+        address: supplier.address || '',
+        products: [],
+        status: supplier.is_active ? "active" as const : "inactive" as const,
+      }));
+      setSuppliers(formattedSuppliers);
+      toast({
+        title: "Success",
+        description: "Suppliers refreshed successfully"
+      });
+    } catch (error) {
+      console.error("Error refreshing suppliers:", error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh suppliers",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Apply automated supplier performance tracking
@@ -218,6 +332,9 @@ export const SupplierManagement = ({ username, onBack, onLogout }: { username: s
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <Button variant="outline" onClick={refreshSuppliers}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
             
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>

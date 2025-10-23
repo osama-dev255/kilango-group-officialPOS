@@ -7,11 +7,14 @@ import { ProductManagement } from "@/pages/ProductManagement";
 import { CustomerManagement } from "@/pages/CustomerManagement";
 import { TransactionHistory } from "@/pages/TransactionHistory";
 import { SalesAnalytics } from "@/pages/SalesAnalytics";
+import { SpendingAnalytics } from "@/pages/SpendingAnalytics";
 import { EmployeeManagement } from "@/pages/EmployeeManagement";
 import { SupplierManagement } from "@/pages/SupplierManagement";
 import { PurchaseOrders } from "@/pages/PurchaseOrders";
 import { PurchaseDashboard } from "@/pages/PurchaseDashboard";
 import { PurchaseTerminal } from "@/pages/PurchaseTerminal";
+import { PurchaseTransactionHistory } from "@/pages/PurchaseTransactionHistory";
+import { PurchaseReports } from "@/pages/PurchaseReports";
 import { ExpenseManagement } from "@/pages/ExpenseManagement";
 import { ReturnsManagement } from "@/pages/ReturnsManagement";
 import { DebtManagement } from "@/pages/DebtManagement";
@@ -23,12 +26,13 @@ import { AccessLogs } from "@/pages/AccessLogs";
 import { ComprehensiveDashboard } from "@/pages/ComprehensiveDashboard";
 import { FinanceDashboard } from "@/pages/FinanceDashboard";
 import { FinancialReports } from "@/pages/FinancialReports";
+import { IncomeStatement } from "@/pages/IncomeStatement";
 import { Settings } from "@/pages/Settings";
 import { AutomatedDashboard } from "@/pages/AutomatedDashboard";
 import { SplashScreen } from "@/components/SplashScreen";
 import { useAuth } from "@/contexts/AuthContext";
 
-type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "reports" | "financial-reports" | "settings" | "automated" | "comprehensive";
+type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "spending-analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "purchase-transactions" | "purchase-reports" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "reports" | "financial-reports" | "income-statement" | "settings" | "automated" | "comprehensive";
 
 const Index = () => {
   const { user, login } = useAuth();
@@ -72,8 +76,8 @@ const Index = () => {
     // Add debugging
     console.log("Available modules:", [
       "sales", "cart", "inventory", "products", "purchase", "finance", 
-      "customers", "transactions", "analytics", "employees", "suppliers", 
-      "purchase-orders", "expenses", "returns", "debts", "customer-settlements", 
+      "customers", "transactions", "analytics", "spending-analytics", "employees", "suppliers", 
+      "purchase-orders", "purchase-terminal", "purchase-transactions", "purchase-reports", "expenses", "returns", "debts", "customer-settlements", 
       "supplier-settlements", "discounts", "audit", "access-logs", 
       "comprehensive", "reports", "financial-reports", "settings", 
       "scanner", "automated"
@@ -103,7 +107,7 @@ const Index = () => {
         setCurrentView("transactions");
         break;
       case "analytics":
-        setCurrentView("analytics");
+        setCurrentView("spending-analytics");
         break;
       case "employees":
         setCurrentView("employees");
@@ -116,6 +120,12 @@ const Index = () => {
         break;
       case "purchase-terminal":
         setCurrentView("purchase-terminal");
+        break;
+      case "purchase-transactions":
+        setCurrentView("purchase-transactions");
+        break;
+      case "purchase-reports":
+        setCurrentView("purchase-reports");
         break;
       case "expenses":
         setCurrentView("expenses");
@@ -147,6 +157,10 @@ const Index = () => {
       case "reports":
         // Show financial reports view
         setCurrentView("financial-reports");
+        break;
+      case "income-statement":
+        // Show income statement view
+        setCurrentView("income-statement");
         break;
       case "settings":
         setCurrentView("settings");
@@ -183,7 +197,8 @@ const Index = () => {
         setCurrentView("sales");
         break;
       case "analytics":
-        setCurrentView("sales");
+      case "spending-analytics":
+        setCurrentView("purchase");
         break;
       case "employees":
         setCurrentView("comprehensive");
@@ -195,6 +210,12 @@ const Index = () => {
         setCurrentView("purchase");
         break;
       case "purchase-terminal":
+        setCurrentView("purchase");
+        break;
+      case "purchase-transactions":
+        setCurrentView("purchase");
+        break;
+      case "purchase-reports":
         setCurrentView("purchase");
         break;
       case "purchase":
@@ -229,6 +250,12 @@ const Index = () => {
         break;
       case "settings":
         setCurrentView("comprehensive");
+        break;
+      case "financial-reports":
+        setCurrentView("finance");
+        break;
+      case "income-statement":
+        setCurrentView("financial-reports");
         break;
       default:
         setCurrentView("comprehensive");
@@ -315,9 +342,10 @@ const Index = () => {
               />
             );
           case "analytics":
-            console.log("Rendering SalesAnalytics");
+          case "spending-analytics":
+            console.log("Rendering SpendingAnalytics");
             return (
-              <SalesAnalytics
+              <SpendingAnalytics
                 username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
@@ -346,6 +374,24 @@ const Index = () => {
             console.log("Rendering PurchaseTerminal");
             return (
               <PurchaseTerminal
+                username={user?.email || "admin"}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "purchase-transactions":
+            console.log("Rendering PurchaseTransactionHistory");
+            return (
+              <PurchaseTransactionHistory
+                username={user?.email || "admin"}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "purchase-reports":
+            console.log("Rendering PurchaseReports");
+            return (
+              <PurchaseReports
                 username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
@@ -455,6 +501,15 @@ const Index = () => {
             console.log("Rendering FinancialReports");
             return (
               <FinancialReports
+                username={user?.email || "admin"}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "income-statement":
+            console.log("Rendering IncomeStatement");
+            return (
+              <IncomeStatement
                 username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}

@@ -17,6 +17,11 @@ export const DashboardCard = ({
   onClick, 
   className 
 }: DashboardCardProps) => {
+  const handleClick = () => {
+    console.log("DashboardCard clicked:", title);
+    onClick();
+  };
+  
   return (
     <Card 
       className={cn(

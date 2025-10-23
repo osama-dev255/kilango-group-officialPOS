@@ -3,6 +3,8 @@ import { LoginForm } from "@/components/LoginForm";
 import { Dashboard } from "@/pages/Dashboard";
 import { SalesDashboard } from "@/pages/SalesDashboard";
 import { SalesCart } from "@/pages/SalesCart";
+import { SalesOrders } from "@/pages/SalesOrders";
+import { TestSalesOrders } from "@/pages/TestSalesOrders";
 import { ProductManagement } from "@/pages/ProductManagement";
 import { CustomerManagement } from "@/pages/CustomerManagement";
 import { TransactionHistory } from "@/pages/TransactionHistory";
@@ -30,9 +32,10 @@ import { IncomeStatement } from "@/pages/IncomeStatement";
 import { Settings } from "@/pages/Settings";
 import { AutomatedDashboard } from "@/pages/AutomatedDashboard";
 import { SplashScreen } from "@/components/SplashScreen";
+import { TestDataDisplay } from "@/testDataDisplay";
 import { useAuth } from "@/contexts/AuthContext";
 
-type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "spending-analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "purchase-transactions" | "purchase-reports" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "reports" | "financial-reports" | "income-statement" | "settings" | "automated" | "comprehensive";
+type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "sales-orders" | "test-sales-orders" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "spending-analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "purchase-transactions" | "purchase-reports" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "comprehensive" | "reports" | "financial-reports" | "income-statement" | "settings" | "automated" | "test-data";
 
 const Index = () => {
   const { user, login } = useAuth();
@@ -72,23 +75,21 @@ const Index = () => {
   };
 
   const handleNavigate = (destination: string) => {
-    console.log("Navigating to:", destination);
-    // Add debugging
-    console.log("Available modules:", [
-      "sales", "cart", "inventory", "products", "purchase", "finance", 
-      "customers", "transactions", "analytics", "spending-analytics", "employees", "suppliers", 
-      "purchase-orders", "purchase-terminal", "purchase-transactions", "purchase-reports", "expenses", "returns", "debts", "customer-settlements", 
-      "supplier-settlements", "discounts", "audit", "access-logs", 
-      "comprehensive", "reports", "financial-reports", "settings", 
-      "scanner", "automated"
-    ]);
-    
     switch (destination) {
       case "sales":
         setCurrentView("sales");
         break;
       case "cart":
         setCurrentView("sales-cart");
+        break;
+      case "orders":
+        setCurrentView("sales-orders");
+        break;
+      case "test-sales-orders":
+        setCurrentView("test-sales-orders");
+        break;
+      case "test-data":
+        setCurrentView("test-data");
         break;
       case "inventory":
       case "products":
@@ -104,6 +105,7 @@ const Index = () => {
         setCurrentView("customers");
         break;
       case "transactions":
+        console.log("Handling navigation to transactions - setting view to transactions");
         setCurrentView("transactions");
         break;
       case "analytics":
@@ -186,6 +188,12 @@ const Index = () => {
         break;
       case "sales-cart":
         setCurrentView("sales");
+        break;
+      case "sales-orders":
+        setCurrentView("sales");
+        break;
+      case "test-sales-orders":
+        setCurrentView("comprehensive");
         break;
       case "products":
         setCurrentView("comprehensive");
@@ -312,6 +320,24 @@ const Index = () => {
                 onBack={handleBack}
                 onLogout={handleLogout}
                 autoOpenScanner={true}
+              />
+            );
+          case "sales-orders":
+            console.log("Rendering SalesOrders");
+            return (
+              <SalesOrders
+                username={user?.email || "admin"}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
+          case "test-sales-orders":
+            console.log("Rendering TestSalesOrders");
+            return (
+              <TestSalesOrders
+                username={user?.email || "admin"}
+                onBack={handleBack}
+                onLogout={handleLogout}
               />
             );
           case "products":
@@ -532,6 +558,11 @@ const Index = () => {
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
+            );
+          case "test-data":
+            console.log("Rendering TestDataDisplay");
+            return (
+              <TestDataDisplay />
             );
           default:
             console.log("Rendering default fallback for:", currentView);

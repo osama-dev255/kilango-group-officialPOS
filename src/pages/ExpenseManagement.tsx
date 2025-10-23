@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,36 +9,57 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Edit, Trash2, Wallet, Calendar, Filter, Tag, Download, Printer, FileSpreadsheet } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Wallet, Calendar, Filter, Tag, Download, Printer, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
 import { AutomationService } from "@/services/automationService";
 import { ExportUtils } from "@/utils/exportUtils";
 import { PrintUtils } from "@/utils/printUtils";
 import { ExcelUtils } from "@/utils/excelUtils";
+import { getExpenses, createExpense, updateExpense, deleteExpense } from "@/services/databaseService";
 
 interface Expense {
-  id: string;
+  id?: string;
   date: string;
   category: string;
   description: string;
   amount: number;
   paymentMethod: string;
   receipt?: string;
-  status: "pending" | "paid" | "cancelled";
 }
 
 const expenseCategories = [
-  "Rent",
-  "Utilities",
-  "Salaries",
-  "Supplies",
-  "Marketing",
-  "Maintenance",
+  "Cost of Goods Sold (COGS)",
+  "Salaries & Wages",
+  "Rent / Premises",
+  "Electricity Charges",
+  "Water Charges",
+  "Phone Charges",
+  "Transport & Fuel",
+  "Repairs & Maintenance",
+  "Depreciation / Capital Allowances",
+  "Marketing & Advertising",
+  "Professional Fees",
   "Insurance",
-  "Taxes",
-  "Shipping",
-  "Other"
+  "Bank Charges & Interest",
+  "Licenses & Permits",
+  "Office Supplies & Stationery",
+  "Security Costs",
+  "Training & Staff Development",
+  "Travel & Accommodation (Business Trips)",
+  "Software & Technology Subscriptions",
+  "Internet and Communication",
+  "Cleaning & Sanitation",
+  "Bad Debts (Unrecoverable Debts)",
+  "Membership & Association Fees",
+  "Small Tools & Equipment",
+  "Donations & Corporate Social Responsibility (CSR)",
+  "Bank Loan Processing Fees",
+  "Software Licenses & Renewals",
+  "Warehouse or Storage Costs",
+  "Business interest",
+  "Discount allowance",
+  "Commission allowance"
 ];
 
 const paymentMethods = [
@@ -50,43 +71,10 @@ const paymentMethods = [
 ];
 
 export const ExpenseManagement = ({ username, onBack, onLogout }: { username: string; onBack: () => void; onLogout: () => void }) => {
-  // Apply automated expense categorization
-  const initialExpenses = [
-    {
-      id: "1",
-      date: "2023-05-15",
-      category: "Rent",
-      description: "Monthly office rent",
-      amount: 2500.00,
-      paymentMethod: "Bank Transfer",
-      status: "paid"
-    },
-    {
-      id: "2",
-      date: "2023-05-10",
-      category: "Supplies",
-      description: "Office supplies and equipment",
-      amount: 350.75,
-      paymentMethod: "Credit Card",
-      status: "paid"
-    },
-    {
-      id: "3",
-      date: "2023-05-05",
-      category: "Utilities",
-      description: "Electricity and water bill",
-      amount: 420.50,
-      paymentMethod: "Bank Transfer",
-      status: "paid"
-    }
-  ];
-  
-  const categorizedExpenses = AutomationService.categorizeExpenses(initialExpenses);
-  const [expenses, setExpenses] = useState<Expense[]>(categorizedExpenses);
-  
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [newExpense, setNewExpense] = useState<Omit<Expense, "id">>({
@@ -94,12 +82,42 @@ export const ExpenseManagement = ({ username, onBack, onLogout }: { username: st
     category: expenseCategories[0],
     description: "",
     amount: 0,
-    paymentMethod: paymentMethods[0],
-    status: "pending"
+    paymentMethod: paymentMethods[0]
   });
   const { toast } = useToast();
 
-  const handleAddExpense = () => {
+  // Load expenses from Supabase
+  useEffect(() => {
+    loadExpenses();
+  }, []);
+
+  const loadExpenses = async () => {
+    try {
+      setLoading(true);
+      const expensesData = await getExpenses();
+      // Convert Supabase expense format to component format
+      const formattedExpenses = expensesData.map(expense => ({
+        id: expense.id,
+        date: expense.expense_date,
+        category: expense.category,
+        description: expense.description,
+        amount: expense.amount,
+        paymentMethod: expense.payment_method,
+      }));
+      setExpenses(formattedExpenses);
+    } catch (error) {
+      console.error('Error loading expenses:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load expenses",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddExpense = async () => {
     if (!newExpense.description || newExpense.amount <= 0) {
       toast({
         title: "Error",
@@ -109,22 +127,40 @@ export const ExpenseManagement = ({ username, onBack, onLogout }: { username: st
       return;
     }
 
-    const expense: Expense = {
-      ...newExpense,
-      id: Date.now().toString()
-    };
+    try {
+      // Convert component format to Supabase format
+      const expenseData = {
+        expense_date: newExpense.date,
+        category: newExpense.category,
+        description: newExpense.description,
+        amount: newExpense.amount,
+        payment_method: newExpense.paymentMethod
+      };
 
-    setExpenses([...expenses, expense]);
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Expense added successfully"
-    });
+      const result = await createExpense(expenseData);
+      if (result) {
+        await loadExpenses(); // Reload expenses to get the new one
+        resetForm();
+        setIsDialogOpen(false);
+        
+        toast({
+          title: "Success",
+          description: "Expense added successfully"
+        });
+      } else {
+        throw new Error("Failed to create expense");
+      }
+    } catch (error) {
+      console.error('Error adding expense:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add expense",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleUpdateExpense = () => {
+  const handleUpdateExpense = async () => {
     if (!editingExpense || !editingExpense.description || editingExpense.amount <= 0) {
       toast({
         title: "Error",
@@ -134,22 +170,64 @@ export const ExpenseManagement = ({ username, onBack, onLogout }: { username: st
       return;
     }
 
-    setExpenses(expenses.map(e => e.id === editingExpense.id ? editingExpense : e));
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Expense updated successfully"
-    });
+    try {
+      if (!editingExpense.id) {
+        throw new Error("Expense ID is missing");
+      }
+
+      // Convert component format to Supabase format
+      const expenseData = {
+        expense_date: editingExpense.date,
+        category: editingExpense.category,
+        description: editingExpense.description,
+        amount: editingExpense.amount,
+        payment_method: editingExpense.paymentMethod
+      };
+
+      const result = await updateExpense(editingExpense.id, expenseData);
+      if (result) {
+        await loadExpenses(); // Reload expenses to get the updated one
+        resetForm();
+        setIsDialogOpen(false);
+        
+        toast({
+          title: "Success",
+          description: "Expense updated successfully"
+        });
+      } else {
+        throw new Error("Failed to update expense");
+      }
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update expense",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeleteExpense = (id: string) => {
-    setExpenses(expenses.filter(e => e.id !== id));
-    toast({
-      title: "Success",
-      description: "Expense deleted successfully"
-    });
+  const handleDeleteExpense = async (id: string) => {
+    try {
+      const result = await deleteExpense(id);
+      if (result) {
+        await loadExpenses(); // Reload expenses to reflect the deletion
+        
+        toast({
+          title: "Success",
+          description: "Expense deleted successfully"
+        });
+      } else {
+        throw new Error("Failed to delete expense");
+      }
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete expense",
+        variant: "destructive"
+      });
+    }
   };
 
   const resetForm = () => {
@@ -158,8 +236,7 @@ export const ExpenseManagement = ({ username, onBack, onLogout }: { username: st
       category: expenseCategories[0],
       description: "",
       amount: 0,
-      paymentMethod: paymentMethods[0],
-      status: "pending"
+      paymentMethod: paymentMethods[0]
     });
     setEditingExpense(null);
   };
@@ -182,9 +259,9 @@ export const ExpenseManagement = ({ username, onBack, onLogout }: { username: st
       expense.category.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategory = categoryFilter === "all" || expense.category === categoryFilter;
-    const matchesStatus = statusFilter === "all" || expense.status === statusFilter;
+    // Removed status filter since the status field doesn't exist in the database
     
-    return matchesSearch && matchesCategory && matchesStatus;
+    return matchesSearch && matchesCategory;
   });
 
   return (
@@ -224,18 +301,6 @@ export const ExpenseManagement = ({ username, onBack, onLogout }: { username: st
                 {expenseCategories.map(category => (
                   <SelectItem key={category} value={category}>{category}</SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-            
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
             
@@ -359,26 +424,6 @@ export const ExpenseManagement = ({ username, onBack, onLogout }: { username: st
                     </Select>
                   </div>
                   
-                  <div className="grid gap-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select
-                      value={editingExpense ? editingExpense.status : newExpense.status}
-                      onValueChange={(value: "pending" | "paid" | "cancelled") => 
-                        editingExpense 
-                          ? setEditingExpense({...editingExpense, status: value}) 
-                          : setNewExpense({...newExpense, status: value})
-                      }
-                    >
-                      <SelectTrigger id="status">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="paid">Paid</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
                 
                 <div className="flex justify-end gap-2">
@@ -414,9 +459,9 @@ export const ExpenseManagement = ({ username, onBack, onLogout }: { username: st
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {expenses.filter(e => e.status === "pending").length}
+                {expenses.length}
               </div>
-              <p className="text-xs text-muted-foreground">Awaiting payment</p>
+              <p className="text-xs text-muted-foreground">Total expenses</p>
             </CardContent>
           </Card>
           
@@ -440,68 +485,63 @@ export const ExpenseManagement = ({ username, onBack, onLogout }: { username: st
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Payment Method</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredExpenses.length === 0 ? (
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No expenses found
-                    </TableCell>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Payment Method</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filteredExpenses.map((expense) => (
-                    <TableRow key={expense.id}>
-                      <TableCell>{expense.date}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{expense.category}</Badge>
-                      </TableCell>
-                      <TableCell>{expense.description}</TableCell>
-                      <TableCell className="font-medium">{formatCurrency(expense.amount)}</TableCell>
-                      <TableCell>{expense.paymentMethod}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={
-                            expense.status === "paid" ? "default" : 
-                            expense.status === "pending" ? "secondary" : "destructive"
-                          }
-                        >
-                          {expense.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => openEditDialog(expense)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => handleDeleteExpense(expense.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredExpenses.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No expenses found
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredExpenses.map((expense) => (
+                      <TableRow key={expense.id}>
+                        <TableCell>{expense.date}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{expense.category}</Badge>
+                        </TableCell>
+                        <TableCell>{expense.description}</TableCell>
+                        <TableCell className="font-medium">{formatCurrency(expense.amount)}</TableCell>
+                        <TableCell>{expense.paymentMethod}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => openEditDialog(expense)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => expense.id && handleDeleteExpense(expense.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </main>

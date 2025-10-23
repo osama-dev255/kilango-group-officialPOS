@@ -53,9 +53,12 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
     const loadTransactions = async () => {
       try {
         setLoading(true);
-        console.log("Loading sales data...");
         const salesData = await getSales();
-        console.log("Sales data loaded:", salesData.length, "records");
+        
+        // Filter to show only completed transactions
+        const completedSales = salesData.filter(sale => 
+          sale.sale_status === 'completed'
+        );
         
         // Get customer names for display
         const customerMap = new Map<string, string>();
@@ -67,7 +70,7 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
         
         // For each sale, get the actual number of items
         const formattedTransactions = [];
-        for (const sale of salesData) {
+        for (const sale of completedSales) {
           // Get customer name or use default
           let customerName = 'Walk-in Customer';
           if (sale.customer_id) {
@@ -95,7 +98,6 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
           });
         }
         
-        console.log("Formatted transactions:", formattedTransactions);
         setTransactions(formattedTransactions);
       } catch (error) {
         console.error("Error loading transactions:", error);
@@ -121,7 +123,11 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
           setCustomers(customerData);
           
           const salesData = await getSales();
-          console.log("Sales data loaded:", salesData.length, "records");
+          
+          // Filter to show only completed transactions
+          const completedSales = salesData.filter(sale => 
+            sale.sale_status === 'completed'
+          );
           
           // Get customer names for display
           const customerMap = new Map<string, string>();
@@ -133,7 +139,7 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
           
           // For each sale, get the actual number of items
           const formattedTransactions = [];
-          for (const sale of salesData) {
+          for (const sale of completedSales) {
             // Get customer name or use default
             let customerName = 'Walk-in Customer';
             if (sale.customer_id) {
@@ -163,7 +169,6 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
             });
           }
           
-          console.log("Formatted transactions:", formattedTransactions);
           setTransactions(formattedTransactions);
         } catch (error) {
           console.error("Error loading data:", error);
@@ -208,7 +213,10 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
       matchesDate = transactionDate >= monthAgo && transactionDate <= today;
     }
     
-    return matchesSearch && matchesStatus && matchesDate;
+    // Only show completed transactions in transaction history
+    const isCompletedTransaction = transaction.status === "completed";
+    
+    return matchesSearch && matchesStatus && matchesDate && isCompletedTransaction;
   });
 
   // Refresh transactions
@@ -216,6 +224,11 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
     try {
       setLoading(true);
       const salesData = await getSales();
+      
+      // Filter to show only completed transactions
+      const completedSales = salesData.filter(sale => 
+        sale.sale_status === 'completed'
+      );
       
       // Get customer names for display
       const customerMap = new Map<string, string>();
@@ -227,7 +240,7 @@ export const TransactionHistory = ({ username, onBack, onLogout }: { username: s
       
       // For each sale, get the actual number of items
       const formattedTransactions = [];
-      for (const sale of salesData) {
+      for (const sale of completedSales) {
         // Get customer name or use default
         let customerName = 'Walk-in Customer';
         if (sale.customer_id) {

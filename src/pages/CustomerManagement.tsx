@@ -396,22 +396,8 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
           </Card>
         </div>
 
-        {/* Export/Import Manager */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Import/Export Customers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ExportImportManager 
-              data={customers}
-              onImport={handleImportCustomers}
-              dataType="customers"
-            />
-          </CardContent>
-        </Card>
-
         {/* Customers Table */}
-        <Card>
+        <Card className="mb-6">
           <CardHeader>
             <CardTitle>Customer Database</CardTitle>
           </CardHeader>
@@ -489,6 +475,21 @@ export const CustomerManagement = ({ username, onBack, onLogout }: { username: s
             )}
           </CardContent>
         </Card>
+
+        {/* Export/Import Manager */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Import/Export Customers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ExportImportManager 
+              data={customers}
+              onImport={handleImportCustomers}
+              dataType="customers"
+            />
+          </CardContent>
+        </Card>
+
       </main>
     </div>
   );

@@ -9,7 +9,8 @@ import {
   Package,
   Percent,
   Settings,
-  Scan
+  Scan,
+  FileText
 } from "lucide-react";
 
 interface SalesDashboardProps {
@@ -26,6 +27,13 @@ export const SalesDashboard = ({ username, onBack, onLogout, onNavigate }: Sales
       title: "Sales Terminal",
       description: "Process new sales transactions and manage customer orders",
       icon: Calculator,
+      color: "bg-white border border-gray-200"
+    },
+    {
+      id: "orders",
+      title: "Sales Orders",
+      description: "View and manage all sales orders and transactions",
+      icon: FileText,
       color: "bg-white border border-gray-200"
     },
     {
@@ -76,6 +84,13 @@ export const SalesDashboard = ({ username, onBack, onLogout, onNavigate }: Sales
       description: "Quickly add products to cart using barcode scanner",
       icon: Scan,
       color: "bg-white border border-gray-200"
+    },
+    {
+      id: "test-data",
+      title: "Test Data View",
+      description: "View raw data for debugging purposes",
+      icon: FileText,
+      color: "bg-yellow-50 border border-yellow-200"
     },
   ];
 

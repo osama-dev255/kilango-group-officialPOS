@@ -385,39 +385,6 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
     }
   }, [products, filteredProducts, filterCategory, filterStatus, filterStock, searchTerm]);
 
-  const handleDuplicateProduct = async (product: Product) => {
-    try {
-      // Create a copy of the product with a "Copy of" prefix
-      const duplicatedProduct = {
-        ...product,
-        id: undefined,
-        name: `Copy of ${product.name}`,
-        barcode: product.barcode ? `${product.barcode}-COPY` : undefined,
-        sku: product.sku ? `${product.sku}-COPY` : undefined,
-        created_at: undefined,
-        updated_at: undefined
-      } as Omit<Product, "id" | "created_at" | "updated_at">;
-      
-      const result = await createProduct(duplicatedProduct);
-      if (result) {
-        setProducts([...products, result]);
-        toast({
-          title: "Success",
-          description: "Product duplicated successfully"
-        });
-      } else {
-        throw new Error("Failed to duplicate product");
-      }
-    } catch (error) {
-      console.error("Error duplicating product:", error);
-      toast({
-        title: "Error",
-        description: "Failed to duplicate product",
-        variant: "destructive"
-      });
-    }
-  };
-
   const handleToggleProductStatus = async (product: Product) => {
     try {
       if (!product.id) return;
@@ -1224,14 +1191,14 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button
+                            {/* <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleDuplicateProduct(product)}
                               title="Duplicate product"
                             >
                               <span className="text-xs">Duplicate</span>
-                            </Button>
+                            </Button> */}
                             <Button
                               variant="outline"
                               size="sm"

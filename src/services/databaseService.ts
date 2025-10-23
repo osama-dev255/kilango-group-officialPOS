@@ -1110,6 +1110,21 @@ export const updateSale = async (id: string, sale: Partial<Sale>): Promise<Sale 
   }
 };
 
+export const deleteSale = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('sales')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting sale:', error);
+    return false;
+  }
+};
+
 // Sale Items operations
 export const getSaleItems = async (saleId: string): Promise<SaleItem[]> => {
   try {
@@ -1122,6 +1137,31 @@ export const getSaleItems = async (saleId: string): Promise<SaleItem[]> => {
     return data || [];
   } catch (error) {
     console.error('Error fetching sale items:', error);
+    return [];
+  }
+};
+
+export const getSaleItemsWithProducts = async (saleId: string): Promise<(SaleItem & { product?: Product })[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('sale_items')
+      .select(`
+        *,
+        products (*)
+      `)
+      .eq('sale_id', saleId);
+      
+    if (error) throw error;
+    
+    // Map the data to include product information
+    const itemsWithProducts = data?.map(item => ({
+      ...item,
+      product: item.products || undefined
+    })) || [];
+    
+    return itemsWithProducts;
+  } catch (error) {
+    console.error('Error fetching sale items with products:', error);
     return [];
   }
 };
@@ -1469,7 +1509,7 @@ export const updatePurchaseOrderItems = async (updates: { id: string; data: Part
   }
 };
 
-// Expenses CRUD operations
+// Expense CRUD operations
 export const getExpenses = async (): Promise<Expense[]> => {
   try {
     const { data, error } = await supabase
@@ -1505,7 +1545,7 @@ export const createExpense = async (expense: Omit<Expense, 'id'>): Promise<Expen
   try {
     const { data, error } = await supabase
       .from('expenses')
-      .insert([{ ...expense, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+      .insert([{ ...expense, expense_date: expense.expense_date || new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
       .select()
       .single();
       

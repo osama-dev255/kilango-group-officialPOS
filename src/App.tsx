@@ -8,6 +8,8 @@ import NotFound from "./pages/NotFound";
 import { Dashboard } from "./pages/Dashboard";
 import { SalesDashboard } from "./pages/SalesDashboard";
 import { SalesCart } from "./pages/SalesCart";
+import { SalesOrders } from "./pages/SalesOrders";
+import { TestSalesOrders } from "./pages/TestSalesOrders";
 import { PurchaseTerminal } from "./pages/PurchaseTerminal";
 import TestPage from "./pages/TestPage";
 import { useEffect } from "react";
@@ -56,6 +58,8 @@ const App = () => {
                 <Route path="/dashboard" element={<Dashboard username="admin" onNavigate={() => {}} onLogout={() => {}} />} />
                 <Route path="/sales" element={<SalesDashboard username="admin" onBack={() => {}} onLogout={() => {}} onNavigate={() => {}} />} />
                 <Route path="/sales/cart" element={<SalesCart username="admin" onBack={() => {}} onLogout={() => {}} />} />
+                <Route path="/sales/orders" element={<SalesOrders username="admin" onBack={() => {}} onLogout={() => {}} />} />
+                <Route path="/test/sales-orders" element={<TestSalesOrders username="admin" onBack={() => {}} onLogout={() => {}} />} />
                 <Route path="/purchase/terminal" element={<PurchaseTerminal username="admin" onBack={() => {}} onLogout={() => {}} />} />
                 <Route path="/test" element={<TestPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

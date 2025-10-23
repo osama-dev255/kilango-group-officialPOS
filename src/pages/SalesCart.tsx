@@ -328,24 +328,24 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       setIsPaymentDialogOpen(false);
       setIsTransactionCompleteDialogOpen(true);
       
-      // Send WhatsApp notification to business numbers only for the first sale of the day
-      try {
-        // Check if this is the first sale of the business day
-        if (WhatsAppUtils.isFirstSaleOfDay()) {
-          const message = WhatsAppUtils.generateSalesNotificationMessage(
-            createdSale.id || Date.now().toString(),
-            totalWithTax,
-            paymentMethod,
-            selectedCustomer?.name
-          );
+      // DISABLED: Send WhatsApp notification to business numbers only for the first sale of the day
+      // try {
+      //   // Check if this is the first sale of the business day
+      //   if (WhatsAppUtils.isFirstSaleOfDay()) {
+      //     const message = WhatsAppUtils.generateSalesNotificationMessage(
+      //       createdSale.id || Date.now().toString(),
+      //       totalWithTax,
+      //       paymentMethod,
+      //       selectedCustomer?.name
+      //     );
           
-          // Send message to all business numbers
-          WhatsAppUtils.sendWhatsAppMessageToBusiness(message);
-        }
-      } catch (whatsappError) {
-        console.warn("Failed to send WhatsApp notification:", whatsappError);
-        // Don't block the transaction if WhatsApp fails
-      }
+      //     // Send message to all business numbers
+      //     WhatsAppUtils.sendWhatsAppMessageToBusiness(message);
+      //   }
+      // } catch (whatsappError) {
+      //   console.warn("Failed to send WhatsApp notification:", whatsappError);
+      //   // Don't block the transaction if WhatsApp fails
+      // }
       
       // Clear cart and reset form (but don't show toast yet)
       setCart([]);

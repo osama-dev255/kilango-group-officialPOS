@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Building, 
   Printer, 
@@ -14,7 +15,8 @@ import {
   Shield, 
   Palette,
   Save,
-  RotateCcw
+  RotateCcw,
+  Eye
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
@@ -32,6 +34,8 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
   const { toast } = useToast();
   const { language, setLanguage, t } = useLanguage();
   const [activeTab, setActiveTab] = useState("general");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewType, setPreviewType] = useState<"sales" | "purchase">("sales");
   
   // General settings
   const [businessName, setBusinessName] = useState("My Business");
@@ -356,6 +360,12 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
       title: t("settingsReset"),
       description: t("settingsResetDescription"),
     });
+  };
+  
+  // Add this new function to handle preview
+  const handlePreview = (type: "sales" | "purchase") => {
+    setPreviewType(type);
+    setIsPreviewOpen(true);
   };
   
   const tabs = [
@@ -700,6 +710,17 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
                       
                       {customPurchaseTemplate && (
                         <div className="space-y-4 pl-2 border-l-2 border-primary ml-2">
+                          <div className="flex justify-end">
+                            <Button 
+                              variant="outline" 
+                              onClick={() => handlePreview("purchase")}
+                              className="mb-4"
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              {t("previewTemplate")}
+                            </Button>
+                          </div>
+                          
                           <div className="space-y-2">
                             <Label htmlFor="purchase-template-header">{t("receiptHeaderTemplate")}</Label>
                             <textarea
@@ -956,6 +977,210 @@ export const Settings = ({ username, onBack, onLogout }: SettingsProps) => {
             </Card>
           </div>
         </div>
+        
+        {/* Template Preview Dialog */}
+        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {previewType === "purchase" ? t("purchaseReceiptPreview") : t("salesReceiptPreview")}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="p-4 bg-white">
+              {previewType === "purchase" ? (
+                <div 
+                  className="receipt-preview" 
+                  style={{ 
+                    width: purchasePaperWidth, 
+                    fontSize: purchaseFontSize,
+                    fontFamily: 'monospace',
+                    margin: '0 auto'
+                  }}
+                >
+                  {showPurchaseBusinessInfo && (
+                    <div className="text-center mb-2">
+                      <div className="font-bold">{businessName}</div>
+                      <div>{businessAddress}</div>
+                      <div>{businessPhone}</div>
+                    </div>
+                  )}
+                  
+                  {showPurchaseTransactionDetails && (
+                    <div className="mb-2">
+                      <div className="border-t border-b py-1">
+                        <div className="flex justify-between">
+                          <span>{t("poNumber")}:</span>
+                          <span>PO-001</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>{t("date")}:</span>
+                          <span>{new Date().toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>{t("supplier")}:</span>
+                          <span>ABC Supplier</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {showPurchaseItemDetails && (
+                    <div className="mb-2">
+                      <div className="border-t border-b py-1">
+                        <div className="font-bold mb-1">{t("items")}</div>
+                        <div className="flex justify-between text-sm">
+                          <span>Product A</span>
+                          <span>2 × {formatCurrency(1500)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Product B</span>
+                          <span>1 × {formatCurrency(3000)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Product C</span>
+                          <span>3 × {formatCurrency(800)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {showPurchaseTotals && (
+                    <div className="mb-2">
+                      <div className="border-t border-b py-1">
+                        <div className="flex justify-between">
+                          <span>{t("subtotal")}:</span>
+                          <span>{formatCurrency(7500)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>{t("tax")} (18%):</span>
+                          <span>{formatCurrency(1350)}</span>
+                        </div>
+                        <div className="flex justify-between font-bold">
+                          <span>{t("total")}:</span>
+                          <span>{formatCurrency(8850)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {showPurchaseSupplierInfo && (
+                    <div className="mb-2 text-sm">
+                      <div className="font-bold mb-1">{t("supplierInfo")}:</div>
+                      <div>ABC Supplier</div>
+                      <div>123 Supplier St, City</div>
+                      <div>Phone: (987) 654-3210</div>
+                    </div>
+                  )}
+                  
+                  {showPurchasePaymentInfo && (
+                    <div className="mb-2 text-sm">
+                      <div className="font-bold mb-1">{t("paymentInfo")}:</div>
+                      <div>{t("paymentMethod")}: {t("cash")}</div>
+                      <div>{t("amountPaid")}: {formatCurrency(9000)}</div>
+                      <div>{t("change")}: {formatCurrency(150)}</div>
+                    </div>
+                  )}
+                  
+                  {purchaseTemplateFooter && (
+                    <div className="text-center text-sm mt-2">
+                      {purchaseTemplateFooter}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div 
+                  className="receipt-preview" 
+                  style={{ 
+                    width: paperWidth, 
+                    fontSize: fontSize,
+                    fontFamily: 'monospace',
+                    margin: '0 auto'
+                  }}
+                >
+                  {showBusinessInfo && (
+                    <div className="text-center mb-2">
+                      <div className="font-bold">{businessName}</div>
+                      <div>{businessAddress}</div>
+                      <div>{businessPhone}</div>
+                    </div>
+                  )}
+                  
+                  {showTransactionDetails && (
+                    <div className="mb-2">
+                      <div className="border-t border-b py-1">
+                        <div className="flex justify-between">
+                          <span>{t("receipt")} #:</span>
+                          <span>001</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>{t("date")}:</span>
+                          <span>{new Date().toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>{t("cashier")}:</span>
+                          <span>John Doe</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {showItemDetails && (
+                    <div className="mb-2">
+                      <div className="border-t border-b py-1">
+                        <div className="font-bold mb-1">{t("items")}</div>
+                        <div className="flex justify-between text-sm">
+                          <span>Product A</span>
+                          <span>2 × {formatCurrency(1500)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Product B</span>
+                          <span>1 × {formatCurrency(3000)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {showTotals && (
+                    <div className="mb-2">
+                      <div className="border-t border-b py-1">
+                        <div className="flex justify-between">
+                          <span>{t("subtotal")}:</span>
+                          <span>{formatCurrency(4500)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>{t("tax")} (18%):</span>
+                          <span>{formatCurrency(810)}</span>
+                        </div>
+                        <div className="flex justify-between font-bold">
+                          <span>{t("total")}:</span>
+                          <span>{formatCurrency(5310)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {showPaymentInfo && (
+                    <div className="mb-2 text-sm">
+                      <div className="font-bold mb-1">{t("paymentInfo")}:</div>
+                      <div>{t("paymentMethod")}: {t("cash")}</div>
+                      <div>{t("amountPaid")}: {formatCurrency(6000)}</div>
+                      <div>{t("change")}: {formatCurrency(690)}</div>
+                    </div>
+                  )}
+                  
+                  {templateFooter && (
+                    <div className="text-center text-sm mt-2">
+                      {templateFooter}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => setIsPreviewOpen(false)}>{t("close")}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

@@ -6,14 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Receipt, Calendar, Filter, Download, Printer, FileSpreadsheet, Truck } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Search, Receipt, Calendar, Filter, Download, Printer, FileSpreadsheet, Truck, Eye } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import { ExportUtils } from "@/utils/exportUtils";
 import { PrintUtils } from "@/utils/printUtils";
 import { ExcelUtils } from "@/utils/excelUtils";
 // Import Supabase database service
-import { getPurchaseOrders, PurchaseOrder, getSuppliers, Supplier, getPurchaseOrderItems } from "@/services/databaseService";
+import { getPurchaseOrders, PurchaseOrder, getSuppliers, Supplier, getPurchaseOrderItems, getProductById } from "@/services/databaseService";
 import { useToast } from "@/hooks/use-toast";
+
+interface PurchaseTransactionItem {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
 
 interface PurchaseTransaction {
   id: string;
@@ -22,6 +32,11 @@ interface PurchaseTransaction {
   items: number;
   total: number;
   status: "draft" | "ordered" | "received" | "cancelled";
+  orderNumber?: string;
+  expectedDelivery?: string;
+  notes?: string;
+  supplierId?: string;
+  transactionItems?: PurchaseTransactionItem[]; // Add this for detailed items
 }
 
 export const PurchaseTransactionHistory = ({ username, onBack, onLogout }: { username: string; onBack: () => void; onLogout: () => void }) => {
@@ -31,6 +46,8 @@ export const PurchaseTransactionHistory = ({ username, onBack, onLogout }: { use
   const [dateFilter, setDateFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [viewingTransaction, setViewingTransaction] = useState<PurchaseOrder | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const { toast } = useToast();
 
   // Load suppliers for supplier name lookup
@@ -131,7 +148,7 @@ export const PurchaseTransactionHistory = ({ username, onBack, onLogout }: { use
             }
           });
           
-          // For each purchase order, get the actual number of items
+          // For For each purchase order, get the actual number of items
           const formattedTransactions = [];
           for (const po of purchaseOrdersData) {
             // Get supplier name or use default
@@ -272,6 +289,62 @@ export const PurchaseTransactionHistory = ({ username, onBack, onLogout }: { use
     }
   };
 
+  // Add this new function to handle viewing a transaction
+  const handleViewTransaction = async (transactionId: string) => {
+    try {
+      // Load the purchase order details
+      const purchaseOrdersData = await getPurchaseOrders();
+      const purchaseOrder = purchaseOrdersData.find(po => po.id === transactionId);
+      
+      if (purchaseOrder) {
+        // Load the purchase order items
+        const items = await getPurchaseOrderItems(transactionId);
+        
+        // Get product details for each item
+        const detailedItems: PurchaseTransactionItem[] = [];
+        for (const item of items) {
+          const product = await getProductById(item.product_id || '');
+          detailedItems.push({
+            id: item.id || '',
+            productId: item.product_id || '',
+            productName: product?.name || 'Unknown Product',
+            quantity: item.quantity_ordered,
+            unitPrice: item.unit_cost,
+            totalPrice: item.total_cost
+          });
+        }
+        
+        // Create a detailed transaction object
+        const detailedTransaction: any = {
+          ...purchaseOrder,
+          transactionItems: detailedItems
+        };
+        
+        setViewingTransaction(detailedTransaction);
+        setIsViewDialogOpen(true);
+      } else {
+        toast({
+          title: "Error",
+          description: "Purchase order not found",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error loading purchase order:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load purchase order details",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Add this function to close the view dialog
+  const closeViewDialog = () => {
+    setIsViewDialogOpen(false);
+    setViewingTransaction(null);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation 
@@ -387,6 +460,7 @@ export const PurchaseTransactionHistory = ({ username, onBack, onLogout }: { use
                       <TableHead>Items</TableHead>
                       <TableHead className="text-right">Total</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -408,6 +482,16 @@ export const PurchaseTransactionHistory = ({ username, onBack, onLogout }: { use
                             {transaction.status}
                           </Badge>
                         </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewTransaction(transaction.id)}
+                            title="View transaction details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -416,6 +500,116 @@ export const PurchaseTransactionHistory = ({ username, onBack, onLogout }: { use
             )}
           </CardContent>
         </Card>
+        
+        {/* View Transaction Dialog */}
+        <Dialog open={isViewDialogOpen} onOpenChange={(open) => {
+          setIsViewDialogOpen(open);
+          if (!open) closeViewDialog();
+        }}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Purchased Transaction Details</DialogTitle>
+            </DialogHeader>
+            {viewingTransaction && (
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Order Number</label>
+                    <div className="mt-1 p-2 bg-muted rounded">{viewingTransaction.order_number || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Status</label>
+                    <div className="mt-1 p-2 bg-muted rounded">
+                      <Badge 
+                        variant={
+                          viewingTransaction.status === "received" ? "default" :
+                          viewingTransaction.status === "ordered" ? "secondary" :
+                          viewingTransaction.status === "draft" ? "outline" : "destructive"
+                        }
+                      >
+                        {viewingTransaction.status}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Order Date</label>
+                    <div className="mt-1 p-2 bg-muted rounded">
+                      {viewingTransaction.order_date ? new Date(viewingTransaction.order_date).toLocaleDateString() : 'N/A'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Expected Delivery</label>
+                    <div className="mt-1 p-2 bg-muted rounded">
+                      {viewingTransaction.expected_delivery_date ? new Date(viewingTransaction.expected_delivery_date).toLocaleDateString() : 'N/A'}
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Supplier</label>
+                  <div className="mt-1 p-2 bg-muted rounded">
+                    {suppliers.find(s => s.id === viewingTransaction.supplier_id)?.name || 'Unknown Supplier'}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Notes</label>
+                  <div className="mt-1 p-2 bg-muted rounded min-h-12">
+                    {viewingTransaction.notes || 'No notes'}
+                  </div>
+                </div>
+                
+                {/* Purchased Items List */}
+                <div>
+                  <label className="text-sm font-medium">Purchased Items</label>
+                  <div className="mt-1 border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead className="text-right">Quantity</TableHead>
+                          <TableHead className="text-right">Unit Price</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {viewingTransaction.transactionItems && viewingTransaction.transactionItems.map((item: any) => (
+                          <TableRow key={item.id}>
+                            <TableCell>{item.productName}</TableCell>
+                            <TableCell className="text-right">{item.quantity}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.totalPrice)}</TableCell>
+                          </TableRow>
+                        ))}
+                        {(!viewingTransaction.transactionItems || viewingTransaction.transactionItems.length === 0) && (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center text-muted-foreground">
+                              No items found for this purchase order
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Total Amount</label>
+                  <div className="mt-1 p-2 bg-muted rounded font-bold">
+                    {formatCurrency(viewingTransaction.total_amount || 0)}
+                  </div>
+                </div>
+                
+                <div className="flex justify-end">
+                  <Button onClick={closeViewDialog}>Close</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Edit, Trash2, ShoppingCart, Truck, Calendar, X, RefreshCw, Printer } from "lucide-react";
+import { Search, Plus, Edit, Trash2, ShoppingCart, Truck, Calendar, X, RefreshCw, Printer, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
 import { getPurchaseOrders, createPurchaseOrder, updatePurchaseOrder, deletePurchaseOrderWithItems, getSuppliers, getPurchaseOrderItems, createPurchaseOrderItem, updatePurchaseOrderItem, getProducts } from "@/services/databaseService";
@@ -44,6 +44,7 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
+  const [viewingPO, setViewingPO] = useState<PurchaseOrder | null>(null);
   const [newPO, setNewPO] = useState<Omit<PurchaseOrder, "id" | "poNumber" | "items" | "subtotal" | "tax" | "total">>({
     supplierId: "",
     supplierName: "",
@@ -374,6 +375,7 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
       status: "draft"
     });
     setEditingPO(null);
+    setViewingPO(null);
     setPoItems([]);
     setSelectedProduct(null);
     setItemQuantity(1);
@@ -402,6 +404,43 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
       
       setEditingPO(formattedPO);
       setPoItems(formattedItems);
+      setIsDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading purchase order items:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load purchase order items",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Add this new function
+  const openViewDialog = async (po: PurchaseOrder) => {
+    try {
+      // Load the purchase order items
+      const items = await getPurchaseOrderItems(po.id);
+      const productData = await getProducts();
+      const formattedItems = items.map(item => ({
+        id: item.id || '',
+        productId: item.product_id || '',
+        productName: productData.find(p => p.id === item.product_id)?.name || 'Unknown Product',
+        quantity: item.quantity_ordered,
+        unitPrice: item.unit_cost,
+        total: item.total_cost
+      }));
+      
+      // Ensure proper date format for viewing
+      const formattedPO = {
+        ...po,
+        orderDate: po.orderDate || new Date().toISOString().split('T')[0],
+        expectedDelivery: po.expectedDelivery || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      };
+      
+      setViewingPO({
+        ...formattedPO,
+        items: formattedItems
+      });
       setIsDialogOpen(true);
     } catch (error) {
       console.error("Error loading purchase order items:", error);
@@ -552,7 +591,12 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
               </SelectContent>
             </Select>
             
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) {
+                resetForm();
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button onClick={openAddDialog}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -562,7 +606,7 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
-                    {editingPO ? "Edit Purchase Order" : "Create Purchase Order"}
+                    {viewingPO ? "View Purchase Order" : editingPO ? "Edit Purchase Order" : "Create Purchase Order"}
                   </DialogTitle>
                 </DialogHeader>
                 
@@ -570,8 +614,9 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                   <div className="grid gap-2">
                     <Label htmlFor="supplier">Supplier *</Label>
                     <Select
-                      value={editingPO ? editingPO.supplierId : newPO.supplierId}
+                      value={viewingPO ? viewingPO.supplierId : (editingPO ? editingPO.supplierId : newPO.supplierId)}
                       onValueChange={handleSupplierChange}
+                      disabled={!!viewingPO} // Disable in view mode
                     >
                       <SelectTrigger id="supplier">
                         <SelectValue placeholder="Select supplier" />
@@ -592,12 +637,15 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                       <Input
                         id="orderDate"
                         type="date"
-                        value={editingPO ? editingPO.orderDate : newPO.orderDate}
+                        value={viewingPO ? viewingPO.orderDate : (editingPO ? editingPO.orderDate : newPO.orderDate)}
                         onChange={(e) => 
-                          editingPO 
-                            ? setEditingPO({...editingPO, orderDate: e.target.value}) 
-                            : setNewPO({...newPO, orderDate: e.target.value})
+                          viewingPO
+                            ? null // Do nothing in view mode
+                            : editingPO 
+                              ? setEditingPO({...editingPO, orderDate: e.target.value}) 
+                              : setNewPO({...newPO, orderDate: e.target.value})
                         }
+                        disabled={!!viewingPO} // Disable in view mode
                       />
                     </div>
                     
@@ -606,12 +654,15 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                       <Input
                         id="expectedDelivery"
                         type="date"
-                        value={editingPO ? editingPO.expectedDelivery : newPO.expectedDelivery}
+                        value={viewingPO ? viewingPO.expectedDelivery : (editingPO ? editingPO.expectedDelivery : newPO.expectedDelivery)}
                         onChange={(e) => 
-                          editingPO 
-                            ? setEditingPO({...editingPO, expectedDelivery: e.target.value}) 
-                            : setNewPO({...newPO, expectedDelivery: e.target.value})
+                          viewingPO
+                            ? null // Do nothing in view mode
+                            : editingPO 
+                              ? setEditingPO({...editingPO, expectedDelivery: e.target.value}) 
+                              : setNewPO({...newPO, expectedDelivery: e.target.value})
                         }
+                        disabled={!!viewingPO} // Disable in view mode
                       />
                     </div>
                   </div>
@@ -619,12 +670,15 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                   <div className="grid gap-2">
                     <Label htmlFor="status">Status</Label>
                     <Select
-                      value={editingPO ? editingPO.status : newPO.status}
+                      value={viewingPO ? viewingPO.status : (editingPO ? editingPO.status : newPO.status)}
                       onValueChange={(value: "draft" | "ordered" | "received" | "cancelled") => 
-                        editingPO 
-                          ? setEditingPO({...editingPO, status: value}) 
-                          : setNewPO({...newPO, status: value})
+                        viewingPO
+                          ? null // Do nothing in view mode
+                          : editingPO 
+                            ? setEditingPO({...editingPO, status: value}) 
+                            : setNewPO({...newPO, status: value})
                       }
+                      disabled={!!viewingPO} // Disable in view mode
                     >
                       <SelectTrigger id="status">
                         <SelectValue />
@@ -652,6 +706,7 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                               setSelectedProduct(product);
                             }
                           }}
+                          disabled={!!viewingPO} // Disable in view mode
                         >
                           <SelectTrigger id="product">
                             <SelectValue placeholder="Select product" />
@@ -674,6 +729,7 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                           min="1"
                           value={itemQuantity}
                           onChange={(e) => setItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                          disabled={!!viewingPO} // Disable in view mode
                         />
                       </div>
                       
@@ -681,6 +737,7 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                         <Button 
                           onClick={handleAddItem}
                           className="w-full"
+                          disabled={!!viewingPO} // Disable in view mode
                         >
                           <Plus className="h-4 w-4 mr-2" />
                           Add Item
@@ -690,11 +747,12 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                   </div>
                   
                   {/* Items List */}
-                  {poItems.length > 0 && (
+                  {viewingPO ? (
+                    // View mode - show items in a read-only format
                     <div className="border rounded-lg p-4">
                       <h3 className="font-medium mb-3">Items</h3>
                       <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {poItems.map((item) => (
+                        {viewingPO.items.map((item) => (
                           <div key={item.id} className="flex items-center justify-between p-2 border rounded">
                             <div>
                               <div className="font-medium">{item.productName}</div>
@@ -702,33 +760,69 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                                 {item.quantity} × {formatCurrency(item.unitPrice)} = {formatCurrency(item.total)}
                               </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveItem(item.id)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
                           </div>
                         ))}
                       </div>
                       <div className="mt-3 pt-3 border-t">
                         <div className="flex justify-between">
                           <span>Subtotal:</span>
-                          <span>{formatCurrency(poItems.reduce((sum, item) => sum + item.total, 0))}</span>
+                          <span>{formatCurrency(viewingPO.items.reduce((sum, item) => sum + item.total, 0))}</span>
                         </div>
                       </div>
                     </div>
+                  ) : (
+                    // Edit/Create mode - show editable items
+                    poItems.length > 0 && (
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-medium mb-3">Items</h3>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {poItems.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between p-2 border rounded">
+                              <div>
+                                <div className="font-medium">{item.productName}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {item.quantity} × {formatCurrency(item.unitPrice)} = {formatCurrency(item.total)}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveItem(item.id)}
+                                disabled={!!viewingPO} // Disable in view mode
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 pt-3 border-t">
+                          <div className="flex justify-between">
+                            <span>Subtotal:</span>
+                            <span>{formatCurrency(poItems.reduce((sum, item) => sum + item.total, 0))}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
                   )}
                 </div>
                 
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={editingPO ? handleUpdatePO : handleAddPO}>
-                    {editingPO ? "Update" : "Create"} PO
-                  </Button>
+                  {viewingPO ? (
+                    // View mode - only show close button
+                    <Button onClick={() => setIsDialogOpen(false)}>
+                      Close
+                    </Button>
+                  ) : (
+                    // Edit/Create mode - show full buttons
+                    <>
+                      <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={editingPO ? handleUpdatePO : handleAddPO}>
+                        {editingPO ? "Update" : "Create"} PO
+                      </Button>
+                    </>
+                  )}
                 </div>
               </DialogContent>
             </Dialog>
@@ -788,7 +882,16 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                           <Button 
                             variant="outline" 
                             size="sm"
+                            onClick={() => openViewDialog(po)}
+                            title="View purchase order"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
                             onClick={() => openEditDialog(po)}
+                            title="Edit purchase order"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -796,6 +899,7 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
                             variant="destructive" 
                             size="sm"
                             onClick={() => handleDeletePO(po.id)}
+                            title="Delete purchase order"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

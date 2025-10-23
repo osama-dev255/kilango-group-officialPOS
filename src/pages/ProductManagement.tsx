@@ -993,20 +993,6 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
           </Card>
         </div>
 
-        {/* Export/Import Manager */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Import/Export Products</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ExportImportManager 
-              data={products}
-              onImport={handleImportProducts}
-              dataType="products"
-            />
-          </CardContent>
-        </Card>
-
         {/* Filters and Sorting */}
         <Card>
           <CardHeader>
@@ -1316,6 +1302,20 @@ export const ProductManagement = ({ username, onBack, onLogout }: { username: st
                 )}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Export/Import Manager - Moved below product inventory as requested */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Import/Export Products</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ExportImportManager 
+              data={products}
+              onImport={handleImportProducts}
+              dataType="products"
+            />
           </CardContent>
         </Card>
       </div>

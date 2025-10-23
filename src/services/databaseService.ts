@@ -981,6 +981,70 @@ export const getSuppliers = async (): Promise<Supplier[]> => {
   }
 };
 
+export const getSupplierById = async (id: string): Promise<Supplier | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('suppliers')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error fetching supplier:', error);
+    return null;
+  }
+};
+
+export const createSupplier = async (supplier: Omit<Supplier, 'id'>): Promise<Supplier | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('suppliers')
+      .insert([{ ...supplier, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error creating supplier:', error);
+    return null;
+  }
+};
+
+export const updateSupplier = async (id: string, supplier: Partial<Supplier>): Promise<Supplier | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('suppliers')
+      .update({ ...supplier, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error updating supplier:', error);
+    return null;
+  }
+};
+
+export const deleteSupplier = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('suppliers')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting supplier:', error);
+    return false;
+  }
+};
+
 // Sales CRUD operations
 export const getSales = async (): Promise<Sale[]> => {
   try {

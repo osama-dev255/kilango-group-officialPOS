@@ -8,15 +8,12 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Minus, Trash2, ShoppingCart, Search, User, Percent, CreditCard, Wallet, Scan, Star, Printer, Download } from "lucide-react";
+import { Plus, Minus, Trash2, ShoppingCart, Search, User, Percent, CreditCard, Wallet, Scan, Star, Printer, Download, Truck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { AutomationService } from "@/services/automationService";
-import { PrintUtils } from "@/utils/printUtils";
-import WhatsAppUtils from "@/utils/whatsappUtils";
 // Import Supabase database service
-import { getProducts, getCustomers, updateProductStock, createCustomer, createSale, createSaleItem, createDebt, Product, Customer as DatabaseCustomer } from "@/services/databaseService";
+import { getProducts, getSuppliers, updateProductStock, createSupplier, createPurchaseOrder, createPurchaseOrderItem, Product, Supplier as DatabaseSupplier } from "@/services/databaseService";
 
 interface CartItem {
   id: string;
@@ -25,88 +22,62 @@ interface CartItem {
   quantity: number;
 }
 
-interface Customer {
+interface Supplier {
   id: string;
   name: string;
-  loyaltyPoints: number;
-  address?: string;
+  contactPerson?: string;
   email?: string;
   phone?: string;
 }
 
-// Update the temporary product interface to match the Product type
-interface TempProduct {
-  id: string;
-  name: string;
-  selling_price: number;
-  barcode?: string;
-  sku?: string;
-  cost_price: number;
-  stock_quantity: number;
-}
-
-interface SalesCartProps {
-  username: string;
-  onBack: () => void;
-  onLogout: () => void;
-  autoOpenScanner?: boolean;
-}
-
-export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
+export const PurchaseTerminal = ({ username, onBack, onLogout }: { username: string; onBack: () => void; onLogout: () => void }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [productName, setProductName] = useState("");
-  const [productPrice, setProductPrice] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [discountType, setDiscountType] = useState<"percentage" | "amount">("percentage");
   const [discountValue, setDiscountValue] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
+  const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isTransactionCompleteDialogOpen, setIsTransactionCompleteDialogOpen] = useState(false);
   const [amountReceived, setAmountReceived] = useState("");
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [transactionId, setTransactionId] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
-  const [completedTransaction, setCompletedTransaction] = useState<any>(null); // Store completed transaction for printing
-  const [isAddingNewCustomer, setIsAddingNewCustomer] = useState(false); // State for adding new customer
-  const [newCustomer, setNewCustomer] = useState({
-    first_name: "",
-    last_name: "",
+  const [isAddingNewSupplier, setIsAddingNewSupplier] = useState(false);
+  const [newSupplier, setNewSupplier] = useState({
+    name: "",
+    contact_person: "",
     email: "",
-    phone: "",
-    address: ""
-  }); // State for new customer data
+    phone: ""
+  });
   const { toast } = useToast();
 
-  // Load products and customers from Supabase on component mount
+  // Load products and suppliers from Supabase on component mount
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
         // Load products
         const productData = await getProducts();
-        // Fix: Set products directly without mapping to a different structure
         setProducts(productData);
         
-        // Load customers
-        const customerData = await getCustomers();
-        const formattedCustomers = customerData.map(customer => ({
-          id: customer.id || '',
-          name: `${customer.first_name} ${customer.last_name}`,
-          loyaltyPoints: customer.loyalty_points || 0,
-          address: customer.address || '',
-          email: customer.email || '',
-          phone: customer.phone || ''
+        // Load suppliers
+        const supplierData = await getSuppliers();
+        const formattedSuppliers = supplierData.map(supplier => ({
+          id: supplier.id || '',
+          name: supplier.name,
+          contactPerson: supplier.contact_person || '',
+          email: supplier.email || '',
+          phone: supplier.phone || ''
         }));
-        setCustomers(formattedCustomers);
+        setSuppliers(formattedSuppliers);
       } catch (error) {
         console.error("Error loading data:", error);
         toast({
           title: "Error",
-          description: "Failed to load products and customers",
+          description: "Failed to load products and suppliers",
           variant: "destructive",
         });
       } finally {
@@ -124,16 +95,6 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
   );
 
   const addToCart = (product: Product) => {
-    // Check if product is out of stock
-    if (product.stock_quantity <= 0) {
-      toast({
-        title: "Out of Stock",
-        description: `${product.name} is currently out of stock`,
-        variant: "destructive",
-      });
-      return;
-    }
-    
     const existingItem = cart.find(item => item.id === product.id);
     
     if (existingItem) {
@@ -146,8 +107,8 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       const newItem: CartItem = {
         id: product.id || '',
         name: product.name,
-        price: product.selling_price,
-        quantity: 0, // Changed to 0 as requested
+        price: product.cost_price,
+        quantity: 1,
       };
       setCart([...cart, newItem]);
     }
@@ -177,12 +138,8 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
     
   const total = subtotal - discountAmount;
   
-  // Tax is displayed as 18% but doesn't affect calculation (for display purposes only)
-  const tax = total * 0.18; // 18% tax for display
-  const totalWithTax = total; // Tax doesn't affect the actual total
-  
   const amountReceivedNum = parseFloat(amountReceived) || 0;
-  const change = amountReceivedNum - total; // Change calculation based on actual total without tax
+  const change = amountReceivedNum - total;
 
   const processTransaction = () => {
     if (cart.length === 0) {
@@ -207,17 +164,6 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       return;
     }
 
-    // Check if payment method is Debt and customer details are required
-    if (paymentMethod === "debt" && !selectedCustomer) {
-      toast({
-        title: "Error",
-        description: "Customer details are required for Debt transactions",
-        variant: "destructive",
-      });
-      setIsCustomerDialogOpen(true); // Open customer selection dialog
-      return;
-    }
-
     if (paymentMethod === "cash" && change < 0) {
       toast({
         title: "Error",
@@ -227,67 +173,37 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       return;
     }
 
-    // Calculate loyalty points automatically
-    const loyaltyPoints = selectedCustomer 
-      ? AutomationService.calculateLoyaltyPoints(total) // Use total without tax for loyalty points
-      : 0;
-
     try {
-      // Create the sale record in the database
-      const saleData = {
-        customer_id: selectedCustomer?.id || null,
-        user_id: null, // In In a real app, this would be the current user ID
-        invoice_number: `INV-${Date.now()}`,
-        sale_date: new Date().toISOString(),
-        subtotal: subtotal,
-        discount_amount: discountAmount,
-        tax_amount: tax, // Display only tax (18%)
-        total_amount: totalWithTax, // Actual total without tax effect
-        amount_paid: paymentMethod === "debt" ? 0 : (parseFloat(amountReceived) || totalWithTax),
-        change_amount: paymentMethod === "debt" ? 0 : change,
-        payment_method: paymentMethod,
-        payment_status: paymentMethod === "debt" ? "unpaid" : "paid",
-        sale_status: "completed",
-        notes: paymentMethod === "debt" ? "Debt transaction - payment pending" : ""
+      // Create the purchase order record in the database
+      const purchaseOrderData = {
+        supplier_id: selectedSupplier?.id || null,
+        user_id: null, // In a real app, this would be the current user ID
+        order_number: `PO-${Date.now()}`,
+        order_date: new Date().toISOString(),
+        total_amount: total,
+        status: "received",
+        notes: "Purchase completed through terminal"
       };
 
-      const createdSale = await createSale(saleData);
+      const createdPurchaseOrder = await createPurchaseOrder(purchaseOrderData);
       
-      if (!createdSale) {
-        throw new Error("Failed to create sale record");
+      if (!createdPurchaseOrder) {
+        throw new Error("Failed to create purchase order record");
       }
 
-      // Create sale items for each product in the cart
+      // Create purchase order items for each product in the cart
       const itemsWithQuantity = cart.filter(item => item.quantity > 0);
       for (const item of itemsWithQuantity) {
-        const saleItemData = {
-          sale_id: createdSale.id || '',
+        const purchaseOrderItemData = {
+          purchase_order_id: createdPurchaseOrder.id || '',
           product_id: item.id,
-          quantity: item.quantity,
-          unit_price: item.price,
-          discount_amount: 0, // In a real app, this would be calculated
-          tax_amount: item.price * item.quantity * 0.18, // Display only tax (18%)
-          total_price: item.price * item.quantity
+          quantity_ordered: item.quantity,
+          quantity_received: item.quantity,
+          unit_cost: item.price,
+          total_cost: item.price * item.quantity
         };
         
-        await createSaleItem(saleItemData);
-      }
-
-      // Create debt record for debt transactions
-      if (paymentMethod === "debt" && selectedCustomer) {
-        const debtData = {
-          customer_id: selectedCustomer.id,
-          debt_type: "customer",
-          amount: totalWithTax,
-          description: `Debt for sale ${createdSale.id || 'unknown'}`,
-          status: "outstanding",
-          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 30 days from now
-        };
-
-        const createdDebt = await createDebt(debtData);
-        if (!createdDebt) {
-          console.warn("Failed to create debt record for transaction");
-        }
+        await createPurchaseOrderItem(purchaseOrderItemData);
       }
 
       // Update stock quantities for each item in the cart
@@ -296,7 +212,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
         const product = products.find(p => p.id === item.id);
         if (product) {
           // Calculate new stock quantity
-          const newStock = Math.max(0, product.stock_quantity - item.quantity);
+          const newStock = product.stock_quantity + item.quantity;
           // Update stock in database
           await updateProductStock(item.id, newStock);
         }
@@ -306,56 +222,19 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       const updatedProducts = await getProducts();
       setProducts(updatedProducts);
 
-      // Create transaction object for printing
-      const transaction = {
-        id: createdSale.id || Date.now().toString(),
-        date: createdSale.sale_date || new Date().toISOString(),
-        items: cart,
-        subtotal: subtotal,
-        tax: tax, // Display only tax (18%)
-        discount: discountAmount,
-        total: totalWithTax, // Actual total without tax effect
-        paymentMethod: paymentMethod,
-        amountReceived: paymentMethod === "debt" ? 0 : (parseFloat(amountReceived) || 0),
-        change: paymentMethod === "debt" ? 0 : change,
-        customer: selectedCustomer // Include customer information
-      };
-
-      // Store transaction for potential printing
-      setCompletedTransaction(transaction);
-
-      // Show transaction complete dialog instead of toast
+      // Show transaction complete dialog
       setIsPaymentDialogOpen(false);
       setIsTransactionCompleteDialogOpen(true);
       
-      // Send WhatsApp notification to business numbers only for the first sale of the day
-      try {
-        // Check if this is the first sale of the business day
-        if (WhatsAppUtils.isFirstSaleOfDay()) {
-          const message = WhatsAppUtils.generateSalesNotificationMessage(
-            createdSale.id || Date.now().toString(),
-            totalWithTax,
-            paymentMethod,
-            selectedCustomer?.name
-          );
-          
-          // Send message to all business numbers
-          WhatsAppUtils.sendWhatsAppMessageToBusiness(message);
-        }
-      } catch (whatsappError) {
-        console.warn("Failed to send WhatsApp notification:", whatsappError);
-        // Don't block the transaction if WhatsApp fails
-      }
-      
-      // Clear cart and reset form (but don't show toast yet)
+      // Clear cart and reset form
       setCart([]);
-      setSelectedCustomer(null);
+      setSelectedSupplier(null);
       setDiscountValue("");
       setAmountReceived("");
       
       toast({
         title: "Success",
-        description: `Transaction completed successfully${paymentMethod === "debt" ? " as Debt" : ""}`,
+        description: "Purchase completed successfully",
       });
     } catch (error) {
       console.error("Error completing transaction:", error);
@@ -367,87 +246,66 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
     }
   };
 
-  // Print receipt
-  const printReceipt = () => {
-    // In a real app, this would fetch the transaction details
-    const mockTransaction = {
-      id: Date.now().toString(),
-      items: cart,
-      subtotal: subtotal,
-      tax: tax, // Display only tax (18%)
-      discount: discountAmount,
-      total: totalWithTax, // Actual total without tax effect
-      paymentMethod: paymentMethod,
-      amountReceived: parseFloat(amountReceived) || totalWithTax,
-      change: change
-    };
-    PrintUtils.printReceipt(mockTransaction);
-  };
-
-  const handleCreateCustomer = async () => {
-    if (!newCustomer.first_name || !newCustomer.last_name) {
+  const handleCreateSupplier = async () => {
+    if (!newSupplier.name) {
       toast({
         title: "Error",
-        description: "First name and last name are required",
+        description: "Supplier name is required",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      const customerData = {
-        first_name: newCustomer.first_name,
-        last_name: newCustomer.last_name,
-        email: newCustomer.email || "",
-        phone: newCustomer.phone || "",
-        address: newCustomer.address || "",
-        loyalty_points: 0,
+      const supplierData = {
+        name: newSupplier.name,
+        contact_person: newSupplier.contact_person || "",
+        email: newSupplier.email || "",
+        phone: newSupplier.phone || "",
         is_active: true
       };
 
-      const createdCustomer = await createCustomer(customerData);
+      const createdSupplier = await createSupplier(supplierData);
       
-      if (createdCustomer) {
-        // Format the created customer to match our Customer interface
-        const formattedCustomer: Customer = {
-          id: createdCustomer.id || '',
-          name: `${createdCustomer.first_name} ${createdCustomer.last_name}`,
-          loyaltyPoints: createdCustomer.loyalty_points || 0,
-          address: createdCustomer.address || '',
-          email: createdCustomer.email || '',
-          phone: createdCustomer.phone || ''
+      if (createdSupplier) {
+        // Format the created supplier to match our Supplier interface
+        const formattedSupplier: Supplier = {
+          id: createdSupplier.id || '',
+          name: createdSupplier.name,
+          contactPerson: createdSupplier.contact_person || '',
+          email: createdSupplier.email || '',
+          phone: createdSupplier.phone || ''
         };
         
-        // Add the new customer to the customers list
-        setCustomers([...customers, formattedCustomer]);
+        // Add the new supplier to the suppliers list
+        setSuppliers([...suppliers, formattedSupplier]);
         
-        // Select the newly created customer
-        setSelectedCustomer(formattedCustomer);
+        // Select the newly created supplier
+        setSelectedSupplier(formattedSupplier);
         
         // Close the dialog
-        setIsCustomerDialogOpen(false);
+        setIsSupplierDialogOpen(false);
         
-        // Reset the new customer form
-        setNewCustomer({
-          first_name: "",
-          last_name: "",
+        // Reset the new supplier form
+        setNewSupplier({
+          name: "",
+          contact_person: "",
           email: "",
-          phone: "",
-          address: ""
+          phone: ""
         });
         
         toast({
           title: "Success",
-          description: "Customer added successfully",
+          description: "Supplier added successfully",
         });
       } else {
-        throw new Error("Failed to create customer");
+        throw new Error("Failed to create supplier");
       }
     } catch (error) {
-      console.error("Error creating customer:", error);
+      console.error("Error creating supplier:", error);
       toast({
         title: "Error",
-        description: "Failed to add customer",
+        description: "Failed to add supplier",
         variant: "destructive",
       });
     }
@@ -456,7 +314,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
   return (
     <div className="min-h-screen bg-background">
       <Navigation 
-        title="Sales Terminal" 
+        title="Purchase Terminal" 
         onBack={onBack}
         onLogout={onLogout} 
         username={username}
@@ -465,8 +323,8 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       <main className="container mx-auto p-6">
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Sales Terminal</h1>
-            <p className="text-muted-foreground">Process sales transactions and manage customer orders</p>
+            <h1 className="text-3xl font-bold">Purchase Terminal</h1>
+            <p className="text-muted-foreground">Process supplier purchases and manage incoming inventory</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setIsScannerOpen(true)}>
@@ -475,7 +333,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
             </Button>
             <Button onClick={processTransaction}>
               <ShoppingCart className="h-4 w-4 mr-2" />
-              Process Sale
+              Process Purchase
             </Button>
           </div>
         </div>
@@ -526,15 +384,10 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                                   <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">
                                     Stock: {product.stock_quantity}
                                   </span>
-                                  {product.stock_quantity === 0 && (
-                                    <span className="text-xs bg-red-100 text-red-800 px-1 rounded ml-1">
-                                      Out of Stock
-                                    </span>
-                                  )}
                                 </div>
                               </div>
                             </div>
-                            <div className="font-medium">{formatCurrency(product.selling_price)}</div>
+                            <div className="font-medium">{formatCurrency(product.cost_price)}</div>
                           </div>
                         ))}
                       </div>
@@ -547,7 +400,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
             {/* Shopping Cart */}
             <Card>
               <CardHeader>
-                <CardTitle>Shopping Cart</CardTitle>
+                <CardTitle>Purchase Cart</CardTitle>
               </CardHeader>
               <CardContent>
                 {cart.length === 0 ? (
@@ -559,39 +412,29 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                 ) : (
                   <div className="space-y-4">
                     {cart.map((item) => (
-                      <div key={item.id} className={`flex items-center justify-between p-3 border rounded-lg ${item.quantity === 0 ? 'opacity-50' : ''}`}>
+                      <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex-1">
                           <div className="font-medium">{item.name}</div>
                           <div className="text-sm text-muted-foreground">
                             {formatCurrency(item.price)} × {item.quantity}
-                            {item.quantity === 0 && <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-1 rounded">Not counted</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={item.quantity}
-                            onChange={(e) => {
-                              const newQuantity = Math.max(0, parseInt(e.target.value) || 0);
-                              // Check if the new quantity exceeds available stock
-                              const product = products.find(p => p.id === item.id);
-                              if (product && newQuantity > product.stock_quantity) {
-                                toast({
-                                  title: "Insufficient Stock",
-                                  description: `Only ${product.stock_quantity} units available for ${product.name}`,
-                                  variant: "destructive",
-                                });
-                                return;
-                              }
-                              setCart(cart.map(cartItem => 
-                                cartItem.id === item.id 
-                                  ? { ...cartItem, quantity: newQuantity } 
-                                  : cartItem
-                              ));
-                            }}
-                            className="w-16"
-                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateQuantity(item.id, -1)}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="w-8 text-center">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateQuantity(item.id, 1)}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -617,13 +460,9 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                         <span>Discount:</span>
                         <span>-{formatCurrency(discountAmount)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Tax (18%):</span>
-                        <span>{formatCurrency(tax)}</span>
-                      </div>
                       <div className="flex justify-between font-bold">
                         <span>Total:</span>
-                        <span>{formatCurrency(totalWithTax)}</span>
+                        <span>{formatCurrency(total)}</span>
                       </div>
                     </div>
                   </div>
@@ -632,50 +471,41 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
             </Card>
           </div>
 
-          {/* Customer and Transaction Info */}
+          {/* Supplier and Transaction Info */}
           <div className="space-y-6">
-            {/* Customer Selection */}
+            {/* Supplier Selection */}
             <Card>
               <CardHeader>
-                <CardTitle>Customer</CardTitle>
+                <CardTitle>Supplier</CardTitle>
               </CardHeader>
               <CardContent>
-                {selectedCustomer ? (
+                {selectedSupplier ? (
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <div>
-                        <div className="font-medium">{selectedCustomer.name}</div>
+                        <div className="font-medium">{selectedSupplier.name}</div>
                         <div className="text-sm text-muted-foreground">
-                          {selectedCustomer.loyaltyPoints} loyalty points
+                          {selectedSupplier.contactPerson && `Contact: ${selectedSupplier.contactPerson}`}
                         </div>
                       </div>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setSelectedCustomer(null)}
+                        onClick={() => setSelectedSupplier(null)}
                       >
                         Change
                       </Button>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Star className="h-4 w-4 text-yellow-500" />
-                      <span>
-                        Earn {AutomationService.calculateLoyaltyPoints(total)} points
-                      </span>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <Button 
                       className="w-full"
-                      onClick={() => setIsCustomerDialogOpen(true)}
+                      onClick={() => setIsSupplierDialogOpen(true)}
                     >
                       <User className="h-4 w-4 mr-2" />
-                      Select Customer
+                      Select Supplier
                     </Button>
-                    <p className="text-sm text-muted-foreground text-center">
-                      Loyalty points will be calculated automatically
-                    </p>
                   </div>
                 )}
               </CardContent>
@@ -730,10 +560,10 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                             Cash
                           </div>
                         </SelectItem>
-                        <SelectItem value="debt">
+                        <SelectItem value="credit">
                           <div className="flex items-center gap-2">
                             <CreditCard className="h-4 w-4" />
-                            Debt
+                            Credit
                           </div>
                         </SelectItem>
                       </SelectContent>
@@ -749,13 +579,9 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                       <span>Discount:</span>
                       <span>-{formatCurrency(discountAmount)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Tax (18%):</span>
-                      <span>{formatCurrency(tax)}</span>
-                    </div>
                     <div className="flex justify-between font-bold">
                       <span>Total:</span>
-                      <span>{formatCurrency(totalWithTax)}</span>
+                      <span>{formatCurrency(total)}</span>
                     </div>
                   </div>
                   
@@ -764,7 +590,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                     onClick={processTransaction}
                     disabled={cart.length === 0}
                   >
-                    Process Sale
+                    Process Purchase
                   </Button>
                 </div>
               </CardContent>
@@ -772,48 +598,47 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
           </div>
         </div>
 
-        {/* Customer Selection Dialog */}
-        <Dialog open={isCustomerDialogOpen} onOpenChange={(open) => {
-          setIsCustomerDialogOpen(open);
+        {/* Supplier Selection Dialog */}
+        <Dialog open={isSupplierDialogOpen} onOpenChange={(open) => {
+          setIsSupplierDialogOpen(open);
           if (!open) {
-            // Reset new customer form when dialog is closed
-            setIsAddingNewCustomer(false);
-            setNewCustomer({
-              first_name: "",
-              last_name: "",
+            // Reset new supplier form when dialog is closed
+            setIsAddingNewSupplier(false);
+            setNewSupplier({
+              name: "",
+              contact_person: "",
               email: "",
-              phone: "",
-              address: ""
+              phone: ""
             });
           }
         }}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>
-                {isAddingNewCustomer ? "Add New Customer" : "Select Customer"}
+                {isAddingNewSupplier ? "Add New Supplier" : "Select Supplier"}
               </DialogTitle>
             </DialogHeader>
             
-            {isAddingNewCustomer ? (
-              // New Customer Form
+            {isAddingNewSupplier ? (
+              // New Supplier Form
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name *</Label>
+                  <Label htmlFor="supplierName">Supplier Name *</Label>
                   <Input
-                    id="firstName"
-                    value={newCustomer.first_name}
-                    onChange={(e) => setNewCustomer({...newCustomer, first_name: e.target.value})}
-                    placeholder="Enter first name"
+                    id="supplierName"
+                    value={newSupplier.name}
+                    onChange={(e) => setNewSupplier({...newSupplier, name: e.target.value})}
+                    placeholder="Enter supplier name"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Label htmlFor="contactPerson">Contact Person</Label>
                   <Input
-                    id="lastName"
-                    value={newCustomer.last_name}
-                    onChange={(e) => setNewCustomer({...newCustomer, last_name: e.target.value})}
-                    placeholder="Enter last name"
+                    id="contactPerson"
+                    value={newSupplier.contact_person}
+                    onChange={(e) => setNewSupplier({...newSupplier, contact_person: e.target.value})}
+                    placeholder="Enter contact person"
                   />
                 </div>
                 
@@ -822,8 +647,8 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                   <Input
                     id="email"
                     type="email"
-                    value={newCustomer.email}
-                    onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                    value={newSupplier.email}
+                    onChange={(e) => setNewSupplier({...newSupplier, email: e.target.value})}
                     placeholder="Enter email"
                   />
                 </div>
@@ -832,19 +657,9 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                   <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
-                    value={newCustomer.phone}
-                    onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
+                    value={newSupplier.phone}
+                    onChange={(e) => setNewSupplier({...newSupplier, phone: e.target.value})}
                     placeholder="Enter phone number"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    value={newCustomer.address}
-                    onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})}
-                    placeholder="Enter address"
                   />
                 </div>
                 
@@ -852,62 +667,61 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                   <Button 
                     variant="outline" 
                     onClick={() => {
-                      setIsAddingNewCustomer(false);
-                      setNewCustomer({
-                        first_name: "",
-                        last_name: "",
+                      setIsAddingNewSupplier(false);
+                      setNewSupplier({
+                        name: "",
+                        contact_person: "",
                         email: "",
-                        phone: "",
-                        address: ""
+                        phone: ""
                       });
                     }}
                   >
                     Back
                   </Button>
-                  <Button onClick={handleCreateCustomer}>
-                    Add Customer
+                  <Button onClick={handleCreateSupplier}>
+                    Add Supplier
                   </Button>
                 </div>
               </div>
             ) : (
-              // Customer Selection List
+              // Supplier Selection List
               <div className="max-h-96 overflow-y-auto">
                 {loading ? (
                   <div className="text-center py-4 text-muted-foreground">
-                    Loading customers...
+                    Loading suppliers...
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <Button 
                       className="w-full"
-                      onClick={() => setIsAddingNewCustomer(true)}
+                      onClick={() => setIsAddingNewSupplier(true)}
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      Add New Customer
+                      Add New Supplier
                     </Button>
                     
-                    {customers.length === 0 ? (
+                    {suppliers.length === 0 ? (
                       <div className="text-center py-4 text-muted-foreground">
-                        No customers found
+                        No suppliers found
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {customers.map((customer) => (
+                        {suppliers.map((supplier) => (
                           <div
-                            key={customer.id}
+                            key={supplier.id}
                             className="p-3 border rounded-lg hover:bg-muted cursor-pointer flex justify-between items-center"
                             onClick={() => {
-                              setSelectedCustomer(customer);
-                              setIsCustomerDialogOpen(false);
+                              setSelectedSupplier(supplier);
+                              setIsSupplierDialogOpen(false);
                             }}
                           >
                             <div>
-                              <div className="font-medium">{customer.name}</div>
+                              <div className="font-medium">{supplier.name}</div>
                               <div className="text-sm text-muted-foreground">
-                                {customer.loyaltyPoints} loyalty points
+                                {supplier.contactPerson && `Contact: ${supplier.contactPerson}`}
                               </div>
                             </div>
-                            <Star className="h-4 w-4 text-yellow-500" />
+                            <Truck className="h-4 w-4 text-muted-foreground" />
                           </div>
                         ))}
                       </div>
@@ -923,13 +737,13 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
         <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Complete Transaction</DialogTitle>
+              <DialogTitle>Complete Purchase</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Total Amount</Label>
-                  <div className="text-2xl font-bold">{formatCurrency(totalWithTax)}</div>
+                  <div className="text-2xl font-bold">{formatCurrency(total)}</div>
                 </div>
                 <div>
                   <Label>Payment Method</Label>
@@ -946,7 +760,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
               
               {paymentMethod === "cash" && (
                 <div>
-                  <Label>Amount Received</Label>
+                  <Label>Amount Paid</Label>
                   <Input
                     type="number"
                     placeholder="0.00"
@@ -968,7 +782,7 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                   Cancel
                 </Button>
                 <Button onClick={completeTransaction}>
-                  Complete Sale
+                  Complete Purchase
                 </Button>
               </div>
             </div>
@@ -979,36 +793,21 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
         <Dialog open={isTransactionCompleteDialogOpen} onOpenChange={setIsTransactionCompleteDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Transaction Complete</DialogTitle>
+              <DialogTitle>Purchase Complete</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="text-center py-4">
                 <div className="text-2xl font-bold text-green-600 mb-2">Success!</div>
                 <p className="text-muted-foreground">
-                  Transaction processed successfully for {formatCurrency(totalWithTax)}
+                  Purchase processed successfully for {formatCurrency(total)}
                 </p>
               </div>
               
               <div className="flex justify-center gap-4">
                 <Button variant="outline" onClick={() => {
-                  // Just close the dialog and reset
                   setIsTransactionCompleteDialogOpen(false);
                 }}>
-                  Quit Cart
-                </Button>
-                <Button onClick={() => {
-                  // Print receipt and then close
-                  if (completedTransaction) {
-                    PrintUtils.printReceipt(completedTransaction);
-                  }
-                  setIsTransactionCompleteDialogOpen(false);
-                  toast({
-                    title: "Transaction Processed",
-                    description: `Sale completed for ${formatCurrency(totalWithTax)}${selectedCustomer ? ` (${AutomationService.calculateLoyaltyPoints(total)} points earned)` : ''}`,
-                  });
-                }}>
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print Receipt
+                  Close
                 </Button>
               </div>
             </div>

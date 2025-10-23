@@ -11,6 +11,7 @@ import { EmployeeManagement } from "@/pages/EmployeeManagement";
 import { SupplierManagement } from "@/pages/SupplierManagement";
 import { PurchaseOrders } from "@/pages/PurchaseOrders";
 import { PurchaseDashboard } from "@/pages/PurchaseDashboard";
+import { PurchaseTerminal } from "@/pages/PurchaseTerminal";
 import { ExpenseManagement } from "@/pages/ExpenseManagement";
 import { ReturnsManagement } from "@/pages/ReturnsManagement";
 import { DebtManagement } from "@/pages/DebtManagement";
@@ -27,7 +28,7 @@ import { AutomatedDashboard } from "@/pages/AutomatedDashboard";
 import { SplashScreen } from "@/components/SplashScreen";
 import { useAuth } from "@/contexts/AuthContext";
 
-type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "inventory" | "purchase" | "finance" | "products" | "customers" | "transactions" | "analytics" | "employees" | "suppliers" | "purchase-orders" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "reports" | "financial-reports" | "settings" | "automated" | "comprehensive";
+type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "reports" | "financial-reports" | "settings" | "automated" | "comprehensive";
 
 const Index = () => {
   const { user, login } = useAuth();
@@ -113,6 +114,9 @@ const Index = () => {
       case "purchase-orders":
         setCurrentView("purchase-orders");
         break;
+      case "purchase-terminal":
+        setCurrentView("purchase-terminal");
+        break;
       case "expenses":
         setCurrentView("expenses");
         break;
@@ -188,6 +192,9 @@ const Index = () => {
         setCurrentView("purchase");
         break;
       case "purchase-orders":
+        setCurrentView("purchase");
+        break;
+      case "purchase-terminal":
         setCurrentView("purchase");
         break;
       case "purchase":
@@ -333,6 +340,15 @@ const Index = () => {
                 onBack={handleBack}
                 onLogout={handleLogout}
                 onNavigate={handleNavigate}
+              />
+            );
+          case "purchase-terminal":
+            console.log("Rendering PurchaseTerminal");
+            return (
+              <PurchaseTerminal
+                username={user?.email || "admin"}
+                onBack={handleBack}
+                onLogout={handleLogout}
               />
             );
           case "suppliers":

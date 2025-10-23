@@ -6,7 +6,8 @@ import {
   Package,
   FileText,
   BarChart3,
-  Settings
+  Settings,
+  CreditCard
 } from "lucide-react";
 
 interface PurchaseDashboardProps {
@@ -30,6 +31,13 @@ export const PurchaseDashboard = ({ username, onBack, onLogout, onNavigate }: Pu
       title: "Purchase Orders",
       description: "Create, track, and manage purchase orders",
       icon: ShoppingCart,
+      color: "bg-white border border-gray-200"
+    },
+    {
+      id: "purchase-terminal",
+      title: "Purchase Terminal",
+      description: "Process supplier purchases and manage incoming inventory",
+      icon: CreditCard,
       color: "bg-white border border-gray-200"
     },
     {

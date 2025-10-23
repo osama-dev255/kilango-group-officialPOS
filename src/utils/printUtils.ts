@@ -1052,4 +1052,165 @@ export class PrintUtils {
       reportWindow.close();
     }, 250);
   }
+
+  // Print purchase order
+  static printPurchaseOrder(poData: any) {
+    const reportWindow = window.open('', '_blank');
+    if (!reportWindow) return;
+    
+    const reportContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Purchase Order ${poData.orderNumber}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 20px;
+              color: #333;
+              font-size: 14px;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 20px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 10px;
+            }
+            .business-name {
+              font-size: 20px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .report-title {
+              font-size: 18px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .report-info {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 20px;
+            }
+            .info-section {
+              flex: 1;
+            }
+            .info-label {
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .report-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 20px 0;
+            }
+            .report-table th {
+              text-align: left;
+              border-bottom: 1px solid #333;
+              padding: 8px;
+              background-color: #f5f5f5;
+            }
+            .report-table td {
+              padding: 8px;
+              border-bottom: 1px solid #eee;
+            }
+            .text-right {
+              text-align: right;
+            }
+            .font-semibold {
+              font-weight: 600;
+            }
+            .font-bold {
+              font-weight: bold;
+            }
+            .border-t {
+              border-top: 1px solid #333;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 12px;
+              color: #999;
+            }
+            .total-section {
+              margin-top: 20px;
+              text-align: right;
+            }
+            .total-row {
+              display: flex;
+              justify-content: flex-end;
+              margin-bottom: 5px;
+            }
+            .total-label {
+              width: 150px;
+              font-weight: bold;
+            }
+            .total-value {
+              width: 100px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="business-name">POS BUSINESS</div>
+            <div class="report-title">PURCHASE ORDER</div>
+            <div>Order #: ${poData.orderNumber}</div>
+          </div>
+          
+          <div class="report-info">
+            <div class="info-section">
+              <div class="info-label">Supplier</div>
+              <div>${poData.supplier.name}</div>
+            </div>
+            <div class="info-section">
+              <div class="info-label">Date</div>
+              <div>${new Date(poData.date).toLocaleDateString()}</div>
+            </div>
+          </div>
+          
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${poData.items.map((item: any) => `
+                <tr>
+                  <td>${item.productName}</td>
+                  <td>${item.quantity}</td>
+                  <td>${item.unitPrice.toFixed(2)}</td>
+                  <td class="text-right">${item.total.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="total-section">
+            <div class="total-row">
+              <div class="total-label">Total:</div>
+              <div class="total-value">${poData.total.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+            <p>Thank you for your business!</p>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    reportWindow.document.write(reportContent);
+    reportWindow.document.close();
+    reportWindow.focus();
+    
+    // Give time for content to load before printing
+    setTimeout(() => {
+      reportWindow.print();
+      reportWindow.close();
+    }, 250);
+  }
 }

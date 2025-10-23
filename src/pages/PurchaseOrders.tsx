@@ -5,13 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Edit, Trash2, ShoppingCart, Truck, Calendar, X, RefreshCw } from "lucide-react";
+import { Search, Plus, Edit, Trash2, ShoppingCart, Truck, Calendar, X, RefreshCw, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
 import { getPurchaseOrders, createPurchaseOrder, updatePurchaseOrder, deletePurchaseOrderWithItems, getSuppliers, getPurchaseOrderItems, createPurchaseOrderItem, updatePurchaseOrderItem, getProducts } from "@/services/databaseService";
+import { PrintUtils } from "@/utils/printUtils";
 
 interface PurchaseOrderItem {
   id: string;
@@ -46,8 +47,8 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
   const [newPO, setNewPO] = useState<Omit<PurchaseOrder, "id" | "poNumber" | "items" | "subtotal" | "tax" | "total">>({
     supplierId: "",
     supplierName: "",
-    orderDate: new Date().toISOString().split('T')[0],
-    expectedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    orderDate: new Date().toISOString().split('T')[0], // Ensure proper date format
+    expectedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Ensure proper date format
     status: "draft"
   });
   // State for managing items in the dialog
@@ -128,8 +129,8 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
       // Create the purchase order
       const poData = {
         supplier_id: newPO.supplierId,
-        order_date: newPO.orderDate,
-        expected_delivery_date: newPO.expectedDelivery,
+        order_date: newPO.orderDate, // This should be a date string in 'YYYY-MM-DD' format
+        expected_delivery_date: newPO.expectedDelivery, // This should be a date string in 'YYYY-MM-DD' format
         status: newPO.status,
         total_amount: 0 // Will be updated after items are added
       };
@@ -182,8 +183,8 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
         poNumber: order.order_number || `PO-${order.id?.substring(0, 8) || '001'}`,
         supplierId: order.supplier_id || '',
         supplierName: supplierData.find(s => s.id === order.supplier_id)?.name || 'Unknown Supplier',
-        orderDate: order.order_date || new Date().toISOString(),
-        expectedDelivery: order.expected_delivery_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        orderDate: order.order_date || new Date().toISOString().split('T')[0], // Ensure proper date format
+        expectedDelivery: order.expected_delivery_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Ensure proper date format
         status: (order.status as "draft" | "ordered" | "received" | "cancelled") || "draft",
         items: [], // Will be loaded when needed
         subtotal: 0, // Will be calculated
@@ -223,8 +224,8 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
       // Update the purchase order
       const poData = {
         supplier_id: editingPO.supplierId,
-        order_date: editingPO.orderDate,
-        expected_delivery_date: editingPO.expectedDelivery,
+        order_date: editingPO.orderDate, // Ensure proper date format
+        expected_delivery_date: editingPO.expectedDelivery, // Ensure proper date format
         status: editingPO.status,
         total_amount: editingPO.total
       };
@@ -258,8 +259,8 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
         poNumber: order.order_number || `PO-${order.id?.substring(0, 8) || '001'}`,
         supplierId: order.supplier_id || '',
         supplierName: supplierData.find(s => s.id === order.supplier_id)?.name || 'Unknown Supplier',
-        orderDate: order.order_date || new Date().toISOString(),
-        expectedDelivery: order.expected_delivery_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        orderDate: order.order_date || new Date().toISOString().split('T')[0], // Ensure proper date format
+        expectedDelivery: order.expected_delivery_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Ensure proper date format
         status: (order.status as "draft" | "ordered" | "received" | "cancelled") || "draft",
         items: [], // Will be loaded when needed
         subtotal: 0, // Will be calculated
@@ -267,6 +268,30 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
         total: order.total_amount || 0
       }));
       setPurchaseOrders(formattedOrders);
+      
+      // Load items for the updated PO and show dialog
+      const updatedOrder = formattedOrders.find(order => order.id === editingPO.id) || null;
+      if (updatedOrder) {
+        // Load the purchase order items
+        const items = await getPurchaseOrderItems(updatedOrder.id);
+        const productData = await getProducts();
+        const formattedItems = items.map(item => ({
+          id: item.id || '',
+          productId: item.product_id || '',
+          productName: productData.find(p => p.id === item.product_id)?.name || 'Unknown Product',
+          quantity: item.quantity_ordered,
+          unitPrice: item.unit_cost,
+          total: item.total_cost
+        }));
+        
+        const orderWithItems = {
+          ...updatedOrder,
+          items: formattedItems
+        };
+        
+        setUpdatedPO(orderWithItems);
+        setShowPostUpdateDialog(true);
+      }
       
       resetForm();
       setIsDialogOpen(false);
@@ -368,7 +393,14 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
         total: item.total_cost
       }));
       
-      setEditingPO(po);
+      // Ensure proper date format for editing
+      const formattedPO = {
+        ...po,
+        orderDate: po.orderDate || new Date().toISOString().split('T')[0],
+        expectedDelivery: po.expectedDelivery || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      };
+      
+      setEditingPO(formattedPO);
       setPoItems(formattedItems);
       setIsDialogOpen(true);
     } catch (error) {
@@ -453,6 +485,32 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
     
     return matchesSearch && matchesStatus;
   });
+
+  const [showPostUpdateDialog, setShowPostUpdateDialog] = useState(false);
+  const [updatedPO, setUpdatedPO] = useState<PurchaseOrder | null>(null);
+
+  const handlePrintPO = async () => {
+    if (updatedPO) {
+      // Prepare data for printing
+      const poData = {
+        orderNumber: updatedPO.poNumber,
+        date: updatedPO.orderDate,
+        supplier: {
+          name: updatedPO.supplierName
+        },
+        items: updatedPO.items,
+        total: updatedPO.total
+      };
+      
+      PrintUtils.printPurchaseOrder(poData);
+      setShowPostUpdateDialog(false);
+    }
+  };
+
+  const handleQuit = () => {
+    setShowPostUpdateDialog(false);
+    setUpdatedPO(null);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -751,6 +809,29 @@ export const PurchaseOrders = ({ username, onBack, onLogout }: { username: strin
           </CardContent>
         </Card>
       </main>
+      
+      {/* Post Update Dialog */}
+      <Dialog open={showPostUpdateDialog} onOpenChange={setShowPostUpdateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Purchase Order Updated</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>Purchase order has been updated successfully.</p>
+            <p>What would you like to do next?</p>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={handleQuit}>
+              <X className="h-4 w-4 mr-2" />
+              Quit
+            </Button>
+            <Button onClick={handlePrintPO}>
+              <Printer className="h-4 w-4 mr-2" />
+              Print PO
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Export Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .button.secondary {
+            background-color: #6c757d;
+        }
+        .button.secondary:hover {
+            background-color: #5a6268;
+        }
+        .test-data {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>PDF Export Test</h1>
+    
+    <div class="test-data">
+        <h2>Test Data</h2>
+        <p>This page tests the PDF export functionality for mobile browsers.</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>Standard Tests</h2>
+        <button class="button" id="exportPDF">Export Data to PDF</button>
+        <button class="button" id="exportReceipt">Export Receipt to PDF</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Mobile Simulation Tests</h2>
+        <button class="button secondary" id="mobilePDFTest">Test PDF Export (Mobile)</button>
+        <button class="button secondary" id="mobileReceiptTest">Test Receipt Export (Mobile)</button>
+        <button class="button secondary" id="mobileEnvTest">Test in Mobile Environment</button>
+    </div>
+
+    <script type="module">
+        import { ExportUtils } from '/src/utils/exportUtils.ts';
+        import { MobilePDFTest } from '/src/utils/mobilePDFTest.ts';
+
+        // Test data
+        const testData = [
+            { name: 'Product 1', price: 10.99, quantity: 2, total: 21.98 },
+            { name: 'Product 2', price: 5.49, quantity: 3, total: 16.47 },
+            { name: 'Product 3', price: 15.00, quantity: 1, total: 15.00 }
+        ];
+
+        const testTransaction = {
+            id: 'TXN-12345',
+            items: [
+                { name: 'Product 1', price: 10.99, quantity: 2 },
+                { name: 'Product 2', price: 5.49, quantity: 3 },
+                { name: 'Product 3', price: 15.00, quantity: 1 }
+            ],
+            subtotal: 53.45,
+            tax: 4.28,
+            discount: 5.00,
+            total: 52.73,
+            paymentMethod: 'Credit Card',
+            amountReceived: 60.00,
+            change: 7.27,
+            customer: {
+                name: 'John Doe',
+                email: 'john@example.com',
+                phone: '(555) 123-4567'
+            }
+        };
+
+        // Add event listeners for standard tests
+        document.getElementById('exportPDF').addEventListener('click', () => {
+            console.log('Exporting data to PDF...');
+            ExportUtils.exportToPDF(testData, 'test-export', 'Test Data Export');
+        });
+
+        document.getElementById('exportReceipt').addEventListener('click', () => {
+            console.log('Exporting receipt to PDF...');
+            ExportUtils.exportReceiptAsPDF(testTransaction, 'test-receipt');
+        });
+
+        // Add event listeners for mobile simulation tests
+        document.getElementById('mobilePDFTest').addEventListener('click', () => {
+            console.log('Running mobile PDF export test...');
+            MobilePDFTest.testPDFExport();
+        });
+
+        document.getElementById('mobileReceiptTest').addEventListener('click', () => {
+            console.log('Running mobile receipt export test...');
+            MobilePDFTest.testReceiptExport();
+        });
+
+        document.getElementById('mobileEnvTest').addEventListener('click', () => {
+            console.log('Running mobile environment test...');
+            MobilePDFTest.testInMobileEnvironment();
+        });
+    </script>
+</body>
+</html>

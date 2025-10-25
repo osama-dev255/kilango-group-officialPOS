@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
+// Import Quagga for barcode scanning
+import Quagga from 'quagga';
 
 interface ScannedItem {
   id: string;
@@ -48,6 +50,7 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
   const [isScanning, setIsScanning] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const quaggaInitialized = useRef(false);
 
   // Initialize camera for scanning
   useEffect(() => {
@@ -79,10 +82,95 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
+      // Stop Quagga when component unmounts
+      if (quaggaInitialized.current) {
+        Quagga.stop();
+        quaggaInitialized.current = false;
+      }
     };
   }, [isScanning, toast]);
 
-  // Simulate barcode scanning (in a real app, you would use a library like jsQR or QuaggaJS)
+  // Initialize Quagga for barcode scanning
+  useEffect(() => {
+    if (isScanning && videoRef.current) {
+      const initQuagga = () => {
+        if (quaggaInitialized.current) return;
+
+        Quagga.init({
+          inputStream: {
+            name: "Live",
+            type: "LiveStream",
+            target: videoRef.current,
+            constraints: {
+              width: 640,
+              height: 480,
+              facingMode: "environment"
+            },
+          },
+          decoder: {
+            readers: [
+              "code_128_reader",
+              "ean_reader",
+              "ean_8_reader",
+              "code_39_reader",
+              "code_39_vin_reader",
+              "codabar_reader",
+              "upc_reader",
+              "upc_e_reader",
+              "i2of5_reader"
+            ]
+          }
+        }, (err) => {
+          if (err) {
+            console.error("Error initializing Quagga:", err);
+            toast({
+              title: "Scanner Error",
+              description: "Failed to initialize barcode scanner",
+              variant: "destructive",
+            });
+            return;
+          }
+          
+          Quagga.start();
+          quaggaInitialized.current = true;
+          
+          // Set up detection callback
+          Quagga.onDetected((data) => {
+            const barcode = data.codeResult.code;
+            if (barcode) {
+              simulateScan(barcode);
+              // Stop scanning after successful detection to prevent multiple scans
+              Quagga.stop();
+              quaggaInitialized.current = false;
+              // Restart scanning after a delay
+              setTimeout(() => {
+                if (isScanning) {
+                  Quagga.start();
+                  quaggaInitialized.current = true;
+                }
+              }, 1000);
+            }
+          });
+        });
+      };
+
+      // Wait for video to be ready
+      if (videoRef.current.readyState === 4) {
+        initQuagga();
+      } else {
+        videoRef.current.addEventListener('loadeddata', initQuagga);
+      }
+    }
+
+    return () => {
+      if (quaggaInitialized.current) {
+        Quagga.stop();
+        quaggaInitialized.current = false;
+      }
+    };
+  }, [isScanning]);
+
+  // Simulate barcode scanning (in a real app, this would be triggered by actual barcode detection)
   const simulateScan = (barcode: string) => {
     const product = PRODUCT_DATABASE.find(p => p.barcode === barcode);
     

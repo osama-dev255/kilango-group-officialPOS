@@ -7,7 +7,8 @@ import {
   Download, 
   Calendar, 
   Filter,
-  ArrowLeft
+  ArrowLeft,
+  Eye
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PrintUtils } from "@/utils/printUtils";
@@ -135,10 +136,28 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
                 <div className="grid grid-cols-3 gap-4 py-2 border-b">
                   <div className="font-semibold">Account</div>
                   <div className="font-semibold text-right">Amount (TZS)</div>
+                  <div className="font-semibold text-right">Details</div>
                 </div>
                 
                 <div className="grid grid-cols-3 gap-4 py-2">
                   <div className="font-semibold">Revenue / Sales</div>
+                  <div className="font-semibold text-right">{incomeStatementData.revenue.netSales.toLocaleString()}</div>
+                  <div className="text-right">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center gap-1"
+                      onClick={() => {
+                        toast({
+                          title: "Revenue Calculation",
+                          description: `Total Sales (${incomeStatementData.revenue.totalSales.toLocaleString()}) - Sales Returns (${incomeStatementData.revenue.salesReturns.toLocaleString()}) = Net Sales (${incomeStatementData.revenue.netSales.toLocaleString()})`,
+                        });
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                      View
+                    </Button>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-3 gap-4 py-1 pl-4">
@@ -192,8 +211,23 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
               {/* Gross Profit */}
               <div className="grid grid-cols-3 gap-4 py-2 font-semibold">
                 <div>Gross Profit</div>
-                <div></div>
                 <div className="text-right">{incomeStatementData.grossProfit.toLocaleString()}</div>
+                <div className="text-right">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1"
+                    onClick={() => {
+                      toast({
+                        title: "Gross Profit Calculation",
+                        description: `Net Sales (${incomeStatementData.revenue.netSales.toLocaleString()}) - Cost of Goods Sold (${incomeStatementData.cogs.costOfGoodsSold.toLocaleString()}) = Gross Profit (${incomeStatementData.grossProfit.toLocaleString()})`,
+                      });
+                    }}
+                  >
+                    <Eye className="h-4 w-4" />
+                    View
+                  </Button>
+                </div>
               </div>
               
               {/* Operating Expenses Section */}
@@ -246,16 +280,53 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
                 
                 <div className="grid grid-cols-3 gap-4 py-2 pl-4 font-semibold border-b">
                   <div>Total Operating Expenses</div>
-                  <div></div>
                   <div className="text-right">{incomeStatementData.operatingExpenses.totalOperatingExpenses.toLocaleString()}</div>
+                  <div className="text-right">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center gap-1"
+                      onClick={() => {
+                        const totalExpenses = Object.values(incomeStatementData.operatingExpenses).reduce((sum, value) => {
+                          if (typeof value === 'number' && value !== incomeStatementData.operatingExpenses.totalOperatingExpenses) {
+                            return sum + value;
+                          }
+                          return sum;
+                        }, 0);
+                        
+                        toast({
+                          title: "Total Expenses Calculation",
+                          description: `Salaries (${incomeStatementData.operatingExpenses.salaries.toLocaleString()}) + Rent (${incomeStatementData.operatingExpenses.rent.toLocaleString()}) + Utilities (${incomeStatementData.operatingExpenses.utilities.toLocaleString()}) + Transport (${incomeStatementData.operatingExpenses.transport.toLocaleString()}) + Office Supplies (${incomeStatementData.operatingExpenses.officeSupplies.toLocaleString()}) + Depreciation (${incomeStatementData.operatingExpenses.depreciation.toLocaleString()}) + Other Expenses (${incomeStatementData.operatingExpenses.otherExpenses.toLocaleString()}) = Total Operating Expenses (${incomeStatementData.operatingExpenses.totalOperatingExpenses.toLocaleString()})`,
+                        });
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                      View
+                    </Button>
+                  </div>
                 </div>
               </div>
               
               {/* Operating Profit */}
               <div className="grid grid-cols-3 gap-4 py-2 font-semibold">
                 <div>Operating Profit (EBIT)</div>
-                <div></div>
                 <div className="text-right">{incomeStatementData.operatingProfit.toLocaleString()}</div>
+                <div className="text-right">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1"
+                    onClick={() => {
+                      toast({
+                        title: "Operating Profit Calculation",
+                        description: `Gross Profit (${incomeStatementData.grossProfit.toLocaleString()}) - Total Operating Expenses (${incomeStatementData.operatingExpenses.totalOperatingExpenses.toLocaleString()}) = Operating Profit (${incomeStatementData.operatingProfit.toLocaleString()})`,
+                      });
+                    }}
+                  >
+                    <Eye className="h-4 w-4" />
+                    View
+                  </Button>
+                </div>
               </div>
               
               {/* Other Income/Losses */}
@@ -273,21 +344,67 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
               {/* Profit Before Tax */}
               <div className="grid grid-cols-3 gap-4 py-2 font-semibold">
                 <div>Profit Before Tax</div>
-                <div></div>
                 <div className="text-right">{incomeStatementData.profitBeforeTax.toLocaleString()}</div>
+                <div className="text-right">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1"
+                    onClick={() => {
+                      toast({
+                        title: "Profit Before Tax Calculation",
+                        description: `Operating Profit (${incomeStatementData.operatingProfit.toLocaleString()}) + Other Income (${incomeStatementData.otherIncome.toLocaleString()}) - Other Losses (${incomeStatementData.otherLosses.toLocaleString()}) = Profit Before Tax (${incomeStatementData.profitBeforeTax.toLocaleString()})`,
+                      });
+                    }}
+                  >
+                    <Eye className="h-4 w-4" />
+                    View
+                  </Button>
+                </div>
               </div>
               
               {/* Income Tax */}
               <div className="grid grid-cols-3 gap-4 py-1">
                 <div>Less: Income Tax</div>
                 <div className="text-right">({incomeStatementData.incomeTax.toLocaleString()})</div>
+                <div className="text-right">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1"
+                    onClick={() => {
+                      toast({
+                        title: "Income Tax Calculation",
+                        description: `Typically calculated as a percentage of profit before tax. In this case, 20% of ${incomeStatementData.profitBeforeTax.toLocaleString()} = ${incomeStatementData.incomeTax.toLocaleString()}`,
+                      });
+                    }}
+                  >
+                    <Eye className="h-4 w-4" />
+                    View
+                  </Button>
+                </div>
               </div>
               
               {/* Net Profit */}
               <div className="grid grid-cols-3 gap-4 py-2 font-bold text-lg border-t-2 border-b-2">
                 <div>Net Profit (Loss)</div>
-                <div></div>
                 <div className="text-right">{incomeStatementData.netProfit.toLocaleString()}</div>
+                <div className="text-right">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1"
+                    onClick={() => {
+                      toast({
+                        title: "Net Profit Calculation",
+                        description: `Profit Before Tax (${incomeStatementData.profitBeforeTax.toLocaleString()}) - Income Tax (${incomeStatementData.incomeTax.toLocaleString()}) = Net Profit (${incomeStatementData.netProfit.toLocaleString()})`,
+                      });
+                    }}
+                  >
+                    <Eye className="h-4 w-4" />
+                    View
+                  </Button>
+                </div>
               </div>
             </div>
             

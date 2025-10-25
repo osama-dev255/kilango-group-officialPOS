@@ -744,6 +744,7 @@ export const FinancialReports = ({ username, onBack, onLogout, onNavigate }: Fin
                       <tr className="border-b">
                         <th className="text-left py-2">Metric</th>
                         <th className="text-right py-2">Value</th>
+                        <th className="text-right py-2">Details</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -757,6 +758,36 @@ export const FinancialReports = ({ username, onBack, onLogout, onNavigate }: Fin
                                 ? item.value.toLocaleString()
                                 : item.value}
                             {viewReportData.title.includes("Margin") || viewReportData.title.includes("Profitability") ? "%" : ""}
+                          </td>
+                          <td className="py-2 text-right">
+                            {viewReportData?.title === "Income Statement" && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="flex items-center gap-1"
+                                onClick={() => {
+                                  if (item.name === "Total Revenues") {
+                                    toast({
+                                      title: "Revenue Calculation",
+                                      description: "Total Sales (125,000) - Sales Returns (5,000) = Net Sales (120,000)",
+                                    });
+                                  } else if (item.name === "Total Expenses") {
+                                    toast({
+                                      title: "Total Expenses Calculation",
+                                      description: "Salaries (15,000) + Rent (8,000) + Utilities (3,000) + Transport (2,500) + Office Supplies (1,500) + Depreciation (2,000) + Other Expenses (3,000) = Total Operating Expenses (35,000)",
+                                    });
+                                  } else if (item.name === "Net Profit") {
+                                    toast({
+                                      title: "Net Profit Calculation",
+                                      description: "Operating Profit (5,000) + Other Income (1,000) - Other Losses (500) - Income Tax (1,100) = Net Profit (4,400)",
+                                    });
+                                  }
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                                View
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       ))}

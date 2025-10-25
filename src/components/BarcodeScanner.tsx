@@ -18,6 +18,8 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
 // Import Quagga for barcode scanning
 import Quagga from 'quagga';
+// Import the database service to fetch real products
+import { getProductByBarcode } from "@/services/databaseService";
 
 interface ScannedItem {
   id: string;
@@ -31,18 +33,6 @@ interface BarcodeScannerProps {
   onItemsScanned: (items: ScannedItem[]) => void;
   onCancel: () => void;
 }
-
-// Mock product database - in a real app, this would come from an API
-const PRODUCT_DATABASE = [
-  { id: "1", name: "Wireless Headphones", price: 99.99, barcode: "123456789012", stock: 25 },
-  { id: "2", name: "Coffee Maker", price: 79.99, barcode: "234567890123", stock: 15 },
-  { id: "3", name: "Running Shoes", price: 129.99, barcode: "345678901234", stock: 30 },
-  { id: "4", name: "Smartphone Case", price: 24.99, barcode: "456789012345", stock: 50 },
-  { id: "5", name: "Water Bottle", price: 19.99, barcode: "567890123456", stock: 40 },
-  { id: "6", name: "Desk Lamp", price: 39.99, barcode: "678901234567", stock: 20 },
-  { id: "7", name: "Notebook Set", price: 14.99, barcode: "789012345678", stock: 35 },
-  { id: "8", name: "Bluetooth Speaker", price: 59.99, barcode: "890123456789", stock: 18 },
-];
 
 export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps) => {
   const { toast } = useToast();
@@ -303,51 +293,61 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
     });
   };
 
-  // Simulate barcode scanning (in a real app, this would be triggered by actual barcode detection)
-  const simulateScan = (barcode: string) => {
-    const product = PRODUCT_DATABASE.find(p => p.barcode === barcode);
-    
-    if (product) {
-      // Check if item already exists in cart
-      const existingItemIndex = scannedItems.findIndex(item => item.barcode === barcode);
+  // Updated simulateScan function to use real database
+  const simulateScan = async (barcode: string) => {
+    try {
+      // Fetch product from Supabase database
+      const product = await getProductByBarcode(barcode);
       
-      if (existingItemIndex >= 0) {
-        // Update quantity if item already exists
-        const updatedItems = [...scannedItems];
-        updatedItems[existingItemIndex] = {
-          ...updatedItems[existingItemIndex],
-          quantity: updatedItems[existingItemIndex].quantity + 1
-        };
-        setScannedItems(updatedItems);
+      if (product) {
+        // Check if item already exists in cart
+        const existingItemIndex = scannedItems.findIndex(item => item.barcode === barcode);
+        
+        if (existingItemIndex >= 0) {
+          // Update quantity if item already exists
+          const updatedItems = [...scannedItems];
+          updatedItems[existingItemIndex] = {
+            ...updatedItems[existingItemIndex],
+            quantity: updatedItems[existingItemIndex].quantity + 1
+          };
+          setScannedItems(updatedItems);
+        } else {
+          // Add new item
+          const newItem: ScannedItem = {
+            id: product.id || "",
+            name: product.name,
+            price: product.selling_price,
+            quantity: 1,
+            barcode: product.barcode || ""
+          };
+          setScannedItems([...scannedItems, newItem]);
+        }
+        
+        toast({
+          title: "Item Scanned",
+          description: `${product.name} added to cart`,
+        });
       } else {
-        // Add new item
-        const newItem: ScannedItem = {
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          quantity: 1,
-          barcode: product.barcode
-        };
-        setScannedItems([...scannedItems, newItem]);
+        toast({
+          title: "Product Not Found",
+          description: `No product found with barcode ${barcode}`,
+          variant: "destructive",
+        });
       }
-      
+    } catch (error) {
+      console.error("Error fetching product:", error);
       toast({
-        title: "Item Scanned",
-        description: `${product.name} added to cart`,
-      });
-    } else {
-      toast({
-        title: "Product Not Found",
-        description: `No product found with barcode ${barcode}`,
+        title: "Error",
+        description: "Failed to fetch product information",
         variant: "destructive",
       });
     }
   };
 
-  // Handle manual barcode entry
-  const handleManualEntry = () => {
+  // Updated handleManualEntry function to use real database
+  const handleManualEntry = async () => {
     if (manualBarcode.trim()) {
-      simulateScan(manualBarcode.trim());
+      await simulateScan(manualBarcode.trim());
       setManualBarcode("");
     }
   };

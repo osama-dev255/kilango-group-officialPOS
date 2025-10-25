@@ -11,7 +11,8 @@ import {
   ShoppingCart,
   Plus,
   Minus,
-  X
+  X,
+  Image as ImageIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
@@ -48,27 +49,74 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
   const [manualBarcode, setManualBarcode] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const quaggaInitialized = useRef(false);
 
-  // Initialize camera for scanning
+  // Initialize camera for scanning with better mobile support
   useEffect(() => {
     const initCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: "environment" } 
-        });
+        console.log("Attempting to access camera...");
+        
+        // Check if mediaDevices is available
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("Camera API not supported in this browser. Please try a modern browser like Chrome, Firefox, or Safari.");
+        }
+        
+        // Try different constraints as fallbacks
+        const constraintsOptions = [
+          { video: { facingMode: { exact: "environment" } } }, // Prefer back camera
+          { video: { facingMode: "environment" } },
+          { video: { facingMode: "user" } }, // Fallback to front camera
+          { video: { width: { ideal: 1280 }, height: { ideal: 720 } } },
+          { video: true }
+        ];
+        
+        let stream;
+        let error;
+        let usedConstraints = {};
+        
+        for (const constraints of constraintsOptions) {
+          try {
+            console.log("Trying constraints:", constraints);
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            usedConstraints = constraints;
+            console.log("Camera access granted with constraints:", constraints);
+            break;
+          } catch (err) {
+            error = err;
+            console.warn("Failed with constraints:", constraints, err);
+          }
+        }
+        
+        if (!stream && error) {
+          throw new Error(`Failed to access camera. Please ensure you've granted camera permissions. Error: ${error.message || error}`);
+        }
+        
+        console.log("Using camera constraints:", usedConstraints);
+        
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           streamRef.current = stream;
+          
+          // Play the video explicitly for mobile browsers
+          try {
+            await videoRef.current.play();
+            console.log("Video playback started");
+          } catch (playError) {
+            console.warn("Video play failed:", playError);
+            // This might happen on mobile browsers that require user interaction
+          }
         }
         setIsScanning(true);
       } catch (err) {
         console.error("Error accessing camera:", err);
         toast({
           title: "Camera Access Denied",
-          description: "Please enable camera access to use the scanner",
+          description: err.message || "Please enable camera access to use the scanner",
           variant: "destructive",
         });
       }
@@ -90,85 +138,170 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
     };
   }, [isScanning, toast]);
 
-  // Initialize Quagga for barcode scanning
+  // Initialize barcode detection (using modern Barcode Detection API if available, fallback to Quagga)
   useEffect(() => {
     if (isScanning && videoRef.current) {
-      const initQuagga = () => {
-        if (quaggaInitialized.current) return;
-
-        Quagga.init({
-          inputStream: {
-            name: "Live",
-            type: "LiveStream",
-            target: videoRef.current,
-            constraints: {
-              width: 640,
-              height: 480,
-              facingMode: "environment"
-            },
-          },
-          decoder: {
-            readers: [
-              "code_128_reader",
-              "ean_reader",
-              "ean_8_reader",
-              "code_39_reader",
-              "code_39_vin_reader",
-              "codabar_reader",
-              "upc_reader",
-              "upc_e_reader",
-              "i2of5_reader"
-            ]
-          }
-        }, (err) => {
-          if (err) {
-            console.error("Error initializing Quagga:", err);
-            toast({
-              title: "Scanner Error",
-              description: "Failed to initialize barcode scanner",
-              variant: "destructive",
-            });
-            return;
-          }
-          
-          Quagga.start();
-          quaggaInitialized.current = true;
-          
-          // Set up detection callback
-          Quagga.onDetected((data) => {
-            const barcode = data.codeResult.code;
-            if (barcode) {
-              simulateScan(barcode);
-              // Stop scanning after successful detection to prevent multiple scans
-              Quagga.stop();
-              quaggaInitialized.current = false;
-              // Restart scanning after a delay
-              setTimeout(() => {
-                if (isScanning) {
-                  Quagga.start();
-                  quaggaInitialized.current = true;
-                }
-              }, 1000);
-            }
-          });
-        });
-      };
-
-      // Wait for video to be ready
-      if (videoRef.current.readyState === 4) {
-        initQuagga();
+      // Check if Barcode Detection API is available (Chrome only for now)
+      if ('BarcodeDetector' in window) {
+        console.log("Using modern Barcode Detection API");
+        initModernBarcodeDetection();
       } else {
-        videoRef.current.addEventListener('loadeddata', initQuagga);
+        console.log("Using Quagga.js for barcode detection");
+        initQuaggaBarcodeDetection();
       }
     }
 
     return () => {
+      // Clean up both detection methods
       if (quaggaInitialized.current) {
         Quagga.stop();
         quaggaInitialized.current = false;
       }
+      
+      // Stop modern detection if running
+      if (barcodeDetectionInterval.current) {
+        clearInterval(barcodeDetectionInterval.current);
+        barcodeDetectionInterval.current = null;
+      }
     };
   }, [isScanning]);
+
+  // Reference for modern barcode detection interval
+  const barcodeDetectionInterval = useRef<NodeJS.Timeout | null>(null);
+  const barcodeDetectorRef = useRef<any>(null);
+
+  // Initialize modern barcode detection (Chrome only)
+  const initModernBarcodeDetection = async () => {
+    try {
+      // @ts-ignore - BarcodeDetector is not in TypeScript definitions yet
+      barcodeDetectorRef.current = new BarcodeDetector({
+        formats: ['code_128', 'ean_13', 'ean_8', 'code_39', 'code_93', 'codabar', 'upc_a', 'upc_e', 'qr_code']
+      });
+      
+      console.log("Modern Barcode Detection API initialized");
+      
+      // Start detection loop
+      const detectBarcodes = async () => {
+        if (videoRef.current && barcodeDetectorRef.current) {
+          try {
+            const barcodes = await barcodeDetectorRef.current.detect(videoRef.current);
+            if (barcodes && barcodes.length > 0) {
+              console.log("Barcodes detected:", barcodes);
+              const barcode = barcodes[0].rawValue;
+              if (barcode) {
+                console.log("Scanned barcode:", barcode);
+                simulateScan(barcode);
+              }
+            }
+          } catch (err) {
+            console.error("Error detecting barcodes:", err);
+          }
+        }
+      };
+      
+      // Run detection every 500ms
+      barcodeDetectionInterval.current = setInterval(detectBarcodes, 500);
+    } catch (err) {
+      console.error("Error initializing Barcode Detection API:", err);
+      // Fallback to Quagga
+      initQuaggaBarcodeDetection();
+    }
+  };
+
+  // Initialize Quagga for barcode scanning (fallback)
+  const initQuaggaBarcodeDetection = () => {
+    if (quaggaInitialized.current) return;
+
+    console.log("Initializing Quagga...");
+    
+    // Check if video element is ready
+    if (!videoRef.current || videoRef.current.videoWidth === 0) {
+      console.warn("Video element not ready, waiting...");
+      setTimeout(initQuaggaBarcodeDetection, 500);
+      return;
+    }
+    
+    const config = {
+      inputStream: {
+        name: "Live",
+        type: "LiveStream",
+        target: videoRef.current,
+        constraints: {
+          width: { min: 640 },
+          height: { min: 480 },
+          facingMode: "environment"
+        },
+      },
+      locator: {
+        patchSize: "medium",
+        halfSample: true
+      },
+      numOfWorkers: navigator.hardwareConcurrency ? navigator.hardwareConcurrency - 1 : 2,
+      decoder: {
+        readers: [
+          "code_128_reader",
+          "ean_reader",
+          "ean_8_reader",
+          "code_39_reader",
+          "code_39_vin_reader",
+          "codabar_reader",
+          "upc_reader",
+          "upc_e_reader",
+          "i2of5_reader"
+        ]
+      },
+      locate: true
+    };
+    
+    console.log("Quagga config:", config);
+    
+    Quagga.init(config, (err) => {
+      if (err) {
+        console.error("Error initializing Quagga:", err);
+        toast({
+          title: "Scanner Error",
+          description: "Failed to initialize barcode scanner: " + (err.message || "Unknown error"),
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log("Quagga initialized successfully");
+      
+      // Check if camera is actually providing frames
+      if (videoRef.current && videoRef.current.srcObject) {
+        Quagga.start();
+        quaggaInitialized.current = true;
+        
+        // Set up detection callback
+        Quagga.onDetected((data) => {
+          console.log("Barcode detected:", data);
+          if (data && data.codeResult && data.codeResult.code) {
+            const barcode = data.codeResult.code;
+            console.log("Scanned barcode:", barcode);
+            simulateScan(barcode);
+            // Stop scanning after successful detection to prevent multiple scans
+            Quagga.stop();
+            quaggaInitialized.current = false;
+            // Restart scanning after a delay
+            setTimeout(() => {
+              if (isScanning) {
+                Quagga.start();
+                quaggaInitialized.current = true;
+              }
+            }, 1000);
+          }
+        });
+      } else {
+        console.error("Camera stream not available");
+        toast({
+          title: "Scanner Error",
+          description: "Camera stream not available",
+          variant: "destructive",
+        });
+      }
+    });
+  };
 
   // Simulate barcode scanning (in a real app, this would be triggered by actual barcode detection)
   const simulateScan = (barcode: string) => {
@@ -259,6 +392,59 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
     }
   };
 
+  // Add a function to manually trigger scanning initialization
+  const retryCameraAccess = async () => {
+    // Stop any existing streams
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    
+    // Reset states
+    setIsScanning(false);
+    quaggaInitialized.current = false;
+    
+    // Stop modern detection if running
+    if (barcodeDetectionInterval.current) {
+      clearInterval(barcodeDetectionInterval.current);
+      barcodeDetectionInterval.current = null;
+    }
+    
+    // Wait a bit for cleanup
+    setTimeout(() => {
+      setIsScanning(true);
+    }, 100);
+  };
+
+  // Function to handle photo upload for barcode scanning
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    toast({
+      title: "Feature Not Available",
+      description: "Photo upload scanning is not currently supported. Please use the live camera scanner instead.",
+    });
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Function to trigger file input
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Check if we're on a mobile device
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  // Function to check if we're in a secure context (HTTPS or localhost)
+  const isSecureContext = window.isSecureContext;
+
   // Simulate scanning some sample barcodes for demo purposes
   const addSampleItems = () => {
     simulateScan("123456789012"); // Wireless Headphones
@@ -287,6 +473,21 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
           </Button>
         </div>
 
+        {isMobile && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <h3 className="font-medium text-yellow-800">Mobile Device Detected</h3>
+            <p className="text-sm text-yellow-700 mt-1">
+              For best scanning experience on mobile:
+            </p>
+            <ul className="text-xs text-yellow-700 mt-1 list-disc pl-5 space-y-1">
+              <li>Ensure you're using the latest version of Chrome, Safari, or Firefox</li>
+              <li>Make sure you're accessing the app over HTTPS (not HTTP)</li>
+              <li>Grant camera permissions when prompted</li>
+              <li>Hold the device steady and ensure good lighting</li>
+            </ul>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Scanner Section */}
           <Card>
@@ -306,6 +507,7 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
                         ref={videoRef} 
                         autoPlay 
                         playsInline 
+                        muted
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute inset-0 flex items-center justify-center">
@@ -318,19 +520,64 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
                   ) : (
                     <div className="text-center p-8">
                       <QrCode className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground mb-4">
-                        Camera access required for scanning
-                      </p>
-                      <Button 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setIsScanning(true);
-                        }}
-                      >
-                        <Camera className="mr-2 h-4 w-4" />
-                        Enable Camera
-                      </Button>
+                      {!isSecureContext ? (
+                        <>
+                          <p className="text-muted-foreground mb-4">
+                            Camera access requires a secure connection (HTTPS)
+                          </p>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            For mobile devices, please ensure you're accessing this app through a secure connection.
+                          </p>
+                        </>
+                      ) : isMobile ? (
+                        <>
+                          <p className="text-muted-foreground mb-4">
+                            Camera access required for scanning
+                          </p>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            On mobile devices, you may need to tap the button below and then allow camera access when prompted.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-muted-foreground mb-4">
+                          Camera access required for scanning
+                        </p>
+                      )}
+                      <div className="flex flex-col gap-2">
+                        <Button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            retryCameraAccess();
+                          }}
+                        >
+                          <Camera className="mr-2 h-4 w-4" />
+                          {isMobile ? "Request Camera Access" : "Enable Camera"}
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            triggerFileInput();
+                          }}
+                        >
+                          <ImageIcon className="mr-2 h-4 w-4" />
+                          Upload Photo
+                        </Button>
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          className="hidden"
+                          accept="image/*"
+                          onChange={handlePhotoUpload}
+                        />
+                      </div>
+                      {!isSecureContext && (
+                        <p className="text-xs text-muted-foreground mt-4">
+                          Note: Barcode scanning requires HTTPS connection on mobile devices.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

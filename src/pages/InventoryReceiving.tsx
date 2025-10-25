@@ -142,16 +142,17 @@ export const InventoryReceiving = ({ username, onBack, onLogout }: { username: s
         // Create receiving items from purchase order items
         // Note: In a real implementation, we would fetch actual purchase order items
         // For now, we'll simulate this with mock data
+        const foundItem = selectedRecord?.items.find(item => item.id === `item-${po.id}-1`);
         const items: ReceivingItem[] = [
           {
             id: `item-${po.id}-1`,
             productId: "1",
             productName: "Sample Product",
             expectedQuantity: 10,
-            receivedQuantity: selectedRecord?.items.find(item => item.id === `item-${po.id}-1`)?.receivedQuantity || 0,
+            receivedQuantity: foundItem?.receivedQuantity || 0,
             unitCost: 25.00,
             totalCost: 250.00,
-            status: selectedRecord?.items.find(item => item.id === `item-${po.id}-1`)?.status || "pending"
+            status: foundItem?.status || "pending"
           }
         ];
         
@@ -220,11 +221,11 @@ export const InventoryReceiving = ({ username, onBack, onLogout }: { username: s
     
     try {
       // Update item quantities
-      const updatedItems = selectedRecord.items.map(item => {
+      const updatedItems: ReceivingItem[] = selectedRecord.items.map(item => {
         const receivedQty = receiveQuantities[item.id] || 0;
         const newReceivedQty = item.receivedQuantity + receivedQty;
-        const newStatus = newReceivedQty >= item.expectedQuantity ? "received" : 
-                         newReceivedQty > 0 ? "partial" : "pending";
+        const newStatus = newReceivedQty >= item.expectedQuantity ? "received" as const : 
+                         newReceivedQty > 0 ? "partial" as const : "pending" as const;
         
         return {
           ...item,
@@ -234,12 +235,12 @@ export const InventoryReceiving = ({ username, onBack, onLogout }: { username: s
       });
       
       // Update record
-      const updatedRecord = {
+      const updatedRecord: ReceivingRecord = {
         ...selectedRecord,
         items: updatedItems,
         totalReceived: updatedItems.reduce((sum, item) => sum + item.receivedQuantity, 0),
-        status: updatedItems.every(item => item.status === "received") ? "completed" : 
-               updatedItems.some(item => item.receivedQuantity > 0) ? "partial" : "pending"
+        status: updatedItems.every(item => item.status === "received") ? "completed" as const : 
+               updatedItems.some(item => item.receivedQuantity > 0) ? "partial" as const : "pending" as const
       };
       
       // Update state

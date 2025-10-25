@@ -55,7 +55,18 @@ export class PrintUtils {
         <html>
           <head>
             <title>Receipt</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
+              @media print {
+                @page {
+                  margin: 0.5in; /* Desktop-specific margin */
+                  size: auto;
+                }
+                body {
+                  margin: 0.5in;
+                  padding: 0;
+                }
+              }
               body {
                 font-family: 'Courier New', monospace;
                 font-size: 12px;
@@ -1227,5 +1238,505 @@ export class PrintUtils {
       reportWindow.print();
       reportWindow.close();
     }, 250);
+  }
+
+  // Mobile-optimized printing method
+  static printReceiptMobile(transaction: any) {
+    // Check if there's already a print container to prevent multiple instances
+    if (document.querySelector('#mobilePrintContainer')) {
+      console.warn('Print operation already in progress');
+      return;
+    }
+
+    try {
+      // Create a temporary print-friendly element in the current document
+      const printContainer = document.createElement('div');
+      printContainer.id = 'mobilePrintContainer';
+      printContainer.style.position = 'fixed';
+      printContainer.style.top = '0';
+      printContainer.style.left = '0';
+      printContainer.style.width = '100%';
+      printContainer.style.height = '100%';
+      printContainer.style.backgroundColor = 'white';
+      printContainer.style.zIndex = '9999';
+      printContainer.style.padding = '20px';
+      printContainer.style.fontFamily = "'Courier New', monospace";
+      printContainer.style.fontSize = '12px';
+      printContainer.style.overflowY = 'auto';
+      
+      // Add viewport meta tag for proper mobile display
+      const metaViewport = document.createElement('meta');
+      metaViewport.name = 'viewport';
+      metaViewport.content = 'width=device-width, initial-scale=1.0';
+      document.head.appendChild(metaViewport);
+      
+      // Format items for receipt
+      const formattedItems = transaction.items.map((item: any) => {
+        const total = item.price * item.quantity;
+        return {
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: total
+        };
+      });
+      
+      // Calculate totals
+      const subtotal = transaction.subtotal || formattedItems.reduce((sum: number, item: any) => sum + item.total, 0);
+      const tax = transaction.tax || 0;
+      const discount = transaction.discount || 0;
+      const total = transaction.total || (subtotal + tax - discount);
+      const amountReceived = transaction.amountReceived || total;
+      const change = transaction.change || (amountReceived - total);
+      
+      printContainer.innerHTML = `
+        <div style="max-width: 320px; margin: 0 auto;">
+          <style>
+            @media print {
+              @page {
+                margin: 0.4in; /* Mobile-specific margin */
+                size: auto;
+              }
+              body {
+                margin: 0.4in;
+                padding: 0;
+              }
+            }
+          </style>
+          <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">POS BUSINESS</div>
+            <div style="font-size: 10px; margin-bottom: 5px;">123 Business St, City, Country</div>
+            <div style="font-size: 10px; margin-bottom: 5px;">Phone: (123) 456-7890</div>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 10px;">
+            <div>Receipt #: ${transaction.id || 'TXN-' + Date.now()}</div>
+            <div>Date: ${new Date().toLocaleDateString()}</div>
+            <div>Time: ${new Date().toLocaleTimeString()}</div>
+          </div>
+          
+          ${transaction.customer ? `
+          <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #000;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Customer:</strong></div>
+              <div>${transaction.customer.name}</div>
+            </div>
+            ${transaction.customer.address ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Address:</strong></div>
+              <div>${transaction.customer.address}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.email ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Email:</strong></div>
+              <div>${transaction.customer.email}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.phone ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Phone:</strong></div>
+              <div>${transaction.customer.phone}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.loyaltyPoints ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Loyalty Points:</strong></div>
+              <div>${transaction.customer.loyaltyPoints}</div>
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+          
+          <div style="margin-bottom: 10px;">
+            ${formattedItems.map((item: any) => `
+              <div style="display: flex; margin-bottom: 5px;">
+                <div style="flex: 2;">${item.name}</div>
+              </div>
+              <div style="display: flex; margin-bottom: 5px;">
+                <div style="flex: 1; text-align: right;">
+                  <span>${item.quantity}</span>
+                  <span style="margin: 0 5px;">@</span>
+                  <span>${item.price.toFixed(2)}</span>
+                  <span style="font-weight: bold; margin-left: 10px;">${item.total.toFixed(2)}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Subtotal:</div>
+              <div>${subtotal.toFixed(2)}</div>
+            </div>
+            ${tax > 0 ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Tax:</div>
+              <div>${tax.toFixed(2)}</div>
+            </div>
+            ` : ''}
+            ${discount > 0 ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Discount:</div>
+              <div>-${discount.toFixed(2)}</div>
+            </div>
+            ` : ''}
+            <div style="display: flex; justify-content: space-between; margin: 10px 0; font-weight: bold; font-size: 14px;">
+              <div>TOTAL:</div>
+              <div>${total.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Payment Method:</div>
+              <div>${transaction.paymentMethod || 'Cash'}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Amount Received:</div>
+              <div>${amountReceived.toFixed(2)}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Change:</div>
+              <div>${change.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; font-size: 10px;">
+            <div style="font-weight: bold; margin-bottom: 10px;">Thank you for your business!</div>
+            <div>Items sold are not returnable</div>
+            <div>Visit us again soon</div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+            <button id="printButton" style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
+              Print Receipt
+            </button>
+            <button id="closePrint" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+              Close
+            </button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(printContainer);
+      
+      // Add event listener to print button
+      const printButton = printContainer.querySelector('#printButton');
+      if (printButton) {
+        printButton.addEventListener('click', () => {
+          // Disable the print button temporarily to prevent multiple clicks
+          (printButton as HTMLButtonElement).disabled = true;
+          (printButton as HTMLButtonElement).textContent = 'Printing...';
+          (printButton as HTMLButtonElement).style.backgroundColor = '#6c757d';
+          
+          // Trigger print after a short delay to ensure content is rendered
+          setTimeout(() => {
+            try {
+              window.print();
+              // Re-enable the print button after printing
+              setTimeout(() => {
+                if (printButton) {
+                  (printButton as HTMLButtonElement).disabled = false;
+                  (printButton as HTMLButtonElement).textContent = 'Print Receipt';
+                  (printButton as HTMLButtonElement).style.backgroundColor = '#28a745';
+                }
+              }, 1000);
+            } catch (error) {
+              console.error('Mobile print error:', error);
+              // Re-enable the print button on error
+              if (printButton) {
+                (printButton as HTMLButtonElement).disabled = false;
+                (printButton as HTMLButtonElement).textContent = 'Print Receipt';
+                (printButton as HTMLButtonElement).style.backgroundColor = '#28a745';
+              }
+              this.showPrintError(transaction);
+            }
+          }, 300);
+        });
+      }
+      
+      // Add event listener to close button
+      const closeButton = printContainer.querySelector('#closePrint');
+      if (closeButton) {
+        closeButton.addEventListener('click', () => {
+          document.body.removeChild(printContainer);
+          // Remove viewport meta tag
+          if (document.head.contains(metaViewport)) {
+            document.head.removeChild(metaViewport);
+          }
+        });
+      }
+      
+      // Show preview message for mobile users
+      const previewMessage = document.createElement('div');
+      previewMessage.id = 'previewMessage';
+      previewMessage.style.position = 'fixed';
+      previewMessage.style.top = '10px';
+      previewMessage.style.left = '50%';
+      previewMessage.style.transform = 'translateX(-50%)';
+      previewMessage.style.backgroundColor = '#d4edda';
+      previewMessage.style.color = '#155724';
+      previewMessage.style.padding = '10px 20px';
+      previewMessage.style.borderRadius = '5px';
+      previewMessage.style.zIndex = '10001';
+      previewMessage.style.fontSize = '14px';
+      previewMessage.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+      previewMessage.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span>📄 Preview Ready - Use Print button below to print</span>
+        </div>
+      `;
+      document.body.appendChild(previewMessage);
+      
+      // Auto-hide preview message after 3 seconds
+      setTimeout(() => {
+        if (document.body.contains(previewMessage)) {
+          document.body.removeChild(previewMessage);
+        }
+      }, 3000);
+      
+      // Focus the print button for easier access
+      setTimeout(() => {
+        if (printButton) {
+          (printButton as HTMLButtonElement).focus();
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('Mobile print setup error:', error);
+      // Remove any existing print container on error
+      const existingContainer = document.querySelector('#mobilePrintContainer');
+      if (existingContainer) {
+        document.body.removeChild(existingContainer);
+      }
+      this.printReceiptFallback(transaction);
+    }
+  }
+
+  // Show print error message with retry option
+  static showPrintError(transaction?: any) {
+    // Remove any existing error messages
+    const existingError = document.querySelector('#printErrorContainer');
+    if (existingError) {
+      document.body.removeChild(existingError);
+    }
+    
+    const errorContainer = document.createElement('div');
+    errorContainer.id = 'printErrorContainer';
+    errorContainer.style.position = 'fixed';
+    errorContainer.style.top = '50%';
+    errorContainer.style.left = '50%';
+    errorContainer.style.transform = 'translate(-50%, -50%)';
+    errorContainer.style.backgroundColor = '#f8d7da';
+    errorContainer.style.color = '#721c24';
+    errorContainer.style.padding = '20px';
+    errorContainer.style.borderRadius = '5px';
+    errorContainer.style.zIndex = '10000';
+    errorContainer.style.maxWidth = '90%';
+    errorContainer.style.textAlign = 'center';
+    errorContainer.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 10px;">Printing Error</div>
+      <div style="margin-bottom: 15px;">There was a problem printing the receipt. Please try again.</div>
+      <div style="display: flex; justify-content: center; gap: 10px;">
+        <button id="retryPrint" style="padding: 8px 15px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">
+          Retry Print
+        </button>
+        <button id="errorClose" style="padding: 8px 15px; background-color: #721c24; color: white; border: none; border-radius: 3px; cursor: pointer;">
+          Close
+        </button>
+      </div>
+    `;
+    
+    document.body.appendChild(errorContainer);
+    
+    const retryButton = errorContainer.querySelector('#retryPrint');
+    if (retryButton) {
+      retryButton.addEventListener('click', () => {
+        document.body.removeChild(errorContainer);
+        // Try to print again
+        try {
+          if (transaction) {
+            // If we have transaction data, reprint the receipt
+            this.printReceipt(transaction);
+          } else {
+            // Otherwise, try to print the current window content
+            window.print();
+          }
+        } catch (error) {
+          console.error('Retry print error:', error);
+          this.showPrintError(transaction);
+        }
+      });
+    }
+    
+    const errorClose = errorContainer.querySelector('#errorClose');
+    if (errorClose) {
+      errorClose.addEventListener('click', () => {
+        document.body.removeChild(errorContainer);
+      });
+    }
+    
+    // Auto-remove error after 10 seconds
+    setTimeout(() => {
+      if (document.body.contains(errorContainer)) {
+        document.body.removeChild(errorContainer);
+      }
+    }, 10000);
+  }
+
+  // Fallback printing method for when popups are blocked
+  static printReceiptFallback(transaction: any) {
+    try {
+      // Create a print-friendly version in the current window
+      const originalContent = document.body.innerHTML;
+      
+      // Format items for receipt
+      const formattedItems = transaction.items.map((item: any) => {
+        const total = item.price * item.quantity;
+        return {
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: total
+        };
+      });
+      
+      // Calculate totals
+      const subtotal = transaction.subtotal || formattedItems.reduce((sum: number, item: any) => sum + item.total, 0);
+      const tax = transaction.tax || 0;
+      const discount = transaction.discount || 0;
+      const total = transaction.total || (subtotal + tax - discount);
+      const amountReceived = transaction.amountReceived || total;
+      const change = transaction.change || (amountReceived - total);
+      
+      const printContent = `
+        <div style="font-family: 'Courier New', monospace; font-size: 12px; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">POS BUSINESS</div>
+            <div style="font-size: 10px; margin-bottom: 5px;">123 Business St, City, Country</div>
+            <div style="font-size: 10px; margin-bottom: 5px;">Phone: (123) 456-7890</div>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 10px;">
+            <div>Receipt #: ${transaction.id || 'TXN-' + Date.now()}</div>
+            <div>Date: ${new Date().toLocaleDateString()}</div>
+            <div>Time: ${new Date().toLocaleTimeString()}</div>
+          </div>
+          
+          ${transaction.customer ? `
+          <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #000;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Customer:</strong></div>
+              <div>${transaction.customer.name}</div>
+            </div>
+            ${transaction.customer.address ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Address:</strong></div>
+              <div>${transaction.customer.address}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.email ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Email:</strong></div>
+              <div>${transaction.customer.email}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.phone ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Phone:</strong></div>
+              <div>${transaction.customer.phone}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.loyaltyPoints ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Loyalty Points:</strong></div>
+              <div>${transaction.customer.loyaltyPoints}</div>
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+          
+          <div style="margin-bottom: 10px;">
+            ${formattedItems.map((item: any) => `
+              <div style="display: flex; margin-bottom: 5px;">
+                <div style="flex: 2;">${item.name}</div>
+              </div>
+              <div style="display: flex; margin-bottom: 5px;">
+                <div style="flex: 1; text-align: right;">
+                  <span>${item.quantity}</span>
+                  <span style="margin: 0 5px;">@</span>
+                  <span>${item.price.toFixed(2)}</span>
+                  <span style="font-weight: bold; margin-left: 10px;">${item.total.toFixed(2)}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Subtotal:</div>
+              <div>${subtotal.toFixed(2)}</div>
+            </div>
+            ${tax > 0 ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Tax:</div>
+              <div>${tax.toFixed(2)}</div>
+            </div>
+            ` : ''}
+            ${discount > 0 ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Discount:</div>
+              <div>-${discount.toFixed(2)}</div>
+            </div>
+            ` : ''}
+            <div style="display: flex; justify-content: space-between; margin: 10px 0; font-weight: bold; font-size: 14px;">
+              <div>TOTAL:</div>
+              <div>${total.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Payment Method:</div>
+              <div>${transaction.paymentMethod || 'Cash'}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Amount Received:</div>
+              <div>${amountReceived.toFixed(2)}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Change:</div>
+              <div>${change.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; font-size: 10px;">
+            <div style="font-weight: bold; margin-bottom: 10px;">Thank you for your business!</div>
+            <div>Items sold are not returnable</div>
+            <div>Visit us again soon</div>
+          </div>
+        </div>
+      `;
+      
+      document.body.innerHTML = printContent;
+      
+      // Trigger print
+      setTimeout(() => {
+        try {
+          window.print();
+          // Restore original content after print
+          setTimeout(() => {
+            document.body.innerHTML = originalContent;
+          }, 1000);
+        } catch (error) {
+          console.error('Fallback print error:', error);
+          // Restore original content
+          document.body.innerHTML = originalContent;
+          this.showPrintError(transaction);
+        }
+      }, 500);
+    } catch (error) {
+      console.error("Fallback print error:", error);
+    }
   }
 }

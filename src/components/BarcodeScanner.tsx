@@ -12,7 +12,8 @@ import {
   Plus,
   Minus,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/currency";
@@ -32,14 +33,16 @@ interface ScannedItem {
 interface BarcodeScannerProps {
   onItemsScanned: (items: ScannedItem[]) => void;
   onCancel: () => void;
+  autoAddToCart?: boolean; // New prop for auto-adding to cart
 }
 
-export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps) => {
+export const BarcodeScanner = ({ onItemsScanned, onCancel, autoAddToCart = false }: BarcodeScannerProps) => {
   const { toast } = useToast();
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
   const [manualBarcode, setManualBarcode] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [lastScanTime, setLastScanTime] = useState<number>(0); // Track last scan time
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -160,7 +163,7 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
   const barcodeDetectionInterval = useRef<NodeJS.Timeout | null>(null);
   const barcodeDetectorRef = useRef<any>(null);
 
-  // Initialize modern barcode detection (Chrome only)
+  // Initialize modern barcode detection (Chrome only) with improved responsiveness
   const initModernBarcodeDetection = async () => {
     try {
       // @ts-ignore - BarcodeDetector is not in TypeScript definitions yet
@@ -170,17 +173,58 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
       
       console.log("Modern Barcode Detection API initialized");
       
-      // Start detection loop
+      // Start detection loop with improved responsiveness
+      let lastDetectionTime = 0;
+      
       const detectBarcodes = async () => {
         if (videoRef.current && barcodeDetectorRef.current) {
           try {
             const barcodes = await barcodeDetectorRef.current.detect(videoRef.current);
             if (barcodes && barcodes.length > 0) {
               console.log("Barcodes detected:", barcodes);
+              
+              // Process the first detected barcode
               const barcode = barcodes[0].rawValue;
               if (barcode) {
                 console.log("Scanned barcode:", barcode);
-                simulateScan(barcode);
+                
+                // Debounce scanning to prevent multiple detections
+                const now = Date.now();
+                if (now - lastDetectionTime > 1000) { // At least 1 second between scans
+                  lastDetectionTime = now;
+                  simulateScan(barcode);
+                  
+                  // Add visual feedback for successful scan
+                  if (videoRef.current) {
+                    // Flash effect on successful scan
+                    const flashEffect = document.createElement('div');
+                    flashEffect.style.position = 'absolute';
+                    flashEffect.style.top = '0';
+                    flashEffect.style.left = '0';
+                    flashEffect.style.width = '100%';
+                    flashEffect.style.height = '100%';
+                    flashEffect.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+                    flashEffect.style.pointerEvents = 'none';
+                    flashEffect.style.zIndex = '10';
+                    flashEffect.style.animation = 'flash 0.3s';
+                    
+                    // Add CSS for flash animation
+                    const style = document.createElement('style');
+                    style.innerHTML = `
+                      @keyframes flash {
+                        0% { opacity: 1; }
+                        100% { opacity: 0; }
+                      }
+                    `;
+                    document.head.appendChild(style);
+                    
+                    videoRef.current.parentElement?.appendChild(flashEffect);
+                    setTimeout(() => {
+                      flashEffect.remove();
+                      style.remove();
+                    }, 300);
+                  }
+                }
               }
             }
           } catch (err) {
@@ -189,8 +233,8 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
         }
       };
       
-      // Run detection every 500ms
-      barcodeDetectionInterval.current = setInterval(detectBarcodes, 500);
+      // Run detection more frequently for better responsiveness
+      barcodeDetectionInterval.current = setInterval(detectBarcodes, 300);
     } catch (err) {
       console.error("Error initializing Barcode Detection API:", err);
       // Fallback to Quagga
@@ -198,7 +242,7 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
     }
   };
 
-  // Initialize Quagga for barcode scanning (fallback)
+  // Initialize Quagga for barcode scanning (fallback) with improved responsiveness
   const initQuaggaBarcodeDetection = () => {
     if (quaggaInitialized.current) return;
 
@@ -263,23 +307,52 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
         Quagga.start();
         quaggaInitialized.current = true;
         
-        // Set up detection callback
+        // Set up detection callback with improved responsiveness
+        let lastDetectionTime = 0;
+        
         Quagga.onDetected((data) => {
           console.log("Barcode detected:", data);
           if (data && data.codeResult && data.codeResult.code) {
             const barcode = data.codeResult.code;
             console.log("Scanned barcode:", barcode);
-            simulateScan(barcode);
-            // Stop scanning after successful detection to prevent multiple scans
-            Quagga.stop();
-            quaggaInitialized.current = false;
-            // Restart scanning after a delay
-            setTimeout(() => {
-              if (isScanning) {
-                Quagga.start();
-                quaggaInitialized.current = true;
+            
+            // Debounce scanning to prevent multiple detections of the same barcode
+            const now = Date.now();
+            if (now - lastDetectionTime > 1000) { // At least 1 second between scans
+              lastDetectionTime = now;
+              simulateScan(barcode);
+              
+              // Add visual feedback for successful scan
+              if (videoRef.current) {
+                // Flash effect on successful scan
+                const flashEffect = document.createElement('div');
+                flashEffect.style.position = 'absolute';
+                flashEffect.style.top = '0';
+                flashEffect.style.left = '0';
+                flashEffect.style.width = '100%';
+                flashEffect.style.height = '100%';
+                flashEffect.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+                flashEffect.style.pointerEvents = 'none';
+                flashEffect.style.zIndex = '10';
+                flashEffect.style.animation = 'flash 0.3s';
+                
+                // Add CSS for flash animation
+                const style = document.createElement('style');
+                style.innerHTML = `
+                  @keyframes flash {
+                    0% { opacity: 1; }
+                    100% { opacity: 0; }
+                  }
+                `;
+                document.head.appendChild(style);
+                
+                videoRef.current.parentElement?.appendChild(flashEffect);
+                setTimeout(() => {
+                  flashEffect.remove();
+                  style.remove();
+                }, 300);
               }
-            }, 1000);
+            }
           }
         });
       } else {
@@ -293,9 +366,22 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
     });
   };
 
-  // Updated simulateScan function to use real database
+  // Updated simulateScan function with improved responsiveness
   const simulateScan = async (barcode: string) => {
+    // Prevent too frequent scanning (debounce)
+    const now = Date.now();
+    if (now - lastScanTime < 300) {
+      return; // Ignore if scanned too quickly
+    }
+    setLastScanTime(now);
+    
     try {
+      // Show immediate feedback that scanning is happening
+      toast({
+        title: "Scanning...",
+        description: `Looking up product with barcode ${barcode}`,
+      });
+      
       // Fetch product from Supabase database
       const product = await getProductByBarcode(barcode);
       
@@ -303,9 +389,10 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
         // Check if item already exists in cart
         const existingItemIndex = scannedItems.findIndex(item => item.barcode === barcode);
         
+        let updatedItems = [...scannedItems];
+        
         if (existingItemIndex >= 0) {
           // Update quantity if item already exists
-          const updatedItems = [...scannedItems];
           updatedItems[existingItemIndex] = {
             ...updatedItems[existingItemIndex],
             quantity: updatedItems[existingItemIndex].quantity + 1
@@ -320,13 +407,31 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
             quantity: 1,
             barcode: product.barcode || ""
           };
-          setScannedItems([...scannedItems, newItem]);
+          updatedItems = [...scannedItems, newItem];
+          setScannedItems(updatedItems);
         }
         
+        // Show success message
         toast({
           title: "Item Scanned",
           description: `${product.name} added to cart`,
         });
+        
+        // If autoAddToCart is enabled, automatically add to the main cart
+        if (autoAddToCart) {
+          setTimeout(() => {
+            onItemsScanned([{
+              id: product.id || "",
+              name: product.name,
+              price: product.selling_price,
+              quantity: 1,
+              barcode: product.barcode || ""
+            }]);
+            
+            // Clear scanned items after auto-adding
+            setScannedItems([]);
+          }, 500); // Small delay to show the success message first
+        }
       } else {
         toast({
           title: "Product Not Found",
@@ -376,13 +481,20 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
     return scannedItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
-  // Handle scan completion
+  // Updated handleScanComplete function for better sales experience
   const handleScanComplete = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
     if (scannedItems.length > 0) {
       onItemsScanned(scannedItems);
+      // Clear scanned items after adding to cart
+      setScannedItems([]);
+      
+      toast({
+        title: "Items Added",
+        description: `${scannedItems.length} item(s) added to cart`,
+      });
     } else {
       toast({
         title: "No Items Scanned",
@@ -445,6 +557,11 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
   // Function to check if we're in a secure context (HTTPS or localhost)
   const isSecureContext = window.isSecureContext;
 
+  // Add function to clear scanned items
+  const clearScannedItems = () => {
+    setScannedItems([]);
+  };
+
   // Simulate scanning some sample barcodes for demo purposes
   const addSampleItems = () => {
     simulateScan("123456789012"); // Wireless Headphones
@@ -460,17 +577,27 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
             <Scan className="mr-2 h-6 w-6" />
             Barcode Scanner
           </h2>
-          <Button 
-            variant="outline" 
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onCancel();
-            }}
-          >
-            <X className="mr-2 h-4 w-4" />
-            Cancel
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={clearScannedItems}
+              disabled={scannedItems.length === 0}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onCancel();
+              }}
+            >
+              <X className="h-4 w-4" />
+              Cancel
+            </Button>
+          </div>
         </div>
 
         {isMobile && (
@@ -492,9 +619,14 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
           {/* Scanner Section */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Camera className="mr-2 h-5 w-5" />
-                Scan Items
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Camera className="mr-2 h-5 w-5" />
+                  Scan Items
+                </div>
+                {scannedItems.length > 0 && (
+                  <Badge variant="secondary">{scannedItems.length} items</Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -516,6 +648,11 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
                       <div className="absolute bottom-4 left-0 right-0 text-center text-white bg-black bg-opacity-50 py-2">
                         Point camera at barcode
                       </div>
+                      {scannedItems.length > 0 && (
+                        <div className="absolute top-4 right-4 bg-green-500 text-white px-2 py-1 rounded-md text-sm">
+                          {scannedItems.length} scanned
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="text-center p-8">
@@ -611,112 +748,129 @@ export const BarcodeScanner = ({ onItemsScanned, onCancel }: BarcodeScannerProps
                   </div>
                 </div>
 
-                {/* Demo Button */}
-                <Button 
-                  variant="secondary" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    addSampleItems();
-                  }}
-                  className="w-full"
-                >
-                  Add Sample Items (Demo)
-                </Button>
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <Button 
+                    variant="secondary" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      addSampleItems();
+                    }}
+                    className="flex-1"
+                  >
+                    Add Sample Items (Demo)
+                  </Button>
+                  {autoAddToCart ? null : (
+                    <Button 
+                      onClick={handleScanComplete}
+                      disabled={scannedItems.length === 0}
+                      className="flex-1"
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Add to Cart
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Cart Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <ShoppingCart className="mr-2 h-5 w-5" />
-                Scanned Items
-                {scannedItems.length > 0 && (
-                  <Badge className="ml-2">{scannedItems.length}</Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {scannedItems.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <ShoppingCart className="mx-auto h-12 w-12 mb-4" />
-                  <p>No items scanned yet</p>
-                  <p className="text-sm mt-2">Scan items or enter barcodes manually</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="max-h-96 overflow-y-auto pr-2">
-                    {scannedItems.map((item) => (
-                      <div 
-                        key={item.id} 
-                        className="flex items-center justify-between p-3 border rounded-lg mb-2"
-                      >
-                        <div className="flex-1">
-                          <h3 className="font-medium">{item.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {formatCurrency(item.price)} × {item.quantity}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              updateQuantity(item.id, item.quantity - 1);
-                            }}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-8 text-center">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              updateQuantity(item.id, item.quantity + 1);
-                            }}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              removeItem(item.id);
-                            }}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+          {/* Cart Section - Only show if not auto-adding to cart */}
+          {!autoAddToCart && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <ShoppingCart className="mr-2 h-5 w-5" />
+                    Scanned Items
                   </div>
-
-                  <div className="border-t pt-4">
-                    <div className="flex justify-between text-lg font-bold">
-                      <span>Total:</span>
-                      <span>{formatCurrency(calculateTotal())}</span>
+                  {scannedItems.length > 0 && (
+                    <Badge className="ml-2">{scannedItems.length}</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {scannedItems.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ShoppingCart className="mx-auto h-12 w-12 mb-4" />
+                    <p>No items scanned yet</p>
+                    <p className="text-sm mt-2">Scan items or enter barcodes manually</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="max-h-96 overflow-y-auto pr-2">
+                      {scannedItems.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="flex items-center justify-between p-3 border rounded-lg mb-2 hover:bg-muted transition-colors"
+                        >
+                          <div className="flex-1">
+                            <h3 className="font-medium">{item.name}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {formatCurrency(item.price)} × {item.quantity}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                updateQuantity(item.id, item.quantity - 1);
+                              }}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-8 text-center font-medium">{item.quantity}</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                updateQuantity(item.id, item.quantity + 1);
+                              }}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removeItem(item.id);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
 
-                  <Button 
-                    className="w-full" 
-                    onClick={handleScanComplete}
-                    disabled={scannedItems.length === 0}
-                  >
-                    Add to Cart
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    <div className="border-t pt-4">
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>Total:</span>
+                        <span>{formatCurrency(calculateTotal())}</span>
+                      </div>
+                    </div>
+
+                    <Button 
+                      className="w-full" 
+                      onClick={handleScanComplete}
+                      disabled={scannedItems.length === 0}
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Add All to Cart
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

@@ -1031,9 +1031,9 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
                   quantity: item.quantity
                 }));
                 setCart([...cart, ...cartItems]);
-                setIsScannerOpen(false);
               }}
               onCancel={() => setIsScannerOpen(false)}
+              autoAddToCart={true} // Enable auto-add for better sales experience
             />
           </DialogContent>
         </Dialog>

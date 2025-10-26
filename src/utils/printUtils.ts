@@ -459,50 +459,230 @@ export class PrintUtils {
 
   // Print receipt on mobile devices
   static printReceiptMobile(transaction: any) {
-    const receiptContent = this.generateReceiptContent(transaction);
-    const printArea = document.createElement('div');
-    printArea.innerHTML = receiptContent;
-    document.body.appendChild(printArea);
-    window.print();
-    document.body.removeChild(printArea);
-    // Hide loading indicator
-    this.hideLoadingIndicator();
+    // Show loading indicator
+    this.showLoadingIndicator('Preparing print...');
+    
+    try {
+      // Create a hidden iframe for printing
+      const printFrame = document.createElement('iframe');
+      printFrame.style.position = 'absolute';
+      printFrame.style.top = '-1000px';
+      printFrame.style.left = '-1000px';
+      document.body.appendChild(printFrame);
+      
+      const receiptContent = this.generateReceiptContent(transaction);
+      
+      const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+      if (printDoc) {
+        printDoc.open();
+        printDoc.write(receiptContent);
+        printDoc.close();
+        
+        // Wait for content to load before printing
+        setTimeout(() => {
+          printFrame.contentWindow?.focus();
+          printFrame.contentWindow?.print();
+          // Remove the iframe after printing
+          setTimeout(() => {
+            document.body.removeChild(printFrame);
+            // Hide loading indicator
+            this.hideLoadingIndicator();
+          }, 1000);
+        }, 500);
+      } else {
+        // Fallback to simple method if iframe doesn't work
+        document.body.removeChild(printFrame);
+        this.printReceiptFallback(transaction);
+      }
+    } catch (error) {
+      console.error('Mobile print error:', error);
+      // Hide loading indicator
+      this.hideLoadingIndicator();
+      // Fallback to simple method
+      this.printReceiptFallback(transaction);
+    }
   }
 
   // Print purchase receipt on mobile devices
   static printPurchaseReceiptMobile(transaction: any) {
-    const receiptContent = this.generatePurchaseReceiptContent(transaction);
-    const printArea = document.createElement('div');
-    printArea.innerHTML = receiptContent;
-    document.body.appendChild(printArea);
-    window.print();
-    document.body.removeChild(printArea);
-    // Hide loading indicator
-    this.hideLoadingIndicator();
+    // Show loading indicator
+    this.showLoadingIndicator('Preparing print...');
+    
+    try {
+      // Create a hidden iframe for printing
+      const printFrame = document.createElement('iframe');
+      printFrame.style.position = 'absolute';
+      printFrame.style.top = '-1000px';
+      printFrame.style.left = '-1000px';
+      document.body.appendChild(printFrame);
+      
+      const receiptContent = this.generatePurchaseReceiptContent(transaction);
+      
+      const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+      if (printDoc) {
+        printDoc.open();
+        printDoc.write(receiptContent);
+        printDoc.close();
+        
+        // Wait for content to load before printing
+        setTimeout(() => {
+          printFrame.contentWindow?.focus();
+          printFrame.contentWindow?.print();
+          // Remove the iframe after printing
+          setTimeout(() => {
+            document.body.removeChild(printFrame);
+            // Hide loading indicator
+            this.hideLoadingIndicator();
+          }, 1000);
+        }, 500);
+      } else {
+        // Fallback to simple method if iframe doesn't work
+        document.body.removeChild(printFrame);
+        this.printPurchaseReceiptFallback(transaction);
+      }
+    } catch (error) {
+      console.error('Mobile print error:', error);
+      // Hide loading indicator
+      this.hideLoadingIndicator();
+      // Fallback to simple method
+      this.printPurchaseReceiptFallback(transaction);
+    }
   }
 
   // Fallback when popup blockers prevent window.open()
   static printReceiptFallback(transaction: any) {
-    const receiptContent = this.generateReceiptContent(transaction);
-    const printArea = document.createElement('div');
-    printArea.innerHTML = receiptContent;
-    document.body.appendChild(printArea);
-    window.print();
-    document.body.removeChild(printArea);
-    // Hide loading indicator
-    this.hideLoadingIndicator();
+    // Show loading indicator
+    this.showLoadingIndicator('Preparing print...');
+    
+    try {
+      // Create a print-specific window with only the receipt content
+      const receiptContent = this.generateReceiptContent(transaction);
+      
+      // Open a new window with receipt content only
+      const printWindow = window.open('', '_blank', 'width=400,height=600');
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(receiptContent);
+        printWindow.document.close();
+        
+        // Wait for content to load before printing
+        setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+          // Close the window after printing
+          setTimeout(() => {
+            printWindow.close();
+            // Hide loading indicator
+            this.hideLoadingIndicator();
+          }, 1000);
+        }, 500);
+      } else {
+        // Final fallback - temporarily replace page content
+        this.printReceiptFallbackSimple(transaction);
+      }
+    } catch (error) {
+      console.error('Fallback print error:', error);
+      // Hide loading indicator
+      this.hideLoadingIndicator();
+      // Final fallback - temporarily replace page content
+      this.printReceiptFallbackSimple(transaction);
+    }
   }
 
   // Fallback when popup blockers prevent window.open() for purchase receipt
   static printPurchaseReceiptFallback(transaction: any) {
-    const receiptContent = this.generatePurchaseReceiptContent(transaction);
-    const printArea = document.createElement('div');
-    printArea.innerHTML = receiptContent;
-    document.body.appendChild(printArea);
-    window.print();
-    document.body.removeChild(printArea);
-    // Hide loading indicator
-    this.hideLoadingIndicator();
+    // Show loading indicator
+    this.showLoadingIndicator('Preparing print...');
+    
+    try {
+      // Create a print-specific window with only the receipt content
+      const receiptContent = this.generatePurchaseReceiptContent(transaction);
+      
+      // Open a new window with receipt content only
+      const printWindow = window.open('', '_blank', 'width=400,height=600');
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(receiptContent);
+        printWindow.document.close();
+        
+        // Wait for content to load before printing
+        setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+          // Close the window after printing
+          setTimeout(() => {
+            printWindow.close();
+            // Hide loading indicator
+            this.hideLoadingIndicator();
+          }, 1000);
+        }, 500);
+      } else {
+        // Final fallback - temporarily replace page content
+        this.printPurchaseReceiptFallbackSimple(transaction);
+      }
+    } catch (error) {
+      console.error('Fallback print error:', error);
+      // Hide loading indicator
+      this.hideLoadingIndicator();
+      // Final fallback - temporarily replace page content
+      this.printPurchaseReceiptFallbackSimple(transaction);
+    }
+  }
+
+  // Simple fallback that temporarily replaces page content (last resort)
+  static printReceiptFallbackSimple(transaction: any) {
+    try {
+      // Save original content
+      const originalContent = document.body.innerHTML;
+      
+      // Generate receipt content
+      const receiptContent = this.generateReceiptContent(transaction);
+      
+      // Replace page content with receipt
+      document.body.innerHTML = receiptContent;
+      
+      // Print
+      window.print();
+      
+      // Restore original content after a delay
+      setTimeout(() => {
+        document.body.innerHTML = originalContent;
+        // Hide loading indicator
+        this.hideLoadingIndicator();
+      }, 1000);
+    } catch (error) {
+      console.error('Simple fallback print error:', error);
+      // Hide loading indicator
+      this.hideLoadingIndicator();
+    }
+  }
+
+  // Simple fallback that temporarily replaces page content (last resort) for purchase receipts
+  static printPurchaseReceiptFallbackSimple(transaction: any) {
+    try {
+      // Save original content
+      const originalContent = document.body.innerHTML;
+      
+      // Generate receipt content
+      const receiptContent = this.generatePurchaseReceiptContent(transaction);
+      
+      // Replace page content with receipt
+      document.body.innerHTML = receiptContent;
+      
+      // Print
+      window.print();
+      
+      // Restore original content after a delay
+      setTimeout(() => {
+        document.body.innerHTML = originalContent;
+        // Hide loading indicator
+        this.hideLoadingIndicator();
+      }, 1000);
+    } catch (error) {
+      console.error('Simple fallback print error:', error);
+      // Hide loading indicator
+      this.hideLoadingIndicator();
+    }
   }
 
   static generateReceiptContent(transaction: any) {

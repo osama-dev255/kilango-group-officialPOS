@@ -1263,12 +1263,16 @@ export class PrintUtils {
       printContainer.style.fontFamily = "'Courier New', monospace";
       printContainer.style.fontSize = '12px';
       printContainer.style.overflowY = 'auto';
+      printContainer.style.touchAction = 'manipulation'; // Improve touch response
       
       // Add viewport meta tag for proper mobile display
-      const metaViewport = document.createElement('meta');
-      metaViewport.name = 'viewport';
-      metaViewport.content = 'width=device-width, initial-scale=1.0';
-      document.head.appendChild(metaViewport);
+      let metaViewport = document.querySelector('meta[name="viewport"]');
+      if (!metaViewport) {
+        metaViewport = document.createElement('meta');
+        (metaViewport as HTMLMetaElement).name = 'viewport';
+        (metaViewport as HTMLMetaElement).content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+        document.head.appendChild(metaViewport);
+      }
       
       // Format items for receipt
       const formattedItems = transaction.items.map((item: any) => {
@@ -1301,6 +1305,19 @@ export class PrintUtils {
                 margin: 0.4in;
                 padding: 0;
               }
+            }
+            #mobilePrintContainer button {
+              -webkit-appearance: none;
+              -moz-appearance: none;
+              appearance: none;
+              border: none;
+              outline: none;
+              cursor: pointer;
+              user-select: none;
+              -webkit-tap-highlight-color: transparent;
+            }
+            #mobilePrintContainer button:active {
+              transform: scale(0.98);
             }
           </style>
           <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
@@ -1409,10 +1426,10 @@ export class PrintUtils {
           </div>
           
           <div style="text-align: center; margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
-            <button id="printButton" style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            <button id="printButton" style="padding: 12px 20px; background-color: #28a745; color: white; border-radius: 5px; font-size: 16px; font-weight: bold; width: 45%;">
               Print Receipt
             </button>
-            <button id="closePrint" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            <button id="closePrint" style="padding: 12px 20px; background-color: #007bff; color: white; border-radius: 5px; font-size: 16px; font-weight: bold; width: 45%;">
               Close
             </button>
           </div>
@@ -1421,52 +1438,54 @@ export class PrintUtils {
       
       document.body.appendChild(printContainer);
       
-      // Add event listener to print button
-      const printButton = printContainer.querySelector('#printButton');
-      if (printButton) {
-        printButton.addEventListener('click', () => {
-          // Disable the print button temporarily to prevent multiple clicks
-          (printButton as HTMLButtonElement).disabled = true;
-          (printButton as HTMLButtonElement).textContent = 'Printing...';
-          (printButton as HTMLButtonElement).style.backgroundColor = '#6c757d';
-          
-          // Trigger print after a short delay to ensure content is rendered
-          setTimeout(() => {
-            try {
-              window.print();
-              // Re-enable the print button after printing
-              setTimeout(() => {
-                if (printButton) {
-                  (printButton as HTMLButtonElement).disabled = false;
-                  (printButton as HTMLButtonElement).textContent = 'Print Receipt';
-                  (printButton as HTMLButtonElement).style.backgroundColor = '#28a745';
+      // Use event delegation for better mobile support
+      printContainer.addEventListener('click', function(event) {
+        const target = event.target as HTMLElement;
+        
+        // Handle print button click
+        if (target.id === 'printButton' || target.closest('#printButton')) {
+          const printBtn = printContainer.querySelector('#printButton') as HTMLButtonElement;
+          if (printBtn && !printBtn.disabled) {
+            // Disable the print button temporarily to prevent multiple clicks
+            printBtn.disabled = true;
+            printBtn.textContent = 'Printing...';
+            printBtn.style.backgroundColor = '#6c757d';
+            
+            // Trigger print after a short delay to ensure content is rendered
+            setTimeout(() => {
+              try {
+                window.print();
+                // Re-enable the print button after printing
+                setTimeout(() => {
+                  if (printBtn) {
+                    printBtn.disabled = false;
+                    printBtn.textContent = 'Print Receipt';
+                    printBtn.style.backgroundColor = '#28a745';
+                  }
+                }, 1000);
+              } catch (error) {
+                console.error('Mobile print error:', error);
+                // Re-enable the print button on error
+                if (printBtn) {
+                  printBtn.disabled = false;
+                  printBtn.textContent = 'Print Receipt';
+                  printBtn.style.backgroundColor = '#28a745';
                 }
-              }, 1000);
-            } catch (error) {
-              console.error('Mobile print error:', error);
-              // Re-enable the print button on error
-              if (printButton) {
-                (printButton as HTMLButtonElement).disabled = false;
-                (printButton as HTMLButtonElement).textContent = 'Print Receipt';
-                (printButton as HTMLButtonElement).style.backgroundColor = '#28a745';
+                PrintUtils.showPrintError(transaction);
               }
-              this.showPrintError(transaction);
-            }
-          }, 300);
-        });
-      }
-      
-      // Add event listener to close button
-      const closeButton = printContainer.querySelector('#closePrint');
-      if (closeButton) {
-        closeButton.addEventListener('click', () => {
-          document.body.removeChild(printContainer);
-          // Remove viewport meta tag
-          if (document.head.contains(metaViewport)) {
-            document.head.removeChild(metaViewport);
+            }, 300);
           }
-        });
-      }
+        }
+        
+        // Handle close button click
+        if (target.id === 'closePrint' || target.closest('#closePrint')) {
+          const closeBtn = printContainer.querySelector('#closePrint') as HTMLButtonElement;
+          if (closeBtn) {
+            closeBtn.disabled = true;
+          }
+          document.body.removeChild(printContainer);
+        }
+      });
       
       // Show preview message for mobile users
       const previewMessage = document.createElement('div');
@@ -1482,9 +1501,10 @@ export class PrintUtils {
       previewMessage.style.zIndex = '10001';
       previewMessage.style.fontSize = '14px';
       previewMessage.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+      previewMessage.style.maxWidth = '90%';
       previewMessage.innerHTML = `
         <div style="display: flex; align-items: center; gap: 10px;">
-          <span>📄 Preview Ready - Use Print button below to print</span>
+          <span>📄 Preview Ready - Tap Print button below</span>
         </div>
       `;
       document.body.appendChild(previewMessage);
@@ -1496,12 +1516,24 @@ export class PrintUtils {
         }
       }, 3000);
       
-      // Focus the print button for easier access
+      // Focus the print button for easier access (with fallback for mobile)
       setTimeout(() => {
+        const printButton = printContainer.querySelector('#printButton') as HTMLButtonElement;
         if (printButton) {
-          (printButton as HTMLButtonElement).focus();
+          // Try to focus, but also add visual indication for mobile
+          try {
+            printButton.focus();
+          } catch (e) {
+            // Fallback for mobile browsers that don't support focus
+            printButton.style.boxShadow = '0 0 0 3px rgba(40, 167, 69, 0.5)';
+            setTimeout(() => {
+              if (printButton) {
+                printButton.style.boxShadow = 'none';
+              }
+            }, 1000);
+          }
         }
-      }, 1000);
+      }, 500);
     } catch (error) {
       console.error('Mobile print setup error:', error);
       // Remove any existing print container on error
@@ -1534,14 +1566,15 @@ export class PrintUtils {
     errorContainer.style.zIndex = '10000';
     errorContainer.style.maxWidth = '90%';
     errorContainer.style.textAlign = 'center';
+    errorContainer.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
     errorContainer.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 10px;">Printing Error</div>
-      <div style="margin-bottom: 15px;">There was a problem printing the receipt. Please try again.</div>
-      <div style="display: flex; justify-content: center; gap: 10px;">
-        <button id="retryPrint" style="padding: 8px 15px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">
+      <div style="font-weight: bold; margin-bottom: 10px; font-size: 18px;">Printing Error</div>
+      <div style="margin-bottom: 15px; font-size: 14px;">There was a problem printing the receipt. Please try again.</div>
+      <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+        <button id="retryPrint" style="padding: 12px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; min-width: 120px;">
           Retry Print
         </button>
-        <button id="errorClose" style="padding: 8px 15px; background-color: #721c24; color: white; border: none; border-radius: 3px; cursor: pointer;">
+        <button id="errorClose" style="padding: 12px 20px; background-color: #721c24; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; min-width: 120px;">
           Close
         </button>
       </div>
@@ -1549,32 +1582,33 @@ export class PrintUtils {
     
     document.body.appendChild(errorContainer);
     
-    const retryButton = errorContainer.querySelector('#retryPrint');
-    if (retryButton) {
-      retryButton.addEventListener('click', () => {
+    // Use event delegation for better mobile support
+    errorContainer.addEventListener('click', function(event) {
+      const target = event.target as HTMLElement;
+      
+      // Handle retry button click
+      if (target.id === 'retryPrint' || target.closest('#retryPrint')) {
         document.body.removeChild(errorContainer);
         // Try to print again
         try {
           if (transaction) {
             // If we have transaction data, reprint the receipt
-            this.printReceipt(transaction);
+            PrintUtils.printReceipt(transaction);
           } else {
             // Otherwise, try to print the current window content
             window.print();
           }
         } catch (error) {
           console.error('Retry print error:', error);
-          this.showPrintError(transaction);
+          PrintUtils.showPrintError(transaction);
         }
-      });
-    }
-    
-    const errorClose = errorContainer.querySelector('#errorClose');
-    if (errorClose) {
-      errorClose.addEventListener('click', () => {
+      }
+      
+      // Handle close button click
+      if (target.id === 'errorClose' || target.closest('#errorClose')) {
         document.body.removeChild(errorContainer);
-      });
-    }
+      }
+    });
     
     // Auto-remove error after 10 seconds
     setTimeout(() => {

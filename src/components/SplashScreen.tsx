@@ -14,9 +14,14 @@ export const SplashScreen = () => {
   }, []);
 
   if (!isVisible) return null;
+  
+  // Ensure splash screen is completely removed from DOM when not visible
+  if (!isVisible) {
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-background to-primary/10 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-gradient-to-br from-background to-primary/10 flex items-center justify-center splash-screen">
       <div className="text-center">
         <div className="mb-8 relative">
           <div className="absolute -inset-4 bg-primary/20 rounded-full blur-lg animate-pulse"></div>

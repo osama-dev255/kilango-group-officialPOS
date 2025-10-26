@@ -39,6 +39,11 @@ interface PurchaseTransaction {
   transactionItems?: PurchaseTransactionItem[]; // Add this for detailed items
 }
 
+// Extended interface for viewing detailed purchase order with items
+interface DetailedPurchaseOrder extends PurchaseOrder {
+  transactionItems?: PurchaseTransactionItem[];
+}
+
 export const PurchaseTransactionHistory = ({ username, onBack, onLogout }: { username: string; onBack: () => void; onLogout: () => void }) => {
   const [transactions, setTransactions] = useState<PurchaseTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +51,7 @@ export const PurchaseTransactionHistory = ({ username, onBack, onLogout }: { use
   const [dateFilter, setDateFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [viewingTransaction, setViewingTransaction] = useState<PurchaseOrder | null>(null);
+  const [viewingTransaction, setViewingTransaction] = useState<DetailedPurchaseOrder | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const { toast } = useToast();
 

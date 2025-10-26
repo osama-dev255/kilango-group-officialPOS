@@ -86,24 +86,25 @@ export const Dashboard = ({ username, onNavigate, onLogout }: DashboardProps) =>
         username={username}
       />
       
-      <main className="container mx-auto p-6">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Welcome back, {username}!</h2>
-          <p className="text-muted-foreground">
+      <main className="container-responsive py-6">
+        <div className="mb-6 xs:mb-8">
+          <h2 className="text-2xl xs:text-3xl sm:text-4xl font-bold mb-2">Welcome back, {username}!</h2>
+          <p className="text-muted-foreground text-responsive-base">
             Select a dashboard to manage your business operations
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 xs:gap-4 sm:gap-5 auto-rows-fr">
           {dashboards.map((dashboard) => (
-            <DashboardCard
-              key={dashboard.id}
-              title={dashboard.title}
-              description={dashboard.description}
-              icon={dashboard.icon}
-              onClick={() => onNavigate(dashboard.id)}
-              className={dashboard.color}
-            />
+            <div key={dashboard.id} className="flex">
+              <DashboardCard
+                title={dashboard.title}
+                description={dashboard.description}
+                icon={dashboard.icon}
+                onClick={() => onNavigate(dashboard.id)}
+                className={`${dashboard.color} card-padding`}
+              />
+            </div>
           ))}
         </div>
       </main>

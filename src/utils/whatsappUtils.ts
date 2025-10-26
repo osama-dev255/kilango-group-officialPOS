@@ -146,10 +146,84 @@ export const generateSalesNotificationMessage = (
   return message;
 };
 
+/**
+ * Generate sales receipt message
+ * @param transactionId Transaction ID
+ * @param date Transaction date
+ * @param customerName Customer name
+ * @param items Transaction items
+ * @param subtotal Subtotal amount
+ * @param discount Discount amount
+ * @param tax Tax amount
+ * @param total Total amount
+ * @param paymentMethod Payment method used
+ * @returns Formatted receipt message string
+ */
+export const generateSalesReceiptMessage = (
+  transactionId: string,
+  date: string,
+  customerName: string,
+  items: any[],
+  subtotal: number,
+  discount: number,
+  tax: number,
+  total: number,
+  paymentMethod: string
+): string => {
+  const formattedDate = new Date(date).toLocaleDateString('en-TZ');
+  const formattedSubtotal = new Intl.NumberFormat('en-TZ', {
+    style: 'currency',
+    currency: 'TZS'
+  }).format(subtotal);
+  
+  const formattedTotal = new Intl.NumberFormat('en-TZ', {
+    style: 'currency',
+    currency: 'TZS'
+  }).format(total);
+  
+  const formattedDiscount = new Intl.NumberFormat('en-TZ', {
+    style: 'currency',
+    currency: 'TZS'
+  }).format(discount);
+  
+  const formattedTax = new Intl.NumberFormat('en-TZ', {
+    style: 'currency',
+    currency: 'TZS'
+  }).format(tax);
+
+  let message = `🧾 *SALES RECEIPT* 🧾\n\n`;
+  message += `Transaction ID: ${transactionId}\n`;
+  message += `Date: ${formattedDate}\n`;
+  message += `Customer: ${customerName}\n\n`;
+  
+  message += `*Items:*\n`;
+  items.forEach(item => {
+    const itemTotal = new Intl.NumberFormat('en-TZ', {
+      style: 'currency',
+      currency: 'TZS'
+    }).format(item.totalPrice || item.price * item.quantity);
+    message += `- ${item.name} x${item.quantity}: ${itemTotal}\n`;
+  });
+  
+  message += `\nSubtotal: ${formattedSubtotal}\n`;
+  if (discount > 0) {
+    message += `Discount: -${formattedDiscount}\n`;
+  }
+  if (tax > 0) {
+    message += `Tax: ${formattedTax}\n`;
+  }
+  message += `*Total: ${formattedTotal}*\n\n`;
+  message += `Payment Method: ${paymentMethod}\n\n`;
+  message += `Thank you for your business!`;
+  
+  return message;
+};
+
 export default {
   sendWhatsAppMessage,
   sendWhatsAppMessageToBusiness,
   generateSalesNotificationMessage,
+  generateSalesReceiptMessage,
   isFirstSaleOfDay,
   getBusinessDayStart,
   getBusinessDayEnd

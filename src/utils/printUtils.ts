@@ -6,9 +6,12 @@ export class PrintUtils {
   static isMobileDevice(): boolean {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   }
-  // Print receipt with enhanced formatting
+
   // Print receipt with enhanced formatting and mobile support
   static printReceipt(transaction: any) {
+    // Show loading indicator
+    this.showLoadingIndicator('Preparing print...');
+    
     // For mobile devices, use a more reliable printing approach
     if (this.isMobileDevice()) {
       return this.printReceiptMobile(transaction);
@@ -16,11 +19,12 @@ export class PrintUtils {
 
     const receiptWindow = window.open('', '_blank');
     if (!receiptWindow) {
+      // Hide loading indicator
+      this.hideLoadingIndicator();
       // Fallback for popup blockers
       this.printReceiptFallback(transaction);
       return;
     }
-    if (!receiptWindow) return;
     
     // Get template configuration
     const templateConfig = getTemplateConfig();
@@ -155,55 +159,18 @@ export class PrintUtils {
             
             <div class="receipt-info">
               <div>Receipt #: ${transaction.id || 'TXN-' + Date.now()}</div>
-              <div>Date: ${new Date().toLocaleDateString()}</div>
-              <div>Time: ${new Date().toLocaleTimeString()}</div>
+              <div>${new Date().toLocaleString()}</div>
             </div>
-            
-            ${transaction.customer ? `
-            <div class="customer-info" style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #000;">
-              <div class="total-row">
-                <div><strong>Customer:</strong></div>
-                <div>${transaction.customer.name}</div>
-              </div>
-              ${transaction.customer.address ? `
-              <div class="total-row">
-                <div><strong>Address:</strong></div>
-                <div>${transaction.customer.address}</div>
-              </div>
-              ` : ''}
-              ${transaction.customer.email ? `
-              <div class="total-row">
-                <div><strong>Email:</strong></div>
-                <div>${transaction.customer.email}</div>
-              </div>
-              ` : ''}
-              ${transaction.customer.phone ? `
-              <div class="total-row">
-                <div><strong>Phone:</strong></div>
-                <div>${transaction.customer.phone}</div>
-              </div>
-              ` : ''}
-              ${transaction.customer.loyaltyPoints ? `
-              <div class="total-row">
-                <div><strong>Loyalty Points:</strong></div>
-                <div>${transaction.customer.loyaltyPoints}</div>
-              </div>
-              ` : ''}
-            </div>
-            ` : ''}
             
             <div class="items">
               ${formattedItems.map((item: any) => `
                 <div class="item">
                   <div class="item-name">${item.name}</div>
-                </div>
-                <div class="item">
                   <div class="item-details">
-                    <span class="item-quantity">${item.quantity}</span>
-                    <span class="item-price">${item.price.toFixed(2)}</span>
-                    <span class="item-total">${item.total.toFixed(2)}</span>
+                    <div class="item-price">${item.price.toFixed(2)}</div>
+                    <div class="item-total">${item.total.toFixed(2)}</div>
+                  </div>
                 </div>
-              </div>
               `).join('')}
             </div>
             
@@ -212,58 +179,525 @@ export class PrintUtils {
                 <div>Subtotal:</div>
                 <div>${subtotal.toFixed(2)}</div>
               </div>
-              ${tax > 0 ? `
               <div class="total-row">
                 <div>Tax:</div>
                 <div>${tax.toFixed(2)}</div>
               </div>
-              ` : ''}
-              ${discount > 0 ? `
               <div class="total-row">
                 <div>Discount:</div>
-                <div>-${discount.toFixed(2)}</div>
+                <div>${discount.toFixed(2)}</div>
               </div>
-              ` : ''}
-              <div class="total-row final-total">
-                <div>TOTAL:</div>
-                <div>${total.toFixed(2)}</div>
-              </div>
+              <div class="final-total">${total.toFixed(2)}</div>
             </div>
             
             <div class="payment-info">
-              <div class="total-row">
-                <div>Payment Method:</div>
-                <div>${transaction.paymentMethod || 'Cash'}</div>
-              </div>
-              <div class="total-row">
-                <div>Amount Received:</div>
-                <div>${amountReceived.toFixed(2)}</div>
-              </div>
-              <div class="total-row">
-                <div>Change:</div>
-                <div>${change.toFixed(2)}</div>
-              </div>
+              <div>Amount Received:</div>
+              <div>${amountReceived.toFixed(2)}</div>
             </div>
             
             <div class="footer">
-              <div class="thank-you">Thank you for your business!</div>
-              <div>Items sold are not returnable</div>
-              <div>Visit us again soon</div>
+              <div class="thank-you">Thank you!</div>
+              <div>Visit us again soon!</div>
             </div>
+            
           </body>
         </html>
       `;
     }
     
+    receiptWindow.document.open();
     receiptWindow.document.write(receiptContent);
     receiptWindow.document.close();
-    receiptWindow.focus();
     
-    // Give time for content to load before printing
-    setTimeout(() => {
-      receiptWindow.print();
-      receiptWindow.close();
-    }, 250);
+    // Hide loading indicator
+    this.hideLoadingIndicator();
+    
+    receiptWindow.focus();
+    receiptWindow.print();
+    receiptWindow.close();
+  }
+
+  // Mobile-optimized printing method with improved responsiveness
+  static printReceiptMobile(transaction: any) {
+    // Check if there's already a print container to prevent multiple instances
+    if (document.querySelector('#mobilePrintContainer')) {
+      console.warn('Print operation already in progress');
+      // Hide loading indicator
+      this.hideLoadingIndicator();
+      return;
+    }
+
+    try {
+      // Create a temporary print-friendly element in the current document
+      const printContainer = document.createElement('div');
+      printContainer.id = 'mobilePrintContainer';
+      printContainer.style.position = 'fixed';
+      printContainer.style.top = '0';
+      printContainer.style.left = '0';
+      printContainer.style.width = '100%';
+      printContainer.style.height = '100%';
+      printContainer.style.backgroundColor = 'white';
+      printContainer.style.zIndex = '9999';
+      printContainer.style.padding = '20px';
+      printContainer.style.fontFamily = "'Courier New', monospace";
+      printContainer.style.fontSize = '12px';
+      printContainer.style.overflowY = 'auto';
+      printContainer.style.touchAction = 'manipulation'; // Improve touch response
+      
+      // Add viewport meta tag for proper mobile display
+      let metaViewport = document.querySelector('meta[name="viewport"]');
+      if (!metaViewport) {
+        metaViewport = document.createElement('meta');
+        (metaViewport as HTMLMetaElement).name = 'viewport';
+        (metaViewport as HTMLMetaElement).content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+        document.head.appendChild(metaViewport);
+      }
+      
+      // Format items for receipt
+      const formattedItems = transaction.items.map((item: any) => {
+        const total = item.price * item.quantity;
+        return {
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: total
+        };
+      });
+      
+      // Calculate totals
+      const subtotal = transaction.subtotal || formattedItems.reduce((sum: number, item: any) => sum + item.total, 0);
+      const tax = transaction.tax || 0;
+      const discount = transaction.discount || 0;
+      const total = transaction.total || (subtotal + tax - discount);
+      const amountReceived = transaction.amountReceived || total;
+      const change = transaction.change || (amountReceived - total);
+      
+      // Hide loading indicator
+      this.hideLoadingIndicator();
+      
+      printContainer.innerHTML = `
+        <div style="max-width: 320px; margin: 0 auto;">
+          <style>
+            @media print {
+              @page {
+                margin: 0.4in; /* Mobile-specific margin */
+                size: auto;
+              }
+              body {
+                margin: 0.4in;
+                padding: 0;
+              }
+            }
+            #mobilePrintContainer button {
+              -webkit-appearance: none;
+              -moz-appearance: none;
+              appearance: none;
+              border: none;
+              outline: none;
+              cursor: pointer;
+              user-select: none;
+              -webkit-tap-highlight-color: transparent;
+            }
+            #mobilePrintContainer button:active {
+              transform: scale(0.98);
+            }
+          </style>
+          <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">POS BUSINESS</div>
+            <div style="font-size: 10px; margin-bottom: 5px;">123 Business St, City, Country</div>
+            <div style="font-size: 10px; margin-bottom: 5px;">Phone: (123) 456-7890</div>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 10px;">
+            <div>Receipt #: ${transaction.id || 'TXN-' + Date.now()}</div>
+            <div>Date: ${new Date().toLocaleDateString()}</div>
+            <div>Time: ${new Date().toLocaleTimeString()}</div>
+          </div>
+          
+          ${transaction.customer ? `
+          <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #000;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Customer:</strong></div>
+              <div>${transaction.customer.name}</div>
+            </div>
+            ${transaction.customer.address ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Address:</strong></div>
+              <div>${transaction.customer.address}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.email ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Email:</strong></div>
+              <div>${transaction.customer.email}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.phone ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Phone:</strong></div>
+              <div>${transaction.customer.phone}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.loyaltyPoints ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Loyalty Points:</strong></div>
+              <div>${transaction.customer.loyaltyPoints}</div>
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+          
+          <div style="margin-bottom: 10px;">
+            ${formattedItems.map((item: any) => `
+              <div style="display: flex; margin-bottom: 5px;">
+                <div style="flex: 2;">${item.name}</div>
+              </div>
+              <div style="display: flex; margin-bottom: 5px;">
+                <div style="flex: 1; text-align: right;">
+                  <span>${item.quantity}</span>
+                  <span style="margin: 0 5px;">@</span>
+                  <span>${item.price.toFixed(2)}</span>
+                  <span style="font-weight: bold; margin-left: 10px;">${item.total.toFixed(2)}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Subtotal:</div>
+              <div>${subtotal.toFixed(2)}</div>
+            </div>
+            ${tax > 0 ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Tax:</div>
+              <div>${tax.toFixed(2)}</div>
+            </div>
+            ` : ''}
+            ${discount > 0 ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Discount:</div>
+              <div>-${discount.toFixed(2)}</div>
+            </div>
+            ` : ''}
+            <div style="display: flex; justify-content: space-between; margin: 10px 0; font-weight: bold; font-size: 14px;">
+              <div>TOTAL:</div>
+              <div>${total.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Payment Method:</div>
+              <div>${transaction.paymentMethod || 'Cash'}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Amount Received:</div>
+              <div>${amountReceived.toFixed(2)}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Change:</div>
+              <div>${change.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; font-size: 10px;">
+            <div style="font-weight: bold; margin-bottom: 10px;">Thank you for your business!</div>
+            <div>Items sold are not returnable</div>
+            <div>Visit us again soon</div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+            <button id="printButton" style="padding: 12px 20px; background-color: #28a745; color: white; border-radius: 5px; font-size: 16px; font-weight: bold; width: 45%;">
+              Print Receipt
+            </button>
+            <button id="closePrint" style="padding: 12px 20px; background-color: #007bff; color: white; border-radius: 5px; font-size: 16px; font-weight: bold; width: 45%;">
+              Close
+            </button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(printContainer);
+      
+      // Use event delegation for better mobile support
+      printContainer.addEventListener('click', function(event) {
+        const target = event.target as HTMLElement;
+        
+        // Handle print button click
+        if (target.id === 'printButton' || target.closest('#printButton')) {
+          const printBtn = printContainer.querySelector('#printButton') as HTMLButtonElement;
+          if (printBtn && !printBtn.disabled) {
+            // Disable the print button temporarily to prevent multiple clicks
+            printBtn.disabled = true;
+            printBtn.textContent = 'Printing...';
+            printBtn.style.backgroundColor = '#6c757d';
+            
+            // Show loading indicator
+            PrintUtils.showLoadingIndicator('Printing receipt...');
+            
+            // Trigger print after a short delay to ensure content is rendered
+            setTimeout(() => {
+              try {
+                window.print();
+                // Hide loading indicator
+                PrintUtils.hideLoadingIndicator();
+                // Re-enable the print button after printing
+                setTimeout(() => {
+                  if (printBtn) {
+                    printBtn.disabled = false;
+                    printBtn.textContent = 'Print Receipt';
+                    printBtn.style.backgroundColor = '#28a745';
+                  }
+                }, 1000);
+              } catch (error) {
+                console.error('Mobile print error:', error);
+                // Hide loading indicator
+                PrintUtils.hideLoadingIndicator();
+                // Re-enable the print button on error
+                if (printBtn) {
+                  printBtn.disabled = false;
+                  printBtn.textContent = 'Print Receipt';
+                  printBtn.style.backgroundColor = '#28a745';
+                }
+                PrintUtils.showPrintError(transaction);
+              }
+            }, 300);
+          }
+        }
+        
+        // Handle close button click
+        if (target.id === 'closePrint' || target.closest('#closePrint')) {
+          const closeBtn = printContainer.querySelector('#closePrint') as HTMLButtonElement;
+          if (closeBtn) {
+            closeBtn.disabled = true;
+          }
+          document.body.removeChild(printContainer);
+        }
+      });
+      
+      // Show preview message for mobile users
+      const previewMessage = document.createElement('div');
+      previewMessage.id = 'previewMessage';
+      previewMessage.style.position = 'fixed';
+      previewMessage.style.top = '10px';
+      previewMessage.style.left = '50%';
+      previewMessage.style.transform = 'translateX(-50%)';
+      previewMessage.style.backgroundColor = '#d4edda';
+      previewMessage.style.color = '#155724';
+      previewMessage.style.padding = '10px 20px';
+      previewMessage.style.borderRadius = '5px';
+      previewMessage.style.zIndex = '10001';
+      previewMessage.style.fontSize = '14px';
+      previewMessage.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+      previewMessage.style.maxWidth = '90%';
+      previewMessage.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span>📄 Preview Ready - Tap Print button below</span>
+        </div>
+      `;
+      document.body.appendChild(previewMessage);
+      
+      // Auto-hide preview message after 3 seconds
+      setTimeout(() => {
+        if (document.body.contains(previewMessage)) {
+          document.body.removeChild(previewMessage);
+        }
+      }, 3000);
+      
+      // Focus the print button for easier access (with fallback for mobile)
+      setTimeout(() => {
+        const printButton = printContainer.querySelector('#printButton') as HTMLButtonElement;
+        if (printButton) {
+          // Try to focus, but also add visual indication for mobile
+          try {
+            printButton.focus();
+          } catch (e) {
+            // Fallback for mobile browsers that don't support focus
+            printButton.style.boxShadow = '0 0 0 3px rgba(40, 167, 69, 0.5)';
+            setTimeout(() => {
+              if (printButton) {
+                printButton.style.boxShadow = 'none';
+              }
+            }, 1000);
+          }
+        }
+      }, 500);
+    } catch (error) {
+      console.error('Mobile print setup error:', error);
+      // Hide loading indicator
+      this.hideLoadingIndicator();
+      // Remove any existing print container on error
+      const existingContainer = document.querySelector('#mobilePrintContainer');
+      if (existingContainer) {
+        document.body.removeChild(existingContainer);
+      }
+      this.printReceiptFallback(transaction);
+    }
+  }
+
+  // Fallback printing method for when popups are blocked
+  static printReceiptFallback(transaction: any) {
+    try {
+      // Show loading indicator
+      this.showLoadingIndicator('Preparing print...');
+      
+      // Create a print-friendly version in the current window
+      const originalContent = document.body.innerHTML;
+      
+      // Format items for receipt
+      const formattedItems = transaction.items.map((item: any) => {
+        const total = item.price * item.quantity;
+        return {
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: total
+        };
+      });
+      
+      // Calculate totals
+      const subtotal = transaction.subtotal || formattedItems.reduce((sum: number, item: any) => sum + item.total, 0);
+      const tax = transaction.tax || 0;
+      const discount = transaction.discount || 0;
+      const total = transaction.total || (subtotal + tax - discount);
+      const amountReceived = transaction.amountReceived || total;
+      const change = transaction.change || (amountReceived - total);
+      
+      const printContent = `
+        <div style="font-family: 'Courier New', monospace; font-size: 12px; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">POS BUSINESS</div>
+            <div style="font-size: 10px; margin-bottom: 5px;">123 Business St, City, Country</div>
+            <div style="font-size: 10px; margin-bottom: 5px;">Phone: (123) 456-7890</div>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 10px;">
+            <div>Receipt #: ${transaction.id || 'TXN-' + Date.now()}</div>
+            <div>Date: ${new Date().toLocaleDateString()}</div>
+            <div>Time: ${new Date().toLocaleTimeString()}</div>
+          </div>
+          
+          ${transaction.customer ? `
+          <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #000;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Customer:</strong></div>
+              <div>${transaction.customer.name}</div>
+            </div>
+            ${transaction.customer.address ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Address:</strong></div>
+              <div>${transaction.customer.address}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.email ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Email:</strong></div>
+              <div>${transaction.customer.email}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.phone ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Phone:</strong></div>
+              <div>${transaction.customer.phone}</div>
+            </div>
+            ` : ''}
+            ${transaction.customer.loyaltyPoints ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div><strong>Loyalty Points:</strong></div>
+              <div>${transaction.customer.loyaltyPoints}</div>
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+          
+          <div style="margin-bottom: 10px;">
+            ${formattedItems.map((item: any) => `
+              <div style="display: flex; margin-bottom: 5px;">
+                <div style="flex: 2;">${item.name}</div>
+              </div>
+              <div style="display: flex; margin-bottom: 5px;">
+                <div style="flex: 1; text-align: right;">
+                  <span>${item.quantity}</span>
+                  <span style="margin: 0 5px;">@</span>
+                  <span>${item.price.toFixed(2)}</span>
+                  <span style="font-weight: bold; margin-left: 10px;">${item.total.toFixed(2)}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Subtotal:</div>
+              <div>${subtotal.toFixed(2)}</div>
+            </div>
+            ${tax > 0 ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Tax:</div>
+              <div>${tax.toFixed(2)}</div>
+            </div>
+            ` : ''}
+            ${discount > 0 ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Discount:</div>
+              <div>-${discount.toFixed(2)}</div>
+            </div>
+            ` : ''}
+            <div style="display: flex; justify-content: space-between; margin: 10px 0; font-weight: bold; font-size: 14px;">
+              <div>TOTAL:</div>
+              <div>${total.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Payment Method:</div>
+              <div>${transaction.paymentMethod || 'Cash'}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Amount Received:</div>
+              <div>${amountReceived.toFixed(2)}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <div>Change:</div>
+              <div>${change.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; font-size: 10px;">
+            <div style="font-weight: bold; margin-bottom: 10px;">Thank you for your business!</div>
+            <div>Items sold are not returnable</div>
+            <div>Visit us again soon</div>
+          </div>
+        </div>
+      `;
+      
+      document.body.innerHTML = printContent;
+      
+      // Hide loading indicator
+      this.hideLoadingIndicator();
+      
+      // Trigger print
+      setTimeout(() => {
+        try {
+          window.print();
+          // Restore original content after print
+          setTimeout(() => {
+            document.body.innerHTML = originalContent;
+          }, 1000);
+        } catch (error) {
+          console.error('Fallback print error:', error);
+          // Restore original content
+          document.body.innerHTML = originalContent;
+          this.showPrintError(transaction);
+        }
+      }, 500);
+    } catch (error) {
+      console.error("Fallback print error:", error);
+      // Hide loading indicator
+      this.hideLoadingIndicator();
+    }
   }
 
   // Print inventory report
@@ -318,7 +752,7 @@ export class PrintUtils {
               </tr>
             </thead>
             <tbody>
-              ${products.map(product => `
+              ${products.map((product: any) => `
                 <tr>
                   <td>${product.name}</td>
                   <td>${product.category}</td>
@@ -411,7 +845,7 @@ export class PrintUtils {
               </tr>
             </thead>
             <tbody>
-              ${transactions.map(transaction => `
+              ${transactions.map((transaction: any) => `
                 <tr>
                   <td>${new Date(transaction.date).toLocaleDateString()}</td>
                   <td>${transaction.id}</td>
@@ -504,7 +938,7 @@ export class PrintUtils {
               </tr>
             </thead>
             <tbody>
-              ${transactions.map(transaction => `
+              ${transactions.map((transaction: any) => `
                 <tr>
                   <td>${new Date(transaction.date).toLocaleDateString()}</td>
                   <td>${transaction.id}</td>
@@ -1240,537 +1674,93 @@ export class PrintUtils {
     }, 250);
   }
 
-  // Mobile-optimized printing method
-  static printReceiptMobile(transaction: any) {
-    // Check if there's already a print container to prevent multiple instances
-    if (document.querySelector('#mobilePrintContainer')) {
-      console.warn('Print operation already in progress');
-      return;
-    }
-
-    try {
-      // Create a temporary print-friendly element in the current document
-      const printContainer = document.createElement('div');
-      printContainer.id = 'mobilePrintContainer';
-      printContainer.style.position = 'fixed';
-      printContainer.style.top = '0';
-      printContainer.style.left = '0';
-      printContainer.style.width = '100%';
-      printContainer.style.height = '100%';
-      printContainer.style.backgroundColor = 'white';
-      printContainer.style.zIndex = '9999';
-      printContainer.style.padding = '20px';
-      printContainer.style.fontFamily = "'Courier New', monospace";
-      printContainer.style.fontSize = '12px';
-      printContainer.style.overflowY = 'auto';
-      printContainer.style.touchAction = 'manipulation'; // Improve touch response
-      
-      // Add viewport meta tag for proper mobile display
-      let metaViewport = document.querySelector('meta[name="viewport"]');
-      if (!metaViewport) {
-        metaViewport = document.createElement('meta');
-        (metaViewport as HTMLMetaElement).name = 'viewport';
-        (metaViewport as HTMLMetaElement).content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-        document.head.appendChild(metaViewport);
-      }
-      
-      // Format items for receipt
-      const formattedItems = transaction.items.map((item: any) => {
-        const total = item.price * item.quantity;
-        return {
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          total: total
-        };
-      });
-      
-      // Calculate totals
-      const subtotal = transaction.subtotal || formattedItems.reduce((sum: number, item: any) => sum + item.total, 0);
-      const tax = transaction.tax || 0;
-      const discount = transaction.discount || 0;
-      const total = transaction.total || (subtotal + tax - discount);
-      const amountReceived = transaction.amountReceived || total;
-      const change = transaction.change || (amountReceived - total);
-      
-      printContainer.innerHTML = `
-        <div style="max-width: 320px; margin: 0 auto;">
-          <style>
-            @media print {
-              @page {
-                margin: 0.4in; /* Mobile-specific margin */
-                size: auto;
-              }
-              body {
-                margin: 0.4in;
-                padding: 0;
-              }
-            }
-            #mobilePrintContainer button {
-              -webkit-appearance: none;
-              -moz-appearance: none;
-              appearance: none;
-              border: none;
-              outline: none;
-              cursor: pointer;
-              user-select: none;
-              -webkit-tap-highlight-color: transparent;
-            }
-            #mobilePrintContainer button:active {
-              transform: scale(0.98);
-            }
-          </style>
-          <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
-            <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">POS BUSINESS</div>
-            <div style="font-size: 10px; margin-bottom: 5px;">123 Business St, City, Country</div>
-            <div style="font-size: 10px; margin-bottom: 5px;">Phone: (123) 456-7890</div>
-          </div>
-          
-          <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 10px;">
-            <div>Receipt #: ${transaction.id || 'TXN-' + Date.now()}</div>
-            <div>Date: ${new Date().toLocaleDateString()}</div>
-            <div>Time: ${new Date().toLocaleTimeString()}</div>
-          </div>
-          
-          ${transaction.customer ? `
-          <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #000;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div><strong>Customer:</strong></div>
-              <div>${transaction.customer.name}</div>
-            </div>
-            ${transaction.customer.address ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div><strong>Address:</strong></div>
-              <div>${transaction.customer.address}</div>
-            </div>
-            ` : ''}
-            ${transaction.customer.email ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div><strong>Email:</strong></div>
-              <div>${transaction.customer.email}</div>
-            </div>
-            ` : ''}
-            ${transaction.customer.phone ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div><strong>Phone:</strong></div>
-              <div>${transaction.customer.phone}</div>
-            </div>
-            ` : ''}
-            ${transaction.customer.loyaltyPoints ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div><strong>Loyalty Points:</strong></div>
-              <div>${transaction.customer.loyaltyPoints}</div>
-            </div>
-            ` : ''}
-          </div>
-          ` : ''}
-          
-          <div style="margin-bottom: 10px;">
-            ${formattedItems.map((item: any) => `
-              <div style="display: flex; margin-bottom: 5px;">
-                <div style="flex: 2;">${item.name}</div>
-              </div>
-              <div style="display: flex; margin-bottom: 5px;">
-                <div style="flex: 1; text-align: right;">
-                  <span>${item.quantity}</span>
-                  <span style="margin: 0 5px;">@</span>
-                  <span>${item.price.toFixed(2)}</span>
-                  <span style="font-weight: bold; margin-left: 10px;">${item.total.toFixed(2)}</span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-          
-          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Subtotal:</div>
-              <div>${subtotal.toFixed(2)}</div>
-            </div>
-            ${tax > 0 ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Tax:</div>
-              <div>${tax.toFixed(2)}</div>
-            </div>
-            ` : ''}
-            ${discount > 0 ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Discount:</div>
-              <div>-${discount.toFixed(2)}</div>
-            </div>
-            ` : ''}
-            <div style="display: flex; justify-content: space-between; margin: 10px 0; font-weight: bold; font-size: 14px;">
-              <div>TOTAL:</div>
-              <div>${total.toFixed(2)}</div>
-            </div>
-          </div>
-          
-          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Payment Method:</div>
-              <div>${transaction.paymentMethod || 'Cash'}</div>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Amount Received:</div>
-              <div>${amountReceived.toFixed(2)}</div>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Change:</div>
-              <div>${change.toFixed(2)}</div>
-            </div>
-          </div>
-          
-          <div style="text-align: center; margin-top: 20px; font-size: 10px;">
-            <div style="font-weight: bold; margin-bottom: 10px;">Thank you for your business!</div>
-            <div>Items sold are not returnable</div>
-            <div>Visit us again soon</div>
-          </div>
-          
-          <div style="text-align: center; margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
-            <button id="printButton" style="padding: 12px 20px; background-color: #28a745; color: white; border-radius: 5px; font-size: 16px; font-weight: bold; width: 45%;">
-              Print Receipt
-            </button>
-            <button id="closePrint" style="padding: 12px 20px; background-color: #007bff; color: white; border-radius: 5px; font-size: 16px; font-weight: bold; width: 45%;">
-              Close
-            </button>
-          </div>
-        </div>
-      `;
-      
-      document.body.appendChild(printContainer);
-      
-      // Use event delegation for better mobile support
-      printContainer.addEventListener('click', function(event) {
-        const target = event.target as HTMLElement;
-        
-        // Handle print button click
-        if (target.id === 'printButton' || target.closest('#printButton')) {
-          const printBtn = printContainer.querySelector('#printButton') as HTMLButtonElement;
-          if (printBtn && !printBtn.disabled) {
-            // Disable the print button temporarily to prevent multiple clicks
-            printBtn.disabled = true;
-            printBtn.textContent = 'Printing...';
-            printBtn.style.backgroundColor = '#6c757d';
-            
-            // Trigger print after a short delay to ensure content is rendered
-            setTimeout(() => {
-              try {
-                window.print();
-                // Re-enable the print button after printing
-                setTimeout(() => {
-                  if (printBtn) {
-                    printBtn.disabled = false;
-                    printBtn.textContent = 'Print Receipt';
-                    printBtn.style.backgroundColor = '#28a745';
-                  }
-                }, 1000);
-              } catch (error) {
-                console.error('Mobile print error:', error);
-                // Re-enable the print button on error
-                if (printBtn) {
-                  printBtn.disabled = false;
-                  printBtn.textContent = 'Print Receipt';
-                  printBtn.style.backgroundColor = '#28a745';
-                }
-                PrintUtils.showPrintError(transaction);
-              }
-            }, 300);
-          }
-        }
-        
-        // Handle close button click
-        if (target.id === 'closePrint' || target.closest('#closePrint')) {
-          const closeBtn = printContainer.querySelector('#closePrint') as HTMLButtonElement;
-          if (closeBtn) {
-            closeBtn.disabled = true;
-          }
-          document.body.removeChild(printContainer);
-        }
-      });
-      
-      // Show preview message for mobile users
-      const previewMessage = document.createElement('div');
-      previewMessage.id = 'previewMessage';
-      previewMessage.style.position = 'fixed';
-      previewMessage.style.top = '10px';
-      previewMessage.style.left = '50%';
-      previewMessage.style.transform = 'translateX(-50%)';
-      previewMessage.style.backgroundColor = '#d4edda';
-      previewMessage.style.color = '#155724';
-      previewMessage.style.padding = '10px 20px';
-      previewMessage.style.borderRadius = '5px';
-      previewMessage.style.zIndex = '10001';
-      previewMessage.style.fontSize = '14px';
-      previewMessage.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
-      previewMessage.style.maxWidth = '90%';
-      previewMessage.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span>📄 Preview Ready - Tap Print button below</span>
-        </div>
-      `;
-      document.body.appendChild(previewMessage);
-      
-      // Auto-hide preview message after 3 seconds
-      setTimeout(() => {
-        if (document.body.contains(previewMessage)) {
-          document.body.removeChild(previewMessage);
-        }
-      }, 3000);
-      
-      // Focus the print button for easier access (with fallback for mobile)
-      setTimeout(() => {
-        const printButton = printContainer.querySelector('#printButton') as HTMLButtonElement;
-        if (printButton) {
-          // Try to focus, but also add visual indication for mobile
-          try {
-            printButton.focus();
-          } catch (e) {
-            // Fallback for mobile browsers that don't support focus
-            printButton.style.boxShadow = '0 0 0 3px rgba(40, 167, 69, 0.5)';
-            setTimeout(() => {
-              if (printButton) {
-                printButton.style.boxShadow = 'none';
-              }
-            }, 1000);
-          }
-        }
-      }, 500);
-    } catch (error) {
-      console.error('Mobile print setup error:', error);
-      // Remove any existing print container on error
-      const existingContainer = document.querySelector('#mobilePrintContainer');
-      if (existingContainer) {
-        document.body.removeChild(existingContainer);
-      }
-      this.printReceiptFallback(transaction);
-    }
-  }
-
-  // Show print error message with retry option
-  static showPrintError(transaction?: any) {
-    // Remove any existing error messages
-    const existingError = document.querySelector('#printErrorContainer');
-    if (existingError) {
-      document.body.removeChild(existingError);
+  // Show loading indicator during print operations
+  static showLoadingIndicator(message: string = 'Processing...') {
+    // Remove any existing loading indicator
+    const existingIndicator = document.querySelector('#printLoadingIndicator');
+    if (existingIndicator) {
+      document.body.removeChild(existingIndicator);
     }
     
-    const errorContainer = document.createElement('div');
-    errorContainer.id = 'printErrorContainer';
-    errorContainer.style.position = 'fixed';
-    errorContainer.style.top = '50%';
-    errorContainer.style.left = '50%';
-    errorContainer.style.transform = 'translate(-50%, -50%)';
-    errorContainer.style.backgroundColor = '#f8d7da';
-    errorContainer.style.color = '#721c24';
-    errorContainer.style.padding = '20px';
-    errorContainer.style.borderRadius = '5px';
-    errorContainer.style.zIndex = '10000';
-    errorContainer.style.maxWidth = '90%';
-    errorContainer.style.textAlign = 'center';
-    errorContainer.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-    errorContainer.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 10px; font-size: 18px;">Printing Error</div>
-      <div style="margin-bottom: 15px; font-size: 14px;">There was a problem printing the receipt. Please try again.</div>
-      <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
-        <button id="retryPrint" style="padding: 12px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; min-width: 120px;">
-          Retry Print
-        </button>
-        <button id="errorClose" style="padding: 12px 20px; background-color: #721c24; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; min-width: 120px;">
-          Close
-        </button>
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.id = 'printLoadingIndicator';
+    loadingIndicator.style.position = 'fixed';
+    loadingIndicator.style.top = '0';
+    loadingIndicator.style.left = '0';
+    loadingIndicator.style.width = '100%';
+    loadingIndicator.style.height = '100%';
+    loadingIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    loadingIndicator.style.zIndex = '10002';
+    loadingIndicator.style.display = 'flex';
+    loadingIndicator.style.alignItems = 'center';
+    loadingIndicator.style.justifyContent = 'center';
+    
+    loadingIndicator.innerHTML = `
+      <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="display: inline-block; width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #28a745; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px;"></div>
+        <div>${message}</div>
       </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
     `;
     
-    document.body.appendChild(errorContainer);
-    
-    // Use event delegation for better mobile support
-    errorContainer.addEventListener('click', function(event) {
-      const target = event.target as HTMLElement;
-      
-      // Handle retry button click
-      if (target.id === 'retryPrint' || target.closest('#retryPrint')) {
-        document.body.removeChild(errorContainer);
-        // Try to print again
-        try {
-          if (transaction) {
-            // If we have transaction data, reprint the receipt
-            PrintUtils.printReceipt(transaction);
-          } else {
-            // Otherwise, try to print the current window content
-            window.print();
-          }
-        } catch (error) {
-          console.error('Retry print error:', error);
-          PrintUtils.showPrintError(transaction);
-        }
-      }
-      
-      // Handle close button click
-      if (target.id === 'errorClose' || target.closest('#errorClose')) {
-        document.body.removeChild(errorContainer);
-      }
-    });
-    
-    // Auto-remove error after 10 seconds
-    setTimeout(() => {
-      if (document.body.contains(errorContainer)) {
-        document.body.removeChild(errorContainer);
-      }
-    }, 10000);
+    document.body.appendChild(loadingIndicator);
   }
 
-  // Fallback printing method for when popups are blocked
-  static printReceiptFallback(transaction: any) {
-    try {
-      // Create a print-friendly version in the current window
-      const originalContent = document.body.innerHTML;
-      
-      // Format items for receipt
-      const formattedItems = transaction.items.map((item: any) => {
-        const total = item.price * item.quantity;
-        return {
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          total: total
-        };
-      });
-      
-      // Calculate totals
-      const subtotal = transaction.subtotal || formattedItems.reduce((sum: number, item: any) => sum + item.total, 0);
-      const tax = transaction.tax || 0;
-      const discount = transaction.discount || 0;
-      const total = transaction.total || (subtotal + tax - discount);
-      const amountReceived = transaction.amountReceived || total;
-      const change = transaction.change || (amountReceived - total);
-      
-      const printContent = `
-        <div style="font-family: 'Courier New', monospace; font-size: 12px; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
-            <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">POS BUSINESS</div>
-            <div style="font-size: 10px; margin-bottom: 5px;">123 Business St, City, Country</div>
-            <div style="font-size: 10px; margin-bottom: 5px;">Phone: (123) 456-7890</div>
-          </div>
-          
-          <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 10px;">
-            <div>Receipt #: ${transaction.id || 'TXN-' + Date.now()}</div>
-            <div>Date: ${new Date().toLocaleDateString()}</div>
-            <div>Time: ${new Date().toLocaleTimeString()}</div>
-          </div>
-          
-          ${transaction.customer ? `
-          <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #000;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div><strong>Customer:</strong></div>
-              <div>${transaction.customer.name}</div>
-            </div>
-            ${transaction.customer.address ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div><strong>Address:</strong></div>
-              <div>${transaction.customer.address}</div>
-            </div>
-            ` : ''}
-            ${transaction.customer.email ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div><strong>Email:</strong></div>
-              <div>${transaction.customer.email}</div>
-            </div>
-            ` : ''}
-            ${transaction.customer.phone ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div><strong>Phone:</strong></div>
-              <div>${transaction.customer.phone}</div>
-            </div>
-            ` : ''}
-            ${transaction.customer.loyaltyPoints ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div><strong>Loyalty Points:</strong></div>
-              <div>${transaction.customer.loyaltyPoints}</div>
-            </div>
-            ` : ''}
-          </div>
-          ` : ''}
-          
-          <div style="margin-bottom: 10px;">
-            ${formattedItems.map((item: any) => `
-              <div style="display: flex; margin-bottom: 5px;">
-                <div style="flex: 2;">${item.name}</div>
-              </div>
-              <div style="display: flex; margin-bottom: 5px;">
-                <div style="flex: 1; text-align: right;">
-                  <span>${item.quantity}</span>
-                  <span style="margin: 0 5px;">@</span>
-                  <span>${item.price.toFixed(2)}</span>
-                  <span style="font-weight: bold; margin-left: 10px;">${item.total.toFixed(2)}</span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-          
-          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Subtotal:</div>
-              <div>${subtotal.toFixed(2)}</div>
-            </div>
-            ${tax > 0 ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Tax:</div>
-              <div>${tax.toFixed(2)}</div>
-            </div>
-            ` : ''}
-            ${discount > 0 ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Discount:</div>
-              <div>-${discount.toFixed(2)}</div>
-            </div>
-            ` : ''}
-            <div style="display: flex; justify-content: space-between; margin: 10px 0; font-weight: bold; font-size: 14px;">
-              <div>TOTAL:</div>
-              <div>${total.toFixed(2)}</div>
-            </div>
-          </div>
-          
-          <div style="border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Payment Method:</div>
-              <div>${transaction.paymentMethod || 'Cash'}</div>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Amount Received:</div>
-              <div>${amountReceived.toFixed(2)}</div>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-              <div>Change:</div>
-              <div>${change.toFixed(2)}</div>
-            </div>
-          </div>
-          
-          <div style="text-align: center; margin-top: 20px; font-size: 10px;">
-            <div style="font-weight: bold; margin-bottom: 10px;">Thank you for your business!</div>
-            <div>Items sold are not returnable</div>
-            <div>Visit us again soon</div>
-          </div>
-        </div>
-      `;
-      
-      document.body.innerHTML = printContent;
-      
-      // Trigger print
+  // Hide loading indicator
+  static hideLoadingIndicator() {
+    const loadingIndicator = document.querySelector('#printLoadingIndicator');
+    if (loadingIndicator && document.body.contains(loadingIndicator)) {
+      // Add fade out effect
+      (loadingIndicator as HTMLElement).style.transition = 'opacity 0.3s ease';
+      (loadingIndicator as HTMLElement).style.opacity = '0';
       setTimeout(() => {
-        try {
-          window.print();
-          // Restore original content after print
-          setTimeout(() => {
-            document.body.innerHTML = originalContent;
-          }, 1000);
-        } catch (error) {
-          console.error('Fallback print error:', error);
-          // Restore original content
-          document.body.innerHTML = originalContent;
-          this.showPrintError(transaction);
+        if (document.body.contains(loadingIndicator)) {
+          document.body.removeChild(loadingIndicator);
         }
-      }, 500);
-    } catch (error) {
-      console.error("Fallback print error:", error);
+      }, 300);
     }
+  }
+
+  // Show print error message
+  static showPrintError(transaction: any) {
+    const errorMessage = document.createElement('div');
+    errorMessage.id = 'printErrorMessage';
+    errorMessage.style.position = 'fixed';
+    errorMessage.style.top = '50%';
+    errorMessage.style.left = '50%';
+    errorMessage.style.transform = 'translate(-50%, -50%)';
+    errorMessage.style.backgroundColor = '#f8d7da';
+    errorMessage.style.color = '#721c24';
+    errorMessage.style.padding = '20px';
+    errorMessage.style.borderRadius = '5px';
+    errorMessage.style.zIndex = '10003';
+    errorMessage.style.fontSize = '16px';
+    errorMessage.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+    errorMessage.style.maxWidth = '90%';
+    errorMessage.style.textAlign = 'center';
+    errorMessage.innerHTML = `
+      <div style="margin-bottom: 15px; font-weight: bold;">Print Error</div>
+      <div style="margin-bottom: 15px;">Unable to print receipt. Please try again.</div>
+      <button id="closeError" style="padding: 8px 16px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">Close</button>
+    `;
+    document.body.appendChild(errorMessage);
+    
+    // Add event listener to close button
+    const closeBtn = errorMessage.querySelector('#closeError') as HTMLButtonElement;
+    closeBtn.addEventListener('click', () => {
+      document.body.removeChild(errorMessage);
+    });
+    
+    // Auto-hide error message after 5 seconds
+    setTimeout(() => {
+      if (document.body.contains(errorMessage)) {
+        document.body.removeChild(errorMessage);
+      }
+    }, 5000);
   }
 }

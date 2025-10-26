@@ -25,23 +25,23 @@ export const DashboardCard = ({
   return (
     <Card 
       className={cn(
-        "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] group",
+        "cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] group btn-touch h-full flex flex-col dashboard-card p-1.5 sm:p-2",
         className
       )}
       onClick={onClick}
     >
-      <CardHeader className="pb-3">
-        <div className="flex items-center space-x-2 sm:space-x-3">
-          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-            <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+      <CardHeader className="pb-0.5 flex-shrink-0 px-0 pt-0">
+        <div className="dashboard-card-header">
+          <div className="flex items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors flex-shrink-0 dashboard-card-icon">
+            <Icon className="text-primary flex-shrink-0 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
           </div>
-          <div>
-            <CardTitle className="text-base sm:text-lg">{title}</CardTitle>
+          <div className="min-w-0 flex-grow">
+            <CardTitle className="text-[0.65rem] xs:text-xs sm:text-sm md:text-base truncate font-medium card-title">{title}</CardTitle>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{description}</p>
+      <CardContent className="flex-grow pt-0.5 px-0 dashboard-card-content">
+        <p className="text-[0.55rem] xs:text-[0.65rem] sm:text-xs text-muted-foreground leading-tight card-description truncate-multiline">{description}</p>
       </CardContent>
     </Card>
   );

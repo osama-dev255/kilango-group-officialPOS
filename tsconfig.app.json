@@ -27,5 +27,14 @@
     },
     "typeRoots": ["./src/types", "./node_modules/@types"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/utils/printUtils.backup.ts",
+    "src/utils/printUtils.backup2.ts",
+    "src/utils/printUtils.final.ts",
+    "src/utils/printUtils.mobile_preview.ts",
+    "src/utils/printUtils.ts.backup",
+    "src/utils/fix_corrupted_section.py",
+    "src/utils/fix_print_utils.py"
+  ]
 }

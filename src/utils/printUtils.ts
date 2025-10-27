@@ -1,5 +1,13 @@
 import { getTemplateConfig, generateCustomReceipt, getPurchaseTemplateConfig, generateCustomPurchaseReceipt } from "@/utils/templateUtils";
-import QRCode from "qrcode";
+// Dynamically import QRCode only when needed to avoid build issues
+let QRCode: any;
+
+async function getQRCode() {
+  if (!QRCode) {
+    QRCode = (await import('qrcode')).default;
+  }
+  return QRCode;
+}
 
 // Utility functions for printing
 export class PrintUtils {
@@ -11,6 +19,9 @@ export class PrintUtils {
   // Generate QR code for receipt
   static async generateReceiptQRCode(transaction: any, type: 'sales' | 'purchase'): Promise<string> {
     try {
+      // Dynamically import QRCode
+      const QRCode = await getQRCode();
+      
       // Create a URL that points to a page that displays the receipt details
       // For now, we'll create a data URL with the receipt information
       const receiptData = {
@@ -81,6 +92,9 @@ export class PrintUtils {
       const qrCodeData = JSON.stringify(receiptData);
       console.log('Print Receipt - Generating QR code with data length:', qrCodeData.length);
       console.log('Print Receipt - QR Code Data:', qrCodeData); // Debug log
+      
+      // Dynamically import QRCode
+      const QRCode = await getQRCode();
       
       // Generate QR code with better error handling
       qrCodeDataUrl = await QRCode.toDataURL(qrCodeData, { 
@@ -399,6 +413,9 @@ export class PrintUtils {
       const qrCodeData = JSON.stringify(receiptData);
       console.log('Print Purchase Receipt - Generating QR code with data length:', qrCodeData.length);
       console.log('Print Purchase Receipt - QR Code Data:', qrCodeData); // Debug log
+      
+      // Dynamically import QRCode
+      const QRCode = await getQRCode();
       
       // Generate QR code with better error handling
       qrCodeDataUrl = await QRCode.toDataURL(qrCodeData, { 

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QR Code Diagnostic Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #qr-container {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px dashed #ccc;
+            background: white;
+        }
+        #qr-image {
+            max-width: 200px;
+            height: auto;
+            border: 1px solid #ddd;
+            background: #f9f9f9;
+        }
+        .hidden {
+            display: none;
+        }
+        .instructions {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .step {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>QR Code Diagnostic Tool</h1>
+    
+    <div class="instructions">
+        <h2>Diagnostic Instructions</h2>
+        <div class="step">1. Open your browser's developer tools (F12)</div>
+        <div class="step">2. Go to the Console tab</div>
+        <div class="step">3. Click the test buttons below and observe the console output</div>
+        <div class="step">4. Check if QR codes display in each test</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 1: Basic Data URL Image</h2>
+        <p>This test checks if your browser can display a simple data URL image.</p>
+        <button id="test1">Run Basic Data URL Test</button>
+        <div id="result1" class="result hidden"></div>
+        <div id="qr-container1" class="hidden">
+            <p>QR Code should appear below:</p>
+            <img id="test-image1" alt="Test QR Code" />
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Complex Data URL Image</h2>
+        <p>This test checks if your browser can display a complex data URL similar to receipt QR codes.</p>
+        <button id="test2">Run Complex Data URL Test</button>
+        <div id="result2" class="result hidden"></div>
+        <div id="qr-container2" class="hidden">
+            <p>QR Code should appear below:</p>
+            <img id="test-image2" alt="Test QR Code" />
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Dynamic QR Code Generation</h2>
+        <p>This test generates a QR code dynamically using the same library as your POS system.</p>
+        <button id="test3">Run Dynamic QR Generation Test</button>
+        <div id="result3" class="result hidden"></div>
+        <div id="qr-container3" class="hidden">
+            <p>QR Code should appear below:</p>
+            <img id="test-image3" alt="Dynamic QR Code" />
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Browser Security Check</h2>
+        <button id="security-check">Run Security Check</button>
+        <div id="security-result" class="result hidden"></div>
+    </div>
+
+    <script>
+        // Test 1: Basic data URL
+        document.getElementById('test1').addEventListener('click', function() {
+            const result = document.getElementById('result1');
+            const container = document.getElementById('qr-container1');
+            const img = document.getElementById('test-image1');
+            
+            result.classList.remove('hidden');
+            container.classList.add('hidden');
+            
+            try {
+                // Simple 1x1 pixel PNG
+                const basicDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
+                img.src = basicDataUrl;
+                
+                img.onload = function() {
+                    result.innerHTML = '✅ Basic data URL test PASSED - Browser can display data URLs';
+                    result.className = 'result success';
+                    container.classList.remove('hidden');
+                };
+                
+                img.onerror = function() {
+                    result.innerHTML = '❌ Basic data URL test FAILED - Browser cannot display data URLs';
+                    result.className = 'result error';
+                };
+            } catch (error) {
+                result.innerHTML = '❌ Basic data URL test FAILED with error: ' + error.message;
+                result.className = 'result error';
+            }
+        });
+
+        // Test 2: Complex data URL (similar to receipt QR codes)
+        document.getElementById('test2').addEventListener('click', function() {
+            const result = document.getElementById('result2');
+            const container = document.getElementById('qr-container2');
+            const img = document.getElementById('test-image2');
+            
+            result.classList.remove('hidden');
+            container.classList.add('hidden');
+            
+            try {
+                // More complex QR code data URL (truncated for brevity)
+                const complexDataUrl = 'data:image/png;base64,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';
+                img.src = complexDataUrl;
+                
+                img.onload = function() {
+                    result.innerHTML = '✅ Complex data URL test PASSED - Browser can display complex data URLs';
+                    result.className = 'result success';
+                    container.classList.remove('hidden');
+                };
+                
+                img.onerror = function() {
+                    result.innerHTML = '❌ Complex data URL test FAILED - Browser cannot display complex data URLs';
+                    result.className = 'result error';
+                };
+            } catch (error) {
+                result.innerHTML = '❌ Complex data URL test FAILED with error: ' + error.message;
+                result.className = 'result error';
+            }
+        });
+
+        // Test 3: Dynamic QR code generation
+        document.getElementById('test3').addEventListener('click', function() {
+            const result = document.getElementById('result3');
+            const container = document.getElementById('qr-container3');
+            const img = document.getElementById('test-image3');
+            
+            result.classList.remove('hidden');
+            container.classList.add('hidden');
+            
+            // Show loading message
+            result.innerHTML = '⏳ Generating QR code...';
+            result.className = 'result warning';
+            
+            // Dynamically load QRCode library and generate a QR code
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+            script.onload = function() {
+                try {
+                    // Generate QR code data
+                    const testData = JSON.stringify({
+                        type: 'diagnostic',
+                        timestamp: new Date().toISOString(),
+                        test: 'QR Code Display Diagnostic',
+                        id: 'DIAG-' + Date.now()
+                    });
+                    
+                    // Generate QR code
+                    QRCode.toDataURL(testData, {
+                        width: 120,
+                        margin: 2,
+                        errorCorrectionLevel: 'M'
+                    }, function (error, url) {
+                        if (error) {
+                            result.innerHTML = '❌ Dynamic QR generation FAILED: ' + error.message;
+                            result.className = 'result error';
+                            return;
+                        }
+                        
+                        img.src = url;
+                        img.onload = function() {
+                            result.innerHTML = '✅ Dynamic QR generation PASSED - QR code generated and displayed successfully';
+                            result.className = 'result success';
+                            container.classList.remove('hidden');
+                        };
+                        
+                        img.onerror = function() {
+                            result.innerHTML = '❌ Dynamic QR generation FAILED - QR code generated but failed to display';
+                            result.className = 'result error';
+                        };
+                    });
+                } catch (error) {
+                    result.innerHTML = '❌ Dynamic QR generation FAILED with error: ' + error.message;
+                    result.className = 'result error';
+                }
+            };
+            
+            script.onerror = function() {
+                result.innerHTML = '❌ Failed to load QRCode library - Check internet connection';
+                result.className = 'result error';
+            };
+            
+            document.head.appendChild(script);
+        });
+
+        // Security check
+        document.getElementById('security-check').addEventListener('click', function() {
+            const result = document.getElementById('security-result');
+            result.classList.remove('hidden');
+            
+            let issues = [];
+            
+            // Check for CSP
+            try {
+                const testImg = new Image();
+                testImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
+                
+                // Try to create a data URL image
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    issues.push('Canvas context not available');
+                }
+            } catch (e) {
+                issues.push('Data URL creation blocked: ' + e.message);
+            }
+            
+            // Check for popup blockers
+            const testPopup = window.open('', '_blank', 'width=1,height=1');
+            if (!testPopup) {
+                issues.push('Popup blocker may be interfering with receipt display');
+            } else {
+                testPopup.close();
+            }
+            
+            if (issues.length === 0) {
+                result.innerHTML = '✅ No obvious security issues detected';
+                result.className = 'result success';
+            } else {
+                result.innerHTML = '⚠️ Potential security issues detected:<br>' + issues.join('<br>');
+                result.className = 'result warning';
+            }
+        });
+    </script>
+</body>
+</html>

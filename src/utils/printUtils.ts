@@ -1,13 +1,7 @@
 import { getTemplateConfig, generateCustomReceipt, getPurchaseTemplateConfig, generateCustomPurchaseReceipt } from "@/utils/templateUtils";
-// Dynamically import QRCode only when needed to avoid build issues
-let QRCode: any;
 
-async function getQRCode() {
-  if (!QRCode) {
-    QRCode = (await import('qrcode')).default;
-  }
-  return QRCode;
-}
+// Remove the dynamic import approach and use a CDN-based solution instead
+// This avoids build-time dependency resolution issues with Vite/Rollup
 
 // Utility functions for printing
 export class PrintUtils {
@@ -16,14 +10,10 @@ export class PrintUtils {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   }
 
-  // Generate QR code for receipt
+  // Generate QR code for receipt using a CDN-based approach
   static async generateReceiptQRCode(transaction: any, type: 'sales' | 'purchase'): Promise<string> {
     try {
-      // Dynamically import QRCode
-      const QRCode = await getQRCode();
-      
       // Create a URL that points to a page that displays the receipt details
-      // For now, we'll create a data URL with the receipt information
       const receiptData = {
         type,
         receiptNumber: type === 'sales' ? transaction.receiptNumber : transaction.orderNumber,
@@ -35,34 +25,21 @@ export class PrintUtils {
         total: transaction.total || 0,
         amountReceived: transaction.amountReceived || 0,
         change: transaction.change || 0,
-        // Add other relevant receipt information here
       };
       
       const receiptDataString = JSON.stringify(receiptData);
-      console.log('QR Code Generation - Receipt Data:', receiptDataString); // Debug log
-      const dataUrl = await QRCode.toDataURL(receiptDataString, { 
-        width: 120,
-        margin: 2,
-        errorCorrectionLevel: 'M',
-        type: 'image/png',
-        quality: 1,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
-      });
-      console.log('QR Code Generation - Success, Data URL length:', dataUrl.length); // Debug log
+      console.log('QR Code Generation - Receipt Data:', receiptDataString);
       
-      // Validate the data URL
-      if (!dataUrl || dataUrl.length < 100) {
-        console.error('QR Code Generation - Invalid data URL generated');
-        return '';
-      }
+      // Use a CDN-based QR code generator to avoid build issues
+      // This creates a data URL without requiring the qrcode library at build time
+      const encodedData = encodeURIComponent(receiptDataString);
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodedData}&size=120x120&ecc=M`;
       
-      return dataUrl;
+      // For better reliability, we'll return the URL and let the browser fetch it
+      // This avoids any build-time dependency issues
+      return qrUrl;
     } catch (error) {
       console.error('Error generating QR code in generateReceiptQRCode:', error);
-      // Return a placeholder if QR code generation fails
       return '';
     }
   }
@@ -72,8 +49,8 @@ export class PrintUtils {
     // Show loading indicator
     this.showLoadingIndicator('Preparing print...');
     
-    // Generate QR code for the receipt
-    let qrCodeDataUrl = '';
+    // Generate QR code URL for the receipt
+    let qrCodeUrl = '';
     let qrGenerationError = '';
     try {
       const receiptData = {
@@ -91,43 +68,25 @@ export class PrintUtils {
       
       const qrCodeData = JSON.stringify(receiptData);
       console.log('Print Receipt - Generating QR code with data length:', qrCodeData.length);
-      console.log('Print Receipt - QR Code Data:', qrCodeData); // Debug log
+      console.log('Print Receipt - QR Code Data:', qrCodeData);
       
-      // Dynamically import QRCode
-      const QRCode = await getQRCode();
+      // Use CDN-based QR code generation
+      const encodedData = encodeURIComponent(qrCodeData);
+      qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodedData}&size=120x120&ecc=M`;
       
-      // Generate QR code with better error handling
-      qrCodeDataUrl = await QRCode.toDataURL(qrCodeData, { 
-        width: 120, 
-        margin: 2,
-        errorCorrectionLevel: 'M',
-        type: 'image/png',
-        quality: 1,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
-      });
-      
-      // Validate the generated QR code
-      if (!qrCodeDataUrl || qrCodeDataUrl.length < 100) {
-        throw new Error('Invalid QR code generated - data URL too short');
-      }
-      
-      console.log('Print Receipt - QR Code Data URL generated successfully, length:', qrCodeDataUrl.length);
-      console.log('Print Receipt - QR Code Data URL preview:', qrCodeDataUrl.substring(0, 100)); // Debug log
+      console.log('Print Receipt - QR Code URL generated successfully:', qrCodeUrl);
     } catch (error) {
       console.error('Print Receipt - Error generating QR code:', error);
       qrGenerationError = error.message;
-      qrCodeDataUrl = ''; // Ensure it's empty on error
+      qrCodeUrl = '';
     }
     
-    console.log('Print Receipt - Final QR Code Data URL:', qrCodeDataUrl ? 'Present' : 'Empty');
-    console.log('Print Receipt - QR Generation Error:', qrGenerationError); // Debug log
+    console.log('Print Receipt - Final QR Code URL:', qrCodeUrl ? 'Present' : 'Empty');
+    console.log('Print Receipt - QR Generation Error:', qrGenerationError);
     
     // For mobile devices, use a more reliable printing approach
     if (this.isMobileDevice()) {
-      return this.printReceiptMobile(transaction, qrCodeDataUrl);
+      return this.printReceiptMobile(transaction, qrCodeUrl);
     }
 
     const receiptWindow = window.open('', '_blank');
@@ -135,7 +94,7 @@ export class PrintUtils {
       // Hide loading indicator
       this.hideLoadingIndicator();
       // Fallback for popup blockers
-      this.printReceiptFallback(transaction, qrCodeDataUrl);
+      this.printReceiptFallback(transaction, qrCodeUrl);
       return;
     }
     
@@ -175,7 +134,7 @@ export class PrintUtils {
     <style>
       @media print {
         @page {
-          margin: 0.5in; /* Desktop-specific margin */
+          margin: 0.5in;
           size: auto;
         }
         body {
@@ -340,18 +299,16 @@ export class PrintUtils {
     
     <div class="qr-section">
       <div class="qr-label">Scan for Details</div>
-      ${qrCodeDataUrl && qrCodeDataUrl.length > 100 ? 
+      ${qrCodeUrl ? 
         `<div style="margin: 10px 0; text-align: center;">
-           <img src="${qrCodeDataUrl}" width="120" height="120" class="qr-code-img" alt="Receipt QR Code" 
+           <img src="${qrCodeUrl}" width="120" height="120" class="qr-code-img" alt="Receipt QR Code" 
                 style="max-width: 120px; height: auto; width: 120px; height: 120px; margin: 10px auto; display: block; border: 1px solid #ccc; background: #f9f9f9;"
-                onerror="console.error('QR Code failed to load - Data URL length:', this.src?.length || 0); 
-                        console.error('QR Code Data URL preview:', this.src?.substring(0, 100) || 'No src'); 
+                onerror="console.error('QR Code failed to load - URL:', this.src); 
                         this.style.display='none'; 
                         var errorDiv = this.parentNode.querySelector('.qr-error'); 
                         if (errorDiv) errorDiv.style.display='block';
-                        console.log('QR Code onerror triggered - src length:', this.src?.length || 0);" 
-                onload="console.log('QR Code loaded successfully - src length:', this.src?.length || 0); 
-                        console.log('QR Code dimensions - naturalWidth:', this.naturalWidth, 'naturalHeight:', this.naturalHeight);" />
+                        console.log('QR Code onerror triggered - src:', this.src);" 
+                onload="console.log('QR Code loaded successfully - src:', this.src);" />
            <div class="qr-error" style="font-size: 8px; color: #666; margin: 5px 0; display: none;">QR Code failed to load</div>
          </div>` : 
         `<div style="margin: 10px 0; text-align: center;">
@@ -366,7 +323,6 @@ export class PrintUtils {
   </body>
 </html>`;
     }
-    
     
     // Improved window handling to ensure proper QR code display
     receiptWindow.document.open();
@@ -392,8 +348,8 @@ export class PrintUtils {
     // Show loading indicator
     this.showLoadingIndicator('Preparing print...');
     
-    // Generate QR code for the receipt
-    let qrCodeDataUrl = '';
+    // Generate QR code URL for the receipt
+    let qrCodeUrl = '';
     let qrGenerationError = '';
     try {
       const receiptData = {
@@ -412,38 +368,25 @@ export class PrintUtils {
       
       const qrCodeData = JSON.stringify(receiptData);
       console.log('Print Purchase Receipt - Generating QR code with data length:', qrCodeData.length);
-      console.log('Print Purchase Receipt - QR Code Data:', qrCodeData); // Debug log
+      console.log('Print Purchase Receipt - QR Code Data:', qrCodeData);
       
-      // Dynamically import QRCode
-      const QRCode = await getQRCode();
+      // Use CDN-based QR code generation
+      const encodedData = encodeURIComponent(qrCodeData);
+      qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodedData}&size=120x120&ecc=M`;
       
-      // Generate QR code with better error handling
-      qrCodeDataUrl = await QRCode.toDataURL(qrCodeData, { 
-        width: 120, 
-        margin: 2,
-        errorCorrectionLevel: 'M',
-        type: 'image/png',
-        quality: 1,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
-      });
-      
-      console.log('Print Purchase Receipt - QR Code Data URL generated successfully, length:', qrCodeDataUrl.length);
-      console.log('Print Purchase Receipt - QR Code Data URL preview:', qrCodeDataUrl.substring(0, 100)); // Debug log
+      console.log('Print Purchase Receipt - QR Code URL generated successfully:', qrCodeUrl);
     } catch (error) {
       console.error('Print Purchase Receipt - Error generating QR code:', error);
       qrGenerationError = error.message;
-      qrCodeDataUrl = ''; // Ensure it's empty on error
+      qrCodeUrl = '';
     }
     
-    console.log('Print Purchase Receipt - Final QR Code Data URL:', qrCodeDataUrl ? 'Present' : 'Empty');
-    console.log('Print Purchase Receipt - QR Generation Error:', qrGenerationError); // Debug log
+    console.log('Print Purchase Receipt - Final QR Code URL:', qrCodeUrl ? 'Present' : 'Empty');
+    console.log('Print Purchase Receipt - QR Generation Error:', qrGenerationError);
     
     // For mobile devices, use a more reliable printing approach
     if (this.isMobileDevice()) {
-      return this.printPurchaseReceiptMobile(transaction, qrCodeDataUrl);
+      return this.printPurchaseReceiptMobile(transaction, qrCodeUrl);
     }
 
     const receiptWindow = window.open('', '_blank');
@@ -451,7 +394,7 @@ export class PrintUtils {
       // Hide loading indicator
       this.hideLoadingIndicator();
       // Fallback for popup blockers
-      this.printPurchaseReceiptFallback(transaction, qrCodeDataUrl);
+      this.printPurchaseReceiptFallback(transaction, qrCodeUrl);
       return;
     }
     
@@ -486,7 +429,7 @@ export class PrintUtils {
             <style>
               @media print {
                 @page {
-                  margin: 0.5in; /* Desktop-specific margin */
+                  margin: 0.5in;
                   size: auto;
                 }
                 body {
@@ -653,18 +596,16 @@ export class PrintUtils {
             
             <div class="qr-section">
               <div class="qr-label">Scan for Details</div>
-              ${qrCodeDataUrl && qrCodeDataUrl.length > 100 ? 
+              ${qrCodeUrl ? 
                 `<div style="margin: 10px 0; text-align: center;">
-                   <img src="${qrCodeDataUrl}" width="120" height="120" class="qr-code-img" alt="Receipt QR Code" 
+                   <img src="${qrCodeUrl}" width="120" height="120" class="qr-code-img" alt="Receipt QR Code" 
                         style="max-width: 120px; height: auto; width: 120px; height: 120px; margin: 10px auto; display: block; border: 1px solid #ccc; background: #f9f9f9;"
-                        onerror="console.error('QR Code failed to load - Data URL length:', this.src?.length || 0); 
-                                console.error('QR Code Data URL preview:', this.src?.substring(0, 100) || 'No src'); 
+                        onerror="console.error('QR Code failed to load - URL:', this.src); 
                                 this.style.display='none'; 
                                 var errorDiv = this.parentNode.querySelector('.qr-error'); 
                                 if (errorDiv) errorDiv.style.display='block';
-                                console.log('QR Code onerror triggered - src length:', this.src?.length || 0);" 
-                        onload="console.log('QR Code loaded successfully - src length:', this.src?.length || 0); 
-                                console.log('QR Code dimensions - naturalWidth:', this.naturalWidth, 'naturalHeight:', this.naturalHeight);" />
+                                console.log('QR Code onerror triggered - src:', this.src);" 
+                        onload="console.log('QR Code loaded successfully - src:', this.src);" />
                    <div class="qr-error" style="font-size: 8px; color: #666; margin: 5px 0; display: none;">QR Code failed to load</div>
                  </div>` : 
                 `<div style="margin: 10px 0; text-align: center;">
@@ -680,7 +621,6 @@ export class PrintUtils {
         </html>
       `;
     }
-    
     
     // Improved window handling to ensure proper QR code display
     receiptWindow.document.open();
@@ -726,28 +666,28 @@ export class PrintUtils {
   }
 
   // Fallback method for printing on mobile devices
-  static printReceiptMobile(transaction: any, qrCodeDataUrl: string) {
+  static printReceiptMobile(transaction: any, qrCodeUrl: string) {
     console.log('Trying mobile print fallback...');
     // For now, just call the regular print method
     this.printReceipt(transaction);
   }
 
   // Fallback method for printing on mobile devices
-  static printPurchaseReceiptMobile(transaction: any, qrCodeDataUrl: string) {
+  static printPurchaseReceiptMobile(transaction: any, qrCodeUrl: string) {
     console.log('Trying mobile print fallback for purchase...');
     // For now, just call the regular print method
     this.printPurchaseReceipt(transaction);
   }
 
   // Fallback method for printing when popup blockers are enabled
-  static printReceiptFallback(transaction: any, qrCodeDataUrl: string) {
+  static printReceiptFallback(transaction: any, qrCodeUrl: string) {
     console.log('Popup blocked, trying fallback print...');
     // For now, just call the regular print method
     this.printReceipt(transaction);
   }
 
   // Fallback method for printing when popup blockers are enabled
-  static printPurchaseReceiptFallback(transaction: any, qrCodeDataUrl: string) {
+  static printPurchaseReceiptFallback(transaction: any, qrCodeUrl: string) {
     console.log('Popup blocked, trying fallback print for purchase...');
     // For now, just call the regular print method
     this.printPurchaseReceipt(transaction);
@@ -1213,6 +1153,7 @@ export class PrintUtils {
               </tr>
               <tr>
                 <td class="font-semibold">Other Expenses</td>
+                <td></td>
                 <td class="text-right">(${data.otherExpenses.toLocaleString()})</td>
               </tr>
               <tr>

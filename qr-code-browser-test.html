@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QR Code Browser Test</title>
+    <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 320px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        .qr-section {
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            border-top: 1px dashed #000;
+        }
+        .qr-label {
+            font-size: 9px;
+            margin-bottom: 5px;
+        }
+        .qr-code-img {
+            max-width: 120px;
+            height: auto;
+            margin: 10px auto;
+            display: block;
+        }
+        .debug-info {
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h3>QR Code Browser Test</h3>
+    
+    <div class="qr-section">
+        <div class="qr-label">Scan for Details</div>
+        <div id="qr-container"></div>
+        <div style="font-size: 8px; margin-top: 5px;">Receipt #: TEST-001</div>
+    </div>
+    
+    <div class="debug-info">
+        <h4>Debug Output</h4>
+        <div id="debugOutput">Click buttons to test</div>
+    </div>
+    
+    <button id="testDirectGeneration">Test Direct QR Generation</button>
+    <button id="testPrintUtilsApproach">Test PrintUtils Approach</button>
+    <button id="testWindowOpen">Test Window Open Approach</button>
+
+    <script>
+        // Test data
+        const testTransaction = {
+            receiptNumber: "TEST-001",
+            items: [
+                { name: "Product 1", quantity: 2, price: 10.00, total: 20.00 },
+                { name: "Product 2", quantity: 1, price: 15.00, total: 15.00 }
+            ],
+            subtotal: 35.00,
+            tax: 0.00,
+            discount: 0.00,
+            total: 35.00,
+            amountReceived: 40.00,
+            change: 5.00
+        };
+
+        // Test 1: Direct QR code generation
+        document.getElementById('testDirectGeneration').addEventListener('click', async () => {
+            const debugOutput = document.getElementById('debugOutput');
+            const qrContainer = document.getElementById('qr-container');
+            
+            debugOutput.innerHTML = 'Testing direct QR generation...';
+            qrContainer.innerHTML = '';
+            
+            try {
+                const receiptData = {
+                    type: 'sales',
+                    receiptNumber: testTransaction.receiptNumber,
+                    date: new Date().toISOString(),
+                    items: testTransaction.items,
+                    subtotal: testTransaction.subtotal,
+                    tax: testTransaction.tax,
+                    discount: testTransaction.discount,
+                    total: testTransaction.total,
+                    amountReceived: testTransaction.amountReceived,
+                    change: testTransaction.change
+                };
+                
+                const qrCodeData = JSON.stringify(receiptData);
+                debugOutput.innerHTML += `<br>QR data length: ${qrCodeData.length}`;
+                
+                // Generate QR code
+                const qrCodeDataUrl = await QRCode.toDataURL(qrCodeData, { 
+                    width: 120, 
+                    margin: 2,
+                    errorCorrectionLevel: 'M',
+                    type: 'image/png',
+                    quality: 1,
+                    color: {
+                        dark: '#000000',
+                        light: '#ffffff'
+                    }
+                });
+                
+                debugOutput.innerHTML += `<br>QR Data URL length: ${qrCodeDataUrl.length}`;
+                debugOutput.innerHTML += `<br>Preview: ${qrCodeDataUrl.substring(0, 50)}...`;
+                
+                // Display QR code
+                const img = document.createElement('img');
+                img.src = qrCodeDataUrl;
+                img.className = 'qr-code-img';
+                img.alt = 'Receipt QR Code';
+                img.onerror = function() {
+                    debugOutput.innerHTML += '<br><strong style="color: red;">QR Image failed to load!</strong>';
+                    this.style.display = 'none';
+                };
+                
+                qrContainer.innerHTML = '';
+                qrContainer.appendChild(img);
+                debugOutput.innerHTML += '<br>QR code displayed';
+                
+            } catch (error) {
+                debugOutput.innerHTML += `<br><strong style="color: red;">Error: ${error.message}</strong>`;
+                console.error('Error:', error);
+            }
+        });
+
+        // Test 2: Exact approach from printUtils.ts
+        document.getElementById('testPrintUtilsApproach').addEventListener('click', async () => {
+            const debugOutput = document.getElementById('debugOutput');
+            const qrContainer = document.getElementById('qr-container');
+            
+            debugOutput.innerHTML = 'Testing PrintUtils approach...';
+            qrContainer.innerHTML = '';
+            
+            try {
+                const receiptData = {
+                    type: 'sales',
+                    receiptNumber: testTransaction.receiptNumber,
+                    date: new Date().toISOString(),
+                    items: testTransaction.items,
+                    subtotal: testTransaction.subtotal,
+                    tax: testTransaction.tax,
+                    discount: testTransaction.discount,
+                    total: testTransaction.total,
+                    amountReceived: testTransaction.amountReceived,
+                    change: testTransaction.change
+                };
+                
+                const qrCodeData = JSON.stringify(receiptData);
+                debugOutput.innerHTML += `<br>QR data length: ${qrCodeData.length}`;
+                
+                // Generate QR code
+                const qrCodeDataUrl = await QRCode.toDataURL(qrCodeData, { 
+                    width: 120, 
+                    margin: 2,
+                    errorCorrectionLevel: 'M',
+                    type: 'image/png',
+                    quality: 1,
+                    color: {
+                        dark: '#000000',
+                        light: '#ffffff'
+                    }
+                });
+                
+                debugOutput.innerHTML += `<br>QR Data URL length: ${qrCodeDataUrl.length}`;
+                debugOutput.innerHTML += `<br>Preview: ${qrCodeDataUrl.substring(0, 50)}...`;
+                
+                // Use exact HTML from printUtils.ts
+                const qrHtml = `
+                    <div style="margin: 10px 0; text-align: center;">
+                        <img src="${qrCodeDataUrl}" class="qr-code-img" alt="Receipt QR Code" onerror="console.log('QR failed to load'); this.style.display='none'" />
+                        <div style="font-size: 8px; color: #666; margin: 5px 0; display: none;">QR Code failed to load</div>
+                    </div>
+                `;
+                
+                qrContainer.innerHTML = qrHtml;
+                debugOutput.innerHTML += '<br>QR HTML inserted';
+                
+            } catch (error) {
+                debugOutput.innerHTML += `<br><strong style="color: red;">Error: ${error.message}</strong>`;
+                console.error('Error:', error);
+            }
+        });
+
+        // Test 3: Window open approach (simulating what happens in printUtils.ts)
+        document.getElementById('testWindowOpen').addEventListener('click', async () => {
+            const debugOutput = document.getElementById('debugOutput');
+            
+            debugOutput.innerHTML = 'Testing window.open approach...';
+            
+            try {
+                const receiptData = {
+                    type: 'sales',
+                    receiptNumber: testTransaction.receiptNumber,
+                    date: new Date().toISOString(),
+                    items: testTransaction.items,
+                    subtotal: testTransaction.subtotal,
+                    tax: testTransaction.tax,
+                    discount: testTransaction.discount,
+                    total: testTransaction.total,
+                    amountReceived: testTransaction.amountReceived,
+                    change: testTransaction.change
+                };
+                
+                const qrCodeData = JSON.stringify(receiptData);
+                debugOutput.innerHTML += `<br>QR data length: ${qrCodeData.length}`;
+                
+                // Generate QR code
+                const qrCodeDataUrl = await QRCode.toDataURL(qrCodeData, { 
+                    width: 120, 
+                    margin: 2,
+                    errorCorrectionLevel: 'M',
+                    type: 'image/png',
+                    quality: 1,
+                    color: {
+                        dark: '#000000',
+                        light: '#ffffff'
+                    }
+                });
+                
+                debugOutput.innerHTML += `<br>QR Data URL length: ${qrCodeDataUrl.length}`;
+                debugOutput.innerHTML += `<br>Preview: ${qrCodeDataUrl.substring(0, 50)}...`;
+                
+                // Simulate what happens in printUtils.ts
+                const receiptContent = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Receipt Test</title>
+                        <style>
+                            body {
+                                font-family: 'Courier New', monospace;
+                                max-width: 320px;
+                                margin: 0 auto;
+                                padding: 10px;
+                            }
+                            .qr-section {
+                                text-align: center;
+                                margin: 15px 0;
+                                padding: 10px;
+                                border-top: 1px dashed #000;
+                            }
+                            .qr-label {
+                                font-size: 9px;
+                                margin-bottom: 5px;
+                            }
+                            .qr-code-img {
+                                max-width: 120px;
+                                height: auto;
+                                margin: 10px auto;
+                                display: block;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="qr-section">
+                            <div class="qr-label">Scan for Details</div>
+                            <div style="margin: 10px 0; text-align: center;">
+                                <img src="${qrCodeDataUrl}" class="qr-code-img" alt="Receipt QR Code" onerror="console.log('QR failed to load'); this.style.display='none'" />
+                                <div style="font-size: 8px; color: #666; margin: 5px 0; display: none;">QR Code failed to load</div>
+                            </div>
+                            <div style="font-size: 8px; margin-top: 5px;">Receipt #: TEST-001</div>
+                        </div>
+                        
+                        <div style="margin-top: 20px; padding: 10px; background: #f0f0f0;">
+                            <h4>Debug Info:</h4>
+                            <p>Data URL Length: ${qrCodeDataUrl.length}</p>
+                            <p>Preview: ${qrCodeDataUrl.substring(0, 100)}...</p>
+                        </div>
+                    </body>
+                    </html>
+                `;
+                
+                // Open in new window
+                const newWindow = window.open('', '_blank');
+                if (newWindow) {
+                    newWindow.document.write(receiptContent);
+                    newWindow.document.close();
+                    debugOutput.innerHTML += '<br>New window opened with receipt content';
+                } else {
+                    debugOutput.innerHTML += '<br><strong style="color: red;">Failed to open new window (popup blocker?)</strong>';
+                }
+                
+            } catch (error) {
+                debugOutput.innerHTML += `<br><strong style="color: red;">Error: ${error.message}</strong>`;
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

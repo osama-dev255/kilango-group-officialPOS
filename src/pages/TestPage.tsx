@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { createProduct, getProducts } from "@/services/databaseService";
+import { Link } from "react-router-dom";
 
 export const TestPage = () => {
   const [testResult, setTestResult] = useState<string>("");
@@ -93,6 +94,25 @@ export const TestPage = () => {
         
         <Card>
           <CardHeader>
+            <CardTitle>Navigation</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-4">
+              <Link to="/test/qr">
+                <Button variant="outline">QR Code Test</Button>
+              </Link>
+              <Link to="/test/receipt-qr">
+                <Button variant="outline">Receipt QR Test</Button>
+              </Link>
+              <Link to="/test/qr-debug">
+                <Button variant="outline">QR Debug Test</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
             <CardTitle>Product Creation Debug</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -137,6 +157,7 @@ export const TestPage = () => {
             <div className="space-y-2">
               <p>Click the "Debug Product Creation" button to test product creation with the exact same data structure as the Product Management page.</p>
               <p>Check the browser console for detailed logs.</p>
+              <p>Use the navigation buttons above to access QR code testing pages.</p>
             </div>
           </CardContent>
         </Card>

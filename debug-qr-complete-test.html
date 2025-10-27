@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug QR Complete Test</title>
+    <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 320px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .business-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .business-info {
+            font-size: 10px;
+            margin-bottom: 5px;
+        }
+        .receipt-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            margin-bottom: 10px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 10px;
+        }
+        .thank-you {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        /* QR Code Styles */
+        .qr-section {
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            border-top: 1px dashed #000;
+        }
+        .qr-label {
+            font-size: 9px;
+            margin-bottom: 5px;
+        }
+        .qr-code-img {
+            max-width: 120px;
+            height: auto;
+            margin: 10px auto;
+            display: block;
+        }
+        .debug-info {
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="business-name">POS BUSINESS</div>
+        <div class="business-info">123 Business St, City, Country</div>
+        <div class="business-info">Phone: (123) 456-7890</div>
+    </div>
+    
+    <div class="receipt-info">
+        <div>Receipt #: <span id="receiptNumber">TEST-001</span></div>
+        <div>Date: <span id="receiptDate">10/27/2025</span></div>
+        <div>Time: <span id="receiptTime">10:00:00 AM</span></div>
+    </div>
+    
+    <div class="footer">
+        <div class="thank-you">Thank You!</div>
+        <div>For more info, visit us at www.posbusiness.com</div>
+    </div>
+    
+    <div class="qr-section">
+        <div class="qr-label">Scan for Details</div>
+        <div id="qr-container"></div>
+        <div style="font-size: 8px; margin-top: 5px;">Receipt #: <span id="receiptNumber2">TEST-001</span></div>
+    </div>
+    
+    <div class="debug-info">
+        <h3>Debug Information</h3>
+        <div id="debugOutput">Click "Generate Receipt" to test</div>
+    </div>
+    
+    <button id="generateReceipt">Generate Receipt</button>
+    <button id="testImageLoad">Test Image Load</button>
+
+    <script>
+        // Test data similar to what's used in the POS system
+        const testTransaction = {
+            receiptNumber: "TEST-001",
+            items: [
+                { name: "Product 1", quantity: 2, price: 10.00, total: 20.00 },
+                { name: "Product 2", quantity: 1, price: 15.00, total: 15.00 }
+            ],
+            subtotal: 35.00,
+            tax: 0.00,
+            discount: 0.00,
+            total: 35.00,
+            amountReceived: 40.00,
+            change: 5.00
+        };
+
+        // Update receipt info
+        document.getElementById('receiptNumber').textContent = testTransaction.receiptNumber;
+        document.getElementById('receiptNumber2').textContent = testTransaction.receiptNumber;
+
+        // Generate receipt with QR code
+        document.getElementById('generateReceipt').addEventListener('click', async () => {
+            const debugOutput = document.getElementById('debugOutput');
+            const qrContainer = document.getElementById('qr-container');
+            
+            debugOutput.innerHTML = 'Generating QR code...';
+            qrContainer.innerHTML = '';
+            
+            try {
+                // Create receipt data like in printUtils.ts
+                const receiptData = {
+                    type: 'sales',
+                    receiptNumber: testTransaction.receiptNumber,
+                    date: new Date().toISOString(),
+                    items: testTransaction.items,
+                    subtotal: testTransaction.subtotal,
+                    tax: testTransaction.tax,
+                    discount: testTransaction.discount,
+                    total: testTransaction.total,
+                    amountReceived: testTransaction.amountReceived,
+                    change: testTransaction.change
+                };
+                
+                const qrCodeData = JSON.stringify(receiptData);
+                debugOutput.innerHTML += `<br>QR Code data length: ${qrCodeData.length}`;
+                debugOutput.innerHTML += `<br>QR Code data: ${qrCodeData.substring(0, 100)}...`;
+                
+                // Generate QR code
+                const qrCodeDataUrl = await QRCode.toDataURL(qrCodeData, { 
+                    width: 120, 
+                    margin: 2,
+                    errorCorrectionLevel: 'M',
+                    type: 'image/png',
+                    quality: 1,
+                    color: {
+                        dark: '#000000',
+                        light: '#ffffff'
+                    }
+                });
+                
+                debugOutput.innerHTML += `<br>QR Code Data URL generated successfully`;
+                debugOutput.innerHTML += `<br>Data URL length: ${qrCodeDataUrl.length}`;
+                debugOutput.innerHTML += `<br>Data URL preview: ${qrCodeDataUrl.substring(0, 100)}`;
+                
+                // Test the exact approach used in printUtils.ts
+                const qrHtml = `
+                    <div style="margin: 10px 0; text-align: center;">
+                        <img src="${qrCodeDataUrl}" class="qr-code-img" alt="Receipt QR Code" onerror="console.log('QR Code failed to load'); this.style.display='none'" />
+                        <div style="font-size: 8px; color: #666; margin: 5px 0; display: none;">QR Code failed to load</div>
+                    </div>
+                `;
+                
+                qrContainer.innerHTML = qrHtml;
+                debugOutput.innerHTML += `<br>QR HTML inserted into container`;
+                
+            } catch (error) {
+                debugOutput.innerHTML += `<br>Error: ${error.message}`;
+                console.error('Error generating QR code:', error);
+            }
+        });
+
+        // Test image loading directly
+        document.getElementById('testImageLoad').addEventListener('click', () => {
+            const debugOutput = document.getElementById('debugOutput');
+            const qrContainer = document.getElementById('qr-container');
+            
+            debugOutput.innerHTML = 'Testing image load...';
+            qrContainer.innerHTML = '';
+            
+            // Create a simple test image
+            const img = document.createElement('img');
+            img.src = 'data:image/png;base64,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';
+            img.className = 'qr-code-img';
+            img.alt = 'Test QR Code';
+            
+            img.onload = function() {
+                debugOutput.innerHTML += '<br>Test image loaded successfully';
+            };
+            
+            img.onerror = function() {
+                debugOutput.innerHTML += '<br>Test image failed to load';
+            };
+            
+            const container = document.createElement('div');
+            container.style.margin = '10px 0';
+            container.style.textAlign = 'center';
+            container.appendChild(img);
+            
+            qrContainer.appendChild(container);
+        });
+    </script>
+</body>
+</html>

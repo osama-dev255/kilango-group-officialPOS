@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QR Display Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .qr-section {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px dashed #ccc;
+        }
+        .qr-code-img {
+            max-width: 120px;
+            height: auto;
+            margin: 10px auto;
+            display: block;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>QR Display Debug Test</h1>
+    
+    <div class="qr-section">
+        <h2>Test QR Code</h2>
+        <div id="qr-container">
+            <!-- QR code will be inserted here -->
+        </div>
+        <div id="status" class="test-result"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        async function generateAndDisplayQR() {
+            const container = document.getElementById('qr-container');
+            const status = document.getElementById('status');
+            
+            try {
+                // Generate QR code
+                const data = JSON.stringify({
+                    type: 'test',
+                    receiptNumber: 'TROUBLESHOOT-001',
+                    date: new Date().toISOString(),
+                    items: [{name: 'Test Item', price: 10.00, quantity: 1}],
+                    total: 10.00
+                });
+                
+                console.log('QR Data:', data);
+                
+                // Generate data URL
+                const dataUrl = await QRCode.toDataURL(data, {
+                    width: 120,
+                    margin: 2,
+                    errorCorrectionLevel: 'M',
+                    type: 'image/png',
+                    quality: 1
+                });
+                
+                console.log('QR Data URL length:', dataUrl.length);
+                console.log('QR Data URL preview:', dataUrl.substring(0, 100));
+                
+                // Display QR code
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                img.alt = 'Test QR Code';
+                img.className = 'qr-code-img';
+                img.onload = function() {
+                    console.log('QR Code image loaded successfully');
+                    status.textContent = 'QR Code loaded successfully - length: ' + this.src.length;
+                    status.className = 'test-result success';
+                };
+                img.onerror = function() {
+                    console.error('QR Code image failed to load');
+                    status.textContent = 'QR Code failed to load';
+                    status.className = 'test-result error';
+                    this.style.display = 'none';
+                };
+                
+                container.innerHTML = '';
+                container.appendChild(img);
+                
+            } catch (error) {
+                console.error('Error generating QR code:', error);
+                status.textContent = 'Error generating QR code: ' + error.message;
+                status.className = 'test-result error';
+            }
+        }
+        
+        // Run the test when page loads
+        window.addEventListener('DOMContentLoaded', generateAndDisplayQR);
+    </script>
+</body>
+</html>

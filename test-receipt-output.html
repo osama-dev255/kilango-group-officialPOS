@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Receipt</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      @media print {
+        @page {
+          margin: 0.5in;
+          size: auto;
+        }
+        body {
+          margin: 0.5in;
+          padding: 0;
+        }
+      }
+      body {
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        max-width: 320px;
+        margin: 0 auto;
+        padding: 10px;
+      }
+      .header {
+        text-align: center;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+      }
+      .business-name {
+        font-size: 16px;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .business-info {
+        font-size: 10px;
+        margin-bottom: 5px;
+      }
+      .receipt-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        margin-bottom: 10px;
+      }
+      .items {
+        margin-bottom: 10px;
+      }
+      .item {
+        display: flex;
+        margin-bottom: 5px;
+      }
+      .item-name {
+        flex: 2;
+      }
+      .item-details {
+        flex: 1;
+        text-align: right;
+      }
+      .item-price::before {
+        content: "@ ";
+      }
+      .item-total {
+        font-weight: bold;
+      }
+      .totals {
+        border-top: 1px dashed #000;
+        padding-top: 10px;
+        margin-top: 10px;
+      }
+      .total-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+      }
+      .final-total {
+        font-weight: bold;
+        font-size: 14px;
+        margin: 10px 0;
+      }
+      .payment-info {
+        border-top: 1px dashed #000;
+        padding-top: 10px;
+        margin-top: 10px;
+      }
+      .footer {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 10px;
+      }
+      .thank-you {
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+      /* QR Code Styles */
+      .qr-section {
+        text-align: center;
+        margin: 15px 0;
+        padding: 10px;
+        border-top: 1px dashed #000;
+      }
+      .qr-label {
+        font-size: 9px;
+        margin-bottom: 5px;
+      }
+      .qr-code-img {
+        max-width: 120px;
+        height: auto;
+        width: 120px;
+        height: 120px;
+        margin: 10px auto;
+        display: block;
+        border: 1px solid #ccc;
+        background: #f9f9f9;
+      }
+      .qr-error {
+        font-size: 8px;
+        color: #666;
+        margin: 5px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="business-name">POS BUSINESS</div>
+      <div class="business-info">123 Business St, City, Country</div>
+      <div class="business-info">Phone: (123) 456-7890</div>
+    </div>
+    
+    <div class="receipt-info">
+      <div>Receipt #: TEST-001</div>
+      <div>Date: 10/27/2025</div>
+      <div>Time: 5:09:20 PM</div>
+    </div>
+    
+    <div class="items">
+      
+        <div class="item">
+          <div class="item-name">Test Item 1</div>
+          <div class="item-details">2 x @ 10.00</div>
+          <div class="item-total">20.00</div>
+        </div>
+      
+        <div class="item">
+          <div class="item-name">Test Item 2</div>
+          <div class="item-details">1 x @ 15.00</div>
+          <div class="item-total">15.00</div>
+        </div>
+      
+    </div>
+    
+    <div class="totals">
+      <div class="total-row">
+        <div>Subtotal:</div>
+        <div>35.00</div>
+      </div>
+      <div class="total-row">
+        <div>Tax:</div>
+        <div>3.50</div>
+      </div>
+      <div class="total-row">
+        <div>Discount:</div>
+        <div>5.00</div>
+      </div>
+      <div class="total-row">
+        <div>Total:</div>
+        <div>33.50</div>
+      </div>
+    </div>
+    
+    <div class="payment-info">
+      <div>Amount Received:</div>
+      <div>40.00</div>
+      <div>Change:</div>
+      <div>6.50</div>
+    </div>
+    
+    <div class="footer">
+      <div class="thank-you">Thank You!</div>
+      <div>For more info, visit us at www.posbusiness.com</div>
+    </div>
+    
+    <div class="qr-section">
+      <div class="qr-label">Scan for Details</div>
+      <div style="margin: 10px 0; text-align: center;">
+           <img src="data:image/png;base64,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" width="120" height="120" class="qr-code-img" alt="Receipt QR Code" 
+                style="max-width: 120px; height: auto; width: 120px; height: 120px; margin: 10px auto; display: block; border: 1px solid #ccc; background: #f9f9f9;"
+                onerror="console.error('QR Code failed to load - Data URL length:', this.src?.length || 0); 
+                        console.error('QR Code Data URL preview:', this.src?.substring(0, 100) || 'No src'); 
+                        this.style.display='none'; 
+                        var errorDiv = this.parentNode.querySelector('.qr-error'); 
+                        if (errorDiv) errorDiv.style.display='block';
+                        console.log('QR Code onerror triggered - src length:', this.src?.length || 0);" 
+                onload="console.log('QR Code loaded successfully - src length:', this.src?.length || 0); 
+                        console.log('QR Code dimensions - naturalWidth:', this.naturalWidth, 'naturalHeight:', this.naturalHeight);" />
+           <div class="qr-error" style="font-size: 8px; color: #666; margin: 5px 0; display: none;">QR Code failed to load</div>
+         </div>
+      <div style="font-size: 8px; margin-top: 5px;">Receipt #: TEST-001</div>
+    </div>
+  </body>
+</html>

@@ -12,6 +12,10 @@ import { SalesOrders } from "./pages/SalesOrders";
 import { TestSalesOrders } from "./pages/TestSalesOrders";
 import { PurchaseTerminal } from "./pages/PurchaseTerminal";
 import TestPage from "./pages/TestPage";
+import { TestQRCode } from "./pages/TestQRCode";
+import { TestReceiptQR } from "./pages/TestReceiptQR";
+import { QRDebugTest } from "./pages/QRDebugTest";
+import QRTestPage from "./pages/QRTestPage";
 import { useEffect } from "react";
 // Import authentication context
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -62,6 +66,10 @@ const App = () => {
                 <Route path="/test/sales-orders" element={<TestSalesOrders username="admin" onBack={() => {}} onLogout={() => {}} />} />
                 <Route path="/purchase/terminal" element={<PurchaseTerminal username="admin" onBack={() => {}} onLogout={() => {}} />} />
                 <Route path="/test" element={<TestPage />} />
+                <Route path="/test/qr" element={<TestQRCode />} />
+                <Route path="/test/receipt-qr" element={<TestReceiptQR />} />
+                <Route path="/test/qr-debug" element={<QRDebugTest />} />
+                <Route path="/test/qr-test" element={<QRTestPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QR Display Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 320px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        .qr-section {
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            border-top: 1px dashed #000;
+        }
+        .qr-label {
+            font-size: 9px;
+            margin-bottom: 5px;
+        }
+        .qr-code-img {
+            max-width: 120px;
+            height: auto;
+            margin: 10px auto;
+            display: block;
+        }
+        .qr-error {
+            font-size: 8px;
+            color: #666;
+            margin: 5px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .debug-info {
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h3>QR Display Test</h3>
+    
+    <div class="debug-info">
+        <div id="debugOutput">Click "Generate QR Code" to test</div>
+    </div>
+    
+    <div class="qr-section">
+        <div class="qr-label">Scan for Details</div>
+        <div id="qr-container"></div>
+        <div style="font-size: 8px; margin-top: 5px;">Receipt #: TEST-001</div>
+    </div>
+    
+    <button id="generateQR">Generate QR Code</button>
+    
+    <script>
+        // Function to dynamically load QRCode library
+        function loadQRCodeLibrary() {
+            return new Promise((resolve, reject) => {
+                // Check if already loaded
+                if (typeof QRCode !== 'undefined') {
+                    resolve(QRCode);
+                    return;
+                }
+                
+                // Load the library
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js';
+                script.onload = () => {
+                    console.log('QRCode library loaded successfully');
+                    resolve(window.QRCode);
+                };
+                script.onerror = () => {
+                    console.error('Failed to load QRCode library');
+                    reject(new Error('Failed to load QRCode library'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        document.getElementById('generateQR').addEventListener('click', async () => {
+            const container = document.getElementById('qr-container');
+            const debugOutput = document.getElementById('debugOutput');
+            
+            debugOutput.innerHTML = 'Loading QRCode library...';
+            container.innerHTML = 'Loading...';
+            
+            try {
+                // Ensure QRCode library is available
+                const QRCodeLib = await loadQRCodeLibrary();
+                debugOutput.innerHTML = 'QRCode library loaded';
+                
+                // Test data
+                const testData = JSON.stringify({
+                    type: 'sales',
+                    receiptNumber: 'TEST-001',
+                    date: new Date().toISOString(),
+                    items: [
+                        { name: 'Test Product', quantity: 1, price: 10.00, total: 10.00 }
+                    ],
+                    subtotal: 10.00,
+                    tax: 0.00,
+                    discount: 0.00,
+                    total: 10.00,
+                    amountReceived: 10.00,
+                    change: 0.00
+                });
+                
+                debugOutput.innerHTML = 'Generating QR code...';
+                
+                // Generate QR code
+                const qrCodeDataUrl = await QRCodeLib.toDataURL(testData, { 
+                    width: 120, 
+                    margin: 2,
+                    errorCorrectionLevel: 'M',
+                    type: 'image/png'
+                });
+                
+                debugOutput.innerHTML = `QR Code generated successfully<br>Data URL length: ${qrCodeDataUrl.length}`;
+                
+                // Test the exact approach used in printUtils.ts
+                const qrHtml = `
+                    <div style="margin: 10px 0; text-align: center;">
+                        <img src="${qrCodeDataUrl}" class="qr-code-img" alt="Receipt QR Code" 
+                             style="max-width: 120px; height: auto; margin: 10px auto; display: block;"
+                             onerror="console.error('QR Code failed to load - Data URL length:', this.src?.length || 0); 
+                                     console.error('QR Code Data URL preview:', this.src?.substring(0, 100) || 'No src'); 
+                                     this.style.display='none'; 
+                                     var errorDiv = this.parentNode.querySelector('.qr-error'); 
+                                     if (errorDiv) errorDiv.style.display='block';
+                                     console.log('QR Code onerror triggered - src length:', this.src?.length || 0);" 
+                             onload="console.log('QR Code loaded successfully - src length:', this.src?.length || 0);" />
+                        <div class="qr-error" style="font-size: 8px; color: #666; margin: 5px 0; display: none;">QR Code failed to load</div>
+                    </div>
+                `;
+                
+                container.innerHTML = qrHtml;
+                debugOutput.innerHTML += '<br>QR Code HTML inserted';
+                console.log('QR Code HTML inserted');
+                
+            } catch (error) {
+                container.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                debugOutput.innerHTML = `Error: ${error.message}`;
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

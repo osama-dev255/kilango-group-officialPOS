@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Browser QR Code Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        
+        .qr-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .qr-code-img {
+            max-width: 120px;
+            height: auto;
+            border: 1px solid #000;
+            padding: 5px;
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Browser QR Code Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Working QR Code</h2>
+        <p>This QR code should display correctly:</p>
+        <div class="qr-container">
+            <img class="qr-code-img" src="data:image/png;base64,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" alt="Test QR Code" />
+            <p>Receipt #: TEST-001</p>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Broken Image Fallback</h2>
+        <p>This tests the fallback when an image fails to load:</p>
+        <div class="qr-container">
+            <img class="qr-code-img" src="invalid-url" alt="Broken QR Code" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'" />
+            <div style="display: none; font-size: 12px; color: #666;">QR Code failed to load</div>
+            <p>Receipt #: TEST-002</p>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: No QR Code Available</h2>
+        <p>This shows what happens when no QR code is generated:</p>
+        <div class="qr-container">
+            <div style="font-size: 12px; color: #666;">QR Code not available</div>
+            <p>Receipt #: TEST-003</p>
+        </div>
+    </div>
+</body>
+</html>

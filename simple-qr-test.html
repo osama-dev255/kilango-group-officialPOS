@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple QR Test</title>
+    <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .debug-output {
+            background-color: #f8f9fa;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .qr-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .qr-image {
+            max-width: 200px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple QR Code Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Direct QR Generation</h2>
+        <button id="testDirect">Generate QR Code</button>
+        <div class="debug-output" id="debug1">Click button to test</div>
+        <div class="qr-container" id="qr1"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Data URL in Image Tag</h2>
+        <button id="testDataURL">Generate and Display</button>
+        <div class="debug-output" id="debug2">Click button to test</div>
+        <div class="qr-container" id="qr2"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: Simulate PrintUtils Approach</h2>
+        <button id="testPrintUtils">Simulate Print Receipt</button>
+        <div class="debug-output" id="debug3">Click button to test</div>
+        <div class="qr-container" id="qr3"></div>
+    </div>
+
+    <script>
+        // Test data
+        const testData = {
+            type: 'sales',
+            receiptNumber: 'TEST-001',
+            date: new Date().toISOString(),
+            items: [
+                { name: 'Product 1', quantity: 2, price: 10.00, total: 20.00 },
+                { name: 'Product 2', quantity: 1, price: 15.00, total: 15.00 }
+            ],
+            subtotal: 35.00,
+            tax: 0.00,
+            discount: 0.00,
+            total: 35.00,
+            amountReceived: 40.00,
+            change: 5.00
+        };
+
+        // Test 1: Direct QR Generation
+        document.getElementById('testDirect').addEventListener('click', async () => {
+            const debug = document.getElementById('debug1');
+            const container = document.getElementById('qr1');
+            
+            debug.textContent = 'Generating QR code...';
+            container.innerHTML = '';
+            
+            try {
+                const qrData = JSON.stringify(testData);
+                debug.textContent += `\nData length: ${qrData.length}`;
+                
+                const qrCodeDataUrl = await QRCode.toDataURL(qrData, { 
+                    width: 120, 
+                    margin: 2,
+                    errorCorrectionLevel: 'M',
+                    type: 'image/png',
+                    quality: 1,
+                    color: {
+                        dark: '#000000',
+                        light: '#ffffff'
+                    }
+                });
+                
+                debug.textContent += `\nQR generated successfully`;
+                debug.textContent += `\nData URL length: ${qrCodeDataUrl.length}`;
+                
+                // Display QR code
+                const img = document.createElement('img');
+                img.src = qrCodeDataUrl;
+                img.className = 'qr-image';
+                img.alt = 'QR Code';
+                img.onload = () => {
+                    debug.textContent += '\nImage loaded successfully';
+                };
+                img.onerror = (e) => {
+                    debug.textContent += '\nImage failed to load!';
+                    console.error('Image load error:', e);
+                };
+                
+                container.appendChild(img);
+                
+            } catch (error) {
+                debug.textContent += `\nError: ${error.message}`;
+                console.error('Error:', error);
+            }
+        });
+
+        // Test 2: Data URL in Image Tag
+        document.getElementById('testDataURL').addEventListener('click', async () => {
+            const debug = document.getElementById('debug2');
+            const container = document.getElementById('qr2');
+            
+            debug.textContent = 'Generating QR code with data URL...';
+            container.innerHTML = '';
+            
+            try {
+                const qrData = JSON.stringify(testData);
+                debug.textContent += `\nData length: ${qrData.length}`;
+                
+                const qrCodeDataUrl = await QRCode.toDataURL(qrData, { 
+                    width: 120, 
+                    margin: 2,
+                    errorCorrectionLevel: 'M',
+                    type: 'image/png',
+                    quality: 1,
+                    color: {
+                        dark: '#000000',
+                        light: '#ffffff'
+                    }
+                });
+                
+                debug.textContent += `\nQR generated successfully`;
+                debug.textContent += `\nData URL length: ${qrCodeDataUrl.length}`;
+                debug.textContent += `\nPreview: ${qrCodeDataUrl.substring(0, 100)}...`;
+                
+                // Create HTML with data URL (similar to PrintUtils approach)
+                const htmlContent = `
+                    <img src="${qrCodeDataUrl}" class="qr-image" alt="Receipt QR Code" 
+                         onerror="console.log('QR failed to load'); this.style.display='none';" />
+                `;
+                
+                container.innerHTML = htmlContent;
+                debug.textContent += '\nHTML inserted';
+                
+            } catch (error) {
+                debug.textContent += `\nError: ${error.message}`;
+                console.error('Error:', error);
+            }
+        });
+
+        // Test 3: Simulate PrintUtils Approach
+        document.getElementById('testPrintUtils').addEventListener('click', async () => {
+            const debug = document.getElementById('debug3');
+            const container = document.getElementById('qr3');
+            
+            debug.textContent = 'Simulating PrintUtils approach...';
+            container.innerHTML = '';
+            
+            try {
+                const qrData = JSON.stringify(testData);
+                debug.textContent += `\nData length: ${qrData.length}`;
+                
+                const qrCodeDataUrl = await QRCode.toDataURL(qrData, { 
+                    width: 120, 
+                    margin: 2,
+                    errorCorrectionLevel: 'M',
+                    type: 'image/png',
+                    quality: 1,
+                    color: {
+                        dark: '#000000',
+                        light: '#ffffff'
+                    }
+                });
+                
+                debug.textContent += `\nQR generated successfully`;
+                debug.textContent += `\nData URL length: ${qrCodeDataUrl.length}`;
+                debug.textContent += `\nPreview: ${qrCodeDataUrl.substring(0, 100)}...`;
+                
+                // Simulate the exact HTML from PrintUtils.ts
+                const receiptContent = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Receipt Test</title>
+                        <style>
+                            body { font-family: 'Courier New', monospace; }
+                            .qr-section { text-align: center; margin: 15px 0; }
+                            .qr-code-img { max-width: 120px; height: auto; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="qr-section">
+                            <div>Scan for Details</div>
+                            <div style="margin: 10px 0; text-align: center;">
+                                <img src="${qrCodeDataUrl}" class="qr-code-img" alt="Receipt QR Code" 
+                                     onerror="console.log('QR failed to load: ' + this.src.substring(0, 50) + '...'); this.style.display='none';" />
+                                <div style="font-size: 8px; color: #666; margin: 5px 0; display: none;">QR Code failed to load</div>
+                            </div>
+                            <div style="font-size: 8px; margin-top: 5px;">Receipt #: TEST-001</div>
+                        </div>
+                    </body>
+                    </html>
+                `;
+                
+                // Display in iframe to simulate new window
+                const iframe = document.createElement('iframe');
+                iframe.style.width = '320px';
+                iframe.style.height = '300px';
+                iframe.style.border = '1px solid #ddd';
+                
+                container.innerHTML = '';
+                container.appendChild(iframe);
+                
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                doc.open();
+                doc.write(receiptContent);
+                doc.close();
+                
+                debug.textContent += '\nReceipt content displayed in iframe';
+                
+            } catch (error) {
+                debug.textContent += `\nError: ${error.message}`;
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

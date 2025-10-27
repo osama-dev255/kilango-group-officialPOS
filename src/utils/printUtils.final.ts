@@ -6,7 +6,6 @@ export class PrintUtils {
   static isMobileDevice(): boolean {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   }
-  // Print receipt with enhanced formatting
   // Print receipt with enhanced formatting and mobile support
   static printReceipt(transaction: any) {
     // For mobile devices, use a more reliable printing approach

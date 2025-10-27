@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple QR Code Display Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        
+        .qr-section {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px dashed #333;
+        }
+        
+        .qr-code-img {
+            max-width: 120px;
+            height: auto;
+            border: 1px solid #000;
+            padding: 5px;
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple QR Code Display Test</h1>
+    
+    <div class="qr-section">
+        <h2>Sample QR Code</h2>
+        <p>This represents how your QR code should appear:</p>
+        <div style="width: 120px; height: 120px; margin: 0 auto; background-color: #000; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 8px;">
+            SAMPLE<br/>QR CODE<br/>RECEIPT<br/>#TEST-001
+        </div>
+        <p>Receipt #: TEST-001</p>
+    </div>
+    
+    <div class="qr-section">
+        <h2>Fallback Display</h2>
+        <p>This is what appears when QR code generation fails:</p>
+        <div style="padding: 10px; border: 1px dashed #000;">
+            <div style="font-size: 9px; font-weight: bold; margin-bottom: 5px;">Scan for Details</div>
+            <div style="font-size: 8px;">QR Code: TEST-001</div>
+            <div style="font-size: 7px; margin-top: 5px;">(QR Code not available)</div>
+        </div>
+    </div>
+</body>
+</html>

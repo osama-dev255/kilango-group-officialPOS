@@ -1,4 +1,5 @@
 import { getTemplateConfig, generateCustomReceipt, getPurchaseTemplateConfig, generateCustomPurchaseReceipt } from "@/utils/templateUtils";
+import QRCode from "qrcode";
 
 // Utility functions for printing
 export class PrintUtils {
@@ -7,14 +8,112 @@ export class PrintUtils {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   }
 
+  // Generate QR code for receipt
+  static async generateReceiptQRCode(transaction: any, type: 'sales' | 'purchase'): Promise<string> {
+    try {
+      // Create a URL that points to a page that displays the receipt details
+      // For now, we'll create a data URL with the receipt information
+      const receiptData = {
+        type,
+        receiptNumber: type === 'sales' ? transaction.receiptNumber : transaction.orderNumber,
+        date: new Date().toISOString(),
+        items: transaction.items || [],
+        subtotal: transaction.subtotal || 0,
+        tax: transaction.tax || 0,
+        discount: transaction.discount || 0,
+        total: transaction.total || 0,
+        amountReceived: transaction.amountReceived || 0,
+        change: transaction.change || 0,
+        // Add other relevant receipt information here
+      };
+      
+      const receiptDataString = JSON.stringify(receiptData);
+      console.log('QR Code Generation - Receipt Data:', receiptDataString); // Debug log
+      const dataUrl = await QRCode.toDataURL(receiptDataString, { 
+        width: 120,
+        margin: 2,
+        errorCorrectionLevel: 'M',
+        type: 'image/png',
+        quality: 1,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      });
+      console.log('QR Code Generation - Success, Data URL length:', dataUrl.length); // Debug log
+      
+      // Validate the data URL
+      if (!dataUrl || dataUrl.length < 100) {
+        console.error('QR Code Generation - Invalid data URL generated');
+        return '';
+      }
+      
+      return dataUrl;
+    } catch (error) {
+      console.error('Error generating QR code in generateReceiptQRCode:', error);
+      // Return a placeholder if QR code generation fails
+      return '';
+    }
+  }
+
   // Print receipt with enhanced formatting and mobile support
-  static printReceipt(transaction: any) {
+  static async printReceipt(transaction: any) {
     // Show loading indicator
     this.showLoadingIndicator('Preparing print...');
     
+    // Generate QR code for the receipt
+    let qrCodeDataUrl = '';
+    let qrGenerationError = '';
+    try {
+      const receiptData = {
+        type: 'sales',
+        receiptNumber: transaction.receiptNumber || Date.now(),
+        date: new Date().toISOString(),
+        items: transaction.items,
+        subtotal: transaction.subtotal,
+        tax: transaction.tax,
+        discount: transaction.discount,
+        total: transaction.total,
+        amountReceived: transaction.amountReceived,
+        change: transaction.change
+      };
+      
+      const qrCodeData = JSON.stringify(receiptData);
+      console.log('Print Receipt - Generating QR code with data length:', qrCodeData.length);
+      console.log('Print Receipt - QR Code Data:', qrCodeData); // Debug log
+      
+      // Generate QR code with better error handling
+      qrCodeDataUrl = await QRCode.toDataURL(qrCodeData, { 
+        width: 120, 
+        margin: 2,
+        errorCorrectionLevel: 'M',
+        type: 'image/png',
+        quality: 1,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      });
+      
+      // Validate the generated QR code
+      if (!qrCodeDataUrl || qrCodeDataUrl.length < 100) {
+        throw new Error('Invalid QR code generated - data URL too short');
+      }
+      
+      console.log('Print Receipt - QR Code Data URL generated successfully, length:', qrCodeDataUrl.length);
+      console.log('Print Receipt - QR Code Data URL preview:', qrCodeDataUrl.substring(0, 100)); // Debug log
+    } catch (error) {
+      console.error('Print Receipt - Error generating QR code:', error);
+      qrGenerationError = error.message;
+      qrCodeDataUrl = ''; // Ensure it's empty on error
+    }
+    
+    console.log('Print Receipt - Final QR Code Data URL:', qrCodeDataUrl ? 'Present' : 'Empty');
+    console.log('Print Receipt - QR Generation Error:', qrGenerationError); // Debug log
+    
     // For mobile devices, use a more reliable printing approach
     if (this.isMobileDevice()) {
-      return this.printReceiptMobile(transaction);
+      return this.printReceiptMobile(transaction, qrCodeDataUrl);
     }
 
     const receiptWindow = window.open('', '_blank');
@@ -22,7 +121,7 @@ export class PrintUtils {
       // Hide loading indicator
       this.hideLoadingIndicator();
       // Fallback for popup blockers
-      this.printReceiptFallback(transaction);
+      this.printReceiptFallback(transaction, qrCodeDataUrl);
       return;
     }
     
@@ -54,179 +153,280 @@ export class PrintUtils {
       const amountReceived = transaction.amountReceived || total;
       const change = transaction.change || (amountReceived - total);
       
-      receiptContent = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Receipt</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              @media print {
-                @page {
-                  margin: 0.5in; /* Desktop-specific margin */
-                  size: auto;
-                }
-                body {
-                  margin: 0.5in;
-                  padding: 0;
-                }
-              }
-              body {
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
-                max-width: 320px;
-                margin: 0 auto;
-                padding: 10px;
-              }
-              .header {
-                text-align: center;
-                border-bottom: 1px dashed #000;
-                padding-bottom: 10px;
-                margin-bottom: 10px;
-              }
-              .business-name {
-                font-size: 16px;
-                font-weight: bold;
-                margin-bottom: 5px;
-              }
-              .business-info {
-                font-size: 10px;
-                margin-bottom: 5px;
-              }
-              .receipt-info {
-                display: flex;
-                justify-content: space-between;
-                font-size: 10px;
-                margin-bottom: 10px;
-              }
-              .items {
-                margin-bottom: 10px;
-              }
-              .item {
-                display: flex;
-                margin-bottom: 5px;
-              }
-              .item-name {
-                flex: 2;
-              }
-              .item-details {
-                flex: 1;
-                text-align: right;
-              }
-              .item-price::before {
-                content: "@ ";
-              }
-              .item-total {
-                font-weight: bold;
-              }
-              .totals {
-                border-top: 1px dashed #000;
-                padding-top: 10px;
-                margin-top: 10px;
-              }
-              .total-row {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 5px;
-              }
-              .final-total {
-                font-weight: bold;
-                font-size: 14px;
-                margin: 10px 0;
-              }
-              .payment-info {
-                border-top: 1px dashed #000;
-                padding-top: 10px;
-                margin-top: 10px;
-              }
-              .footer {
-                text-align: center;
-                margin-top: 20px;
-                font-size: 10px;
-              }
-              .thank-you {
-                font-weight: bold;
-                margin-bottom: 10px;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div class="business-name">POS BUSINESS</div>
-              <div class="business-info">123 Business St, City, Country</div>
-              <div class="business-info">Phone: (123) 456-7890</div>
-            </div>
-            
-            <div class="receipt-info">
-              <div>Receipt #: ${transaction.receiptNumber || Date.now()}</div>
-              <div>Date: ${new Date().toLocaleDateString()}</div>
-              <div>Time: ${new Date().toLocaleTimeString()}</div>
-            </div>
-            
-            <div class="items">
-              ${formattedItems.map((item: any) => `
-                <div class="item">
-                  <div class="item-name">${item.name}</div>
-                  <div class="item-details">${item.quantity} x @ ${item.price.toFixed(2)}</div>
-                  <div class="item-total">${item.total.toFixed(2)}</div>
-                </div>
-              `).join('')}
-            </div>
-            
-            <div class="totals">
-              <div class="total-row">
-                <div>Subtotal:</div>
-                <div>${subtotal.toFixed(2)}</div>
-              </div>
-              <div class="total-row">
-                <div>Tax:</div>
-                <div>${tax.toFixed(2)}</div>
-              </div>
-              <div class="total-row">
-                <div>Discount:</div>
-                <div>${discount.toFixed(2)}</div>
-              </div>
-              <div class="total-row">
-                <div>Total:</div>
-                <div>${total.toFixed(2)}</div>
-              </div>
-            </div>
-            
-            <div class="payment-info">
-              <div>Amount Received:</div>
-              <div>${amountReceived.toFixed(2)}</div>
-              <div>Change:</div>
-              <div>${change.toFixed(2)}</div>
-            </div>
-            
-            <div class="footer">
-              <div class="thank-you">Thank You!</div>
-              <div>For more info, visit us at www.posbusiness.com</div>
-            </div>
-          </body>
-        </html>
-      `;
+      receiptContent = `<!DOCTYPE html>
+<html>
+  <head>
+    <title>Receipt</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      @media print {
+        @page {
+          margin: 0.5in; /* Desktop-specific margin */
+          size: auto;
+        }
+        body {
+          margin: 0.5in;
+          padding: 0;
+        }
+      }
+      body {
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        max-width: 320px;
+        margin: 0 auto;
+        padding: 10px;
+      }
+      .header {
+        text-align: center;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+      }
+      .business-name {
+        font-size: 16px;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .business-info {
+        font-size: 10px;
+        margin-bottom: 5px;
+      }
+      .receipt-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 10px;
+        margin-bottom: 10px;
+      }
+      .items {
+        margin-bottom: 10px;
+      }
+      .item {
+        display: flex;
+        margin-bottom: 5px;
+      }
+      .item-name {
+        flex: 2;
+      }
+      .item-details {
+        flex: 1;
+        text-align: right;
+      }
+      .item-price::before {
+        content: "@ ";
+      }
+      .item-total {
+        font-weight: bold;
+      }
+      .totals {
+        border-top: 1px dashed #000;
+        padding-top: 10px;
+        margin-top: 10px;
+      }
+      .total-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+      }
+      .final-total {
+        font-weight: bold;
+        font-size: 14px;
+        margin: 10px 0;
+      }
+      .payment-info {
+        border-top: 1px dashed #000;
+        padding-top: 10px;
+        margin-top: 10px;
+      }
+      .footer {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 10px;
+      }
+      .thank-you {
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+      /* QR Code Styles */
+      .qr-section {
+        text-align: center;
+        margin: 15px 0;
+        padding: 10px;
+        border-top: 1px dashed #000;
+      }
+      .qr-label {
+        font-size: 9px;
+        margin-bottom: 5px;
+      }
+      .qr-code-img {
+        max-width: 120px;
+        height: auto;
+        margin: 10px auto;
+        display: block;
+      }
+      .qr-error {
+        font-size: 8px;
+        color: #666;
+        margin: 5px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="business-name">POS BUSINESS</div>
+      <div class="business-info">123 Business St, City, Country</div>
+      <div class="business-info">Phone: (123) 456-7890</div>
+    </div>
+    
+    <div class="receipt-info">
+      <div>Receipt #: ${transaction.receiptNumber || Date.now()}</div>
+      <div>Date: ${new Date().toLocaleDateString()}</div>
+      <div>Time: ${new Date().toLocaleTimeString()}</div>
+    </div>
+    
+    <div class="items">
+      ${formattedItems.map((item: any) => `
+        <div class="item">
+          <div class="item-name">${item.name}</div>
+          <div class="item-details">${item.quantity} x @ ${item.price.toFixed(2)}</div>
+          <div class="item-total">${item.total.toFixed(2)}</div>
+        </div>
+      `).join('')}
+    </div>
+    
+    <div class="totals">
+      <div class="total-row">
+        <div>Subtotal:</div>
+        <div>${subtotal.toFixed(2)}</div>
+      </div>
+      <div class="total-row">
+        <div>Tax:</div>
+        <div>${tax.toFixed(2)}</div>
+      </div>
+      <div class="total-row">
+        <div>Discount:</div>
+        <div>${discount.toFixed(2)}</div>
+      </div>
+      <div class="total-row">
+        <div>Total:</div>
+        <div>${total.toFixed(2)}</div>
+      </div>
+    </div>
+    
+    <div class="payment-info">
+      <div>Amount Received:</div>
+      <div>${amountReceived.toFixed(2)}</div>
+      <div>Change:</div>
+      <div>${change.toFixed(2)}</div>
+    </div>
+    
+    <div class="footer">
+      <div class="thank-you">Thank You!</div>
+      <div>For more info, visit us at www.posbusiness.com</div>
+    </div>
+    
+    <div class="qr-section">
+      <div class="qr-label">Scan for Details</div>
+      ${qrCodeDataUrl && qrCodeDataUrl.length > 100 ? 
+        `<div style="margin: 10px 0; text-align: center;">
+           <img src="${qrCodeDataUrl}" width="120" height="120" class="qr-code-img" alt="Receipt QR Code" 
+                style="max-width: 120px; height: auto; width: 120px; height: 120px; margin: 10px auto; display: block; border: 1px solid #ccc; background: #f9f9f9;"
+                onerror="console.error('QR Code failed to load - Data URL length:', this.src?.length || 0); 
+                        console.error('QR Code Data URL preview:', this.src?.substring(0, 100) || 'No src'); 
+                        this.style.display='none'; 
+                        var errorDiv = this.parentNode.querySelector('.qr-error'); 
+                        if (errorDiv) errorDiv.style.display='block';
+                        console.log('QR Code onerror triggered - src length:', this.src?.length || 0);" 
+                onload="console.log('QR Code loaded successfully - src length:', this.src?.length || 0); 
+                        console.log('QR Code dimensions - naturalWidth:', this.naturalWidth, 'naturalHeight:', this.naturalHeight);" />
+           <div class="qr-error" style="font-size: 8px; color: #666; margin: 5px 0; display: none;">QR Code failed to load</div>
+         </div>` : 
+        `<div style="margin: 10px 0; text-align: center;">
+           <div style="font-size: 8px; color: #666;">
+             ${qrGenerationError ? 
+               `QR Code generation failed: ${qrGenerationError.substring(0, 50)}...` : 
+               'QR Code not available'}
+           </div>
+         </div>`}
+      <div style="font-size: 8px; margin-top: 5px;">Receipt #: ${transaction.receiptNumber || Date.now()}</div>
+    </div>
+  </body>
+</html>`;
     }
     
     
+    // Improved window handling to ensure proper QR code display
     receiptWindow.document.open();
     receiptWindow.document.write(receiptContent);
     receiptWindow.document.close();
-    receiptWindow.focus();
-    receiptWindow.print();
-    receiptWindow.close();
+    
+    // Wait for content to load before printing
+    receiptWindow.addEventListener('load', () => {
+      receiptWindow.focus();
+      // Small delay to ensure QR code image is fully rendered
+      setTimeout(() => {
+        receiptWindow.print();
+        // Don't close immediately to allow user to see the receipt
+        // receiptWindow.close();
+      }, 500);
+    });
     // Hide loading indicator
     this.hideLoadingIndicator();
   }
 
   // Print purchase receipt for a single transaction
-  static printPurchaseReceipt(transaction: any) {
+  static async printPurchaseReceipt(transaction: any) {
     // Show loading indicator
     this.showLoadingIndicator('Preparing print...');
     
+    // Generate QR code for the receipt
+    let qrCodeDataUrl = '';
+    let qrGenerationError = '';
+    try {
+      const receiptData = {
+        type: 'purchase',
+        orderNumber: transaction.orderNumber || 'PO-' + Date.now(),
+        date: new Date().toISOString(),
+        items: transaction.items,
+        supplier: transaction.supplier,
+        subtotal: transaction.subtotal,
+        discount: transaction.discount,
+        total: transaction.total,
+        paymentMethod: transaction.paymentMethod,
+        amountReceived: transaction.amountReceived,
+        change: transaction.change
+      };
+      
+      const qrCodeData = JSON.stringify(receiptData);
+      console.log('Print Purchase Receipt - Generating QR code with data length:', qrCodeData.length);
+      console.log('Print Purchase Receipt - QR Code Data:', qrCodeData); // Debug log
+      
+      // Generate QR code with better error handling
+      qrCodeDataUrl = await QRCode.toDataURL(qrCodeData, { 
+        width: 120, 
+        margin: 2,
+        errorCorrectionLevel: 'M',
+        type: 'image/png',
+        quality: 1,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      });
+      
+      console.log('Print Purchase Receipt - QR Code Data URL generated successfully, length:', qrCodeDataUrl.length);
+      console.log('Print Purchase Receipt - QR Code Data URL preview:', qrCodeDataUrl.substring(0, 100)); // Debug log
+    } catch (error) {
+      console.error('Print Purchase Receipt - Error generating QR code:', error);
+      qrGenerationError = error.message;
+      qrCodeDataUrl = ''; // Ensure it's empty on error
+    }
+    
+    console.log('Print Purchase Receipt - Final QR Code Data URL:', qrCodeDataUrl ? 'Present' : 'Empty');
+    console.log('Print Purchase Receipt - QR Generation Error:', qrGenerationError); // Debug log
+    
     // For mobile devices, use a more reliable printing approach
     if (this.isMobileDevice()) {
-      return this.printPurchaseReceiptMobile(transaction);
+      return this.printPurchaseReceiptMobile(transaction, qrCodeDataUrl);
     }
 
     const receiptWindow = window.open('', '_blank');
@@ -234,7 +434,7 @@ export class PrintUtils {
       // Hide loading indicator
       this.hideLoadingIndicator();
       // Fallback for popup blockers
-      this.printPurchaseReceiptFallback(transaction);
+      this.printPurchaseReceiptFallback(transaction, qrCodeDataUrl);
       return;
     }
     
@@ -354,459 +554,27 @@ export class PrintUtils {
                 font-weight: bold;
                 margin-bottom: 10px;
               }
-              .note {
-                font-size: 9px;
-                font-style: italic;
-                margin-top: 5px;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div class="business-name">POS BUSINESS</div>
-              <div class="business-info">123 Business St, City, Country</div>
-              <div class="business-info">Phone: (123) 456-7890</div>
-            </div>
-            
-            <div class="receipt-info">
-              <div>Purchase Order #: ${transaction.orderNumber || 'PO-' + Date.now()}</div>
-              <div>Date: ${new Date().toLocaleDateString()}</div>
-              <div>Time: ${new Date().toLocaleTimeString()}</div>
-            </div>
-            
-            ${transaction.supplier ? `
-            <div class="supplier-info" style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #000;">
-              <div class="total-row">
-                <div><strong>Supplier:</strong></div>
-                <div>${transaction.supplier.name}</div>
-              </div>
-              ${transaction.supplier.contactPerson ? `
-              <div class="total-row">
-                <div><strong>Contact:</strong></div>
-                <div>${transaction.supplier.contactPerson}</div>
-              </div>
-              ` : ''}
-            </div>
-            ` : ''}
-            
-            <div class="items">
-              ${formattedItems.map((item: any) => `
-                <div class="item">
-                  <div class="item-name">${item.name}</div>
-                  <div class="item-details">${item.quantity} x @ ${item.price.toFixed(2)}</div>
-                  <div class="item-total">${(item.price * item.quantity).toFixed(2)}</div>
-                </div>
-              `).join('')}
-            </div>
-            
-            <div class="totals">
-              <div class="total-row">
-                <div>Subtotal:</div>
-                <div>${subtotal.toFixed(2)}</div>
-              </div>
-              <div class="total-row">
-                <div>Tax (18% of subtotal):</div>
-                <div>${displayTax.toFixed(2)}</div>
-              </div>
-              ${discount > 0 ? `
-              <div class="total-row">
-                <div>Discount:</div>
-                <div>-${discount.toFixed(2)}</div>
-              </div>
-              ` : ''}
-              <div class="total-row final-total">
-                <div>TOTAL:</div>
-                <div>${total.toFixed(2)}</div>
-              </div>
-              <div class="note">Note: Tax is for display purposes only and not included in calculations</div>
-            </div>
-            
-            <div class="payment-info">
-              <div class="total-row">
-                <div>Payment Method:</div>
-                <div>${transaction.paymentMethod || 'Cash'}</div>
-              </div>
-              <div class="total-row">
-                <div>Amount Received:</div>
-                <div>${amountReceived.toFixed(2)}</div>
-              </div>
-              <div class="total-row">
-                <div>Change:</div>
-                <div>${change.toFixed(2)}</div>
-              </div>
-            </div>
-            
-            <div class="footer">
-              <div class="thank-you">Thank you for your business!</div>
-              <div>Items purchased are not returnable</div>
-              <div>Visit us again soon</div>
-            </div>
-          </body>
-        </html>
-      `;
-    }
-    
-    
-    receiptWindow.document.open();
-    receiptWindow.document.write(receiptContent);
-    receiptWindow.document.close();
-    receiptWindow.focus();
-    receiptWindow.print();
-    receiptWindow.close();
-    // Hide loading indicator
-    this.hideLoadingIndicator();
-  }
-
-  // Print receipt on mobile devices
-  static printReceiptMobile(transaction: any) {
-    // Show loading indicator
-    this.showLoadingIndicator('Preparing print...');
-    
-    try {
-      // Create a hidden iframe for printing
-      const printFrame = document.createElement('iframe');
-      printFrame.style.position = 'absolute';
-      printFrame.style.top = '-1000px';
-      printFrame.style.left = '-1000px';
-      document.body.appendChild(printFrame);
-      
-      const receiptContent = this.generateReceiptContent(transaction);
-      
-      const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
-      if (printDoc) {
-        printDoc.open();
-        printDoc.write(receiptContent);
-        printDoc.close();
-        
-        // Wait for content to load before printing
-        setTimeout(() => {
-          printFrame.contentWindow?.focus();
-          printFrame.contentWindow?.print();
-          // Remove the iframe after printing
-          setTimeout(() => {
-            document.body.removeChild(printFrame);
-            // Hide loading indicator
-            this.hideLoadingIndicator();
-          }, 1000);
-        }, 500);
-      } else {
-        // Fallback to simple method if iframe doesn't work
-        document.body.removeChild(printFrame);
-        this.printReceiptFallback(transaction);
-      }
-    } catch (error) {
-      console.error('Mobile print error:', error);
-      // Hide loading indicator
-      this.hideLoadingIndicator();
-      // Fallback to simple method
-      this.printReceiptFallback(transaction);
-    }
-  }
-
-  // Print purchase receipt on mobile devices
-  static printPurchaseReceiptMobile(transaction: any) {
-    // Show loading indicator
-    this.showLoadingIndicator('Preparing print...');
-    
-    try {
-      // Create a hidden iframe for printing
-      const printFrame = document.createElement('iframe');
-      printFrame.style.position = 'absolute';
-      printFrame.style.top = '-1000px';
-      printFrame.style.left = '-1000px';
-      document.body.appendChild(printFrame);
-      
-      const receiptContent = this.generatePurchaseReceiptContent(transaction);
-      
-      const printDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
-      if (printDoc) {
-        printDoc.open();
-        printDoc.write(receiptContent);
-        printDoc.close();
-        
-        // Wait for content to load before printing
-        setTimeout(() => {
-          printFrame.contentWindow?.focus();
-          printFrame.contentWindow?.print();
-          // Remove the iframe after printing
-          setTimeout(() => {
-            document.body.removeChild(printFrame);
-            // Hide loading indicator
-            this.hideLoadingIndicator();
-          }, 1000);
-        }, 500);
-      } else {
-        // Fallback to simple method if iframe doesn't work
-        document.body.removeChild(printFrame);
-        this.printPurchaseReceiptFallback(transaction);
-      }
-    } catch (error) {
-      console.error('Mobile print error:', error);
-      // Hide loading indicator
-      this.hideLoadingIndicator();
-      // Fallback to simple method
-      this.printPurchaseReceiptFallback(transaction);
-    }
-  }
-
-  // Fallback when popup blockers prevent window.open()
-  static printReceiptFallback(transaction: any) {
-    // Show loading indicator
-    this.showLoadingIndicator('Preparing print...');
-    
-    try {
-      // Create a print-specific window with only the receipt content
-      const receiptContent = this.generateReceiptContent(transaction);
-      
-      // Open a new window with receipt content only
-      const printWindow = window.open('', '_blank', 'width=400,height=600');
-      if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(receiptContent);
-        printWindow.document.close();
-        
-        // Wait for content to load before printing
-        setTimeout(() => {
-          printWindow.focus();
-          printWindow.print();
-          // Close the window after printing
-          setTimeout(() => {
-            printWindow.close();
-            // Hide loading indicator
-            this.hideLoadingIndicator();
-          }, 1000);
-        }, 500);
-      } else {
-        // Final fallback - temporarily replace page content
-        this.printReceiptFallbackSimple(transaction);
-      }
-    } catch (error) {
-      console.error('Fallback print error:', error);
-      // Hide loading indicator
-      this.hideLoadingIndicator();
-      // Final fallback - temporarily replace page content
-      this.printReceiptFallbackSimple(transaction);
-    }
-  }
-
-  // Fallback when popup blockers prevent window.open() for purchase receipt
-  static printPurchaseReceiptFallback(transaction: any) {
-    // Show loading indicator
-    this.showLoadingIndicator('Preparing print...');
-    
-    try {
-      // Create a print-specific window with only the receipt content
-      const receiptContent = this.generatePurchaseReceiptContent(transaction);
-      
-      // Open a new window with receipt content only
-      const printWindow = window.open('', '_blank', 'width=400,height=600');
-      if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(receiptContent);
-        printWindow.document.close();
-        
-        // Wait for content to load before printing
-        setTimeout(() => {
-          printWindow.focus();
-          printWindow.print();
-          // Close the window after printing
-          setTimeout(() => {
-            printWindow.close();
-            // Hide loading indicator
-            this.hideLoadingIndicator();
-          }, 1000);
-        }, 500);
-      } else {
-        // Final fallback - temporarily replace page content
-        this.printPurchaseReceiptFallbackSimple(transaction);
-      }
-    } catch (error) {
-      console.error('Fallback print error:', error);
-      // Hide loading indicator
-      this.hideLoadingIndicator();
-      // Final fallback - temporarily replace page content
-      this.printPurchaseReceiptFallbackSimple(transaction);
-    }
-  }
-
-  // Simple fallback that temporarily replaces page content (last resort)
-  static printReceiptFallbackSimple(transaction: any) {
-    try {
-      // Save original content
-      const originalContent = document.body.innerHTML;
-      
-      // Generate receipt content
-      const receiptContent = this.generateReceiptContent(transaction);
-      
-      // Replace page content with receipt
-      document.body.innerHTML = receiptContent;
-      
-      // Print
-      window.print();
-      
-      // Restore original content after a delay
-      setTimeout(() => {
-        document.body.innerHTML = originalContent;
-        // Hide loading indicator
-        this.hideLoadingIndicator();
-      }, 1000);
-    } catch (error) {
-      console.error('Simple fallback print error:', error);
-      // Hide loading indicator
-      this.hideLoadingIndicator();
-    }
-  }
-
-  // Simple fallback that temporarily replaces page content (last resort) for purchase receipts
-  static printPurchaseReceiptFallbackSimple(transaction: any) {
-    try {
-      // Save original content
-      const originalContent = document.body.innerHTML;
-      
-      // Generate receipt content
-      const receiptContent = this.generatePurchaseReceiptContent(transaction);
-      
-      // Replace page content with receipt
-      document.body.innerHTML = receiptContent;
-      
-      // Print
-      window.print();
-      
-      // Restore original content after a delay
-      setTimeout(() => {
-        document.body.innerHTML = originalContent;
-        // Hide loading indicator
-        this.hideLoadingIndicator();
-      }, 1000);
-    } catch (error) {
-      console.error('Simple fallback print error:', error);
-      // Hide loading indicator
-      this.hideLoadingIndicator();
-    }
-  }
-
-  static generateReceiptContent(transaction: any) {
-    // Get template configuration
-    const templateConfig = getTemplateConfig();
-    
-    let receiptContent;
-    
-    // Use custom template if enabled
-    if (templateConfig.customTemplate) {
-      receiptContent = generateCustomReceipt(transaction, templateConfig);
-    } else {
-      // Format items for receipt
-      const formattedItems = transaction.items.map((item: any) => {
-        const total = item.price * item.quantity;
-        return {
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          total: total
-        };
-      });
-      
-      // Calculate totals
-      const subtotal = transaction.subtotal || formattedItems.reduce((sum: number, item: any) => sum + item.total, 0);
-      const tax = transaction.tax || 0;
-      const discount = transaction.discount || 0;
-      const total = transaction.total || (subtotal + tax - discount);
-      const amountReceived = transaction.amountReceived || total;
-      const change = transaction.change || (amountReceived - total);
-      
-      receiptContent = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Receipt</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              @media print {
-                @page {
-                  margin: 0.5in; /* Desktop-specific margin */
-                  size: auto;
-                }
-                body {
-                  margin: 0.5in;
-                  padding: 0;
-                }
-              }
-              body {
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
-                max-width: 320px;
-                margin: 0 auto;
+              /* QR Code Styles */
+              .qr-section {
+                text-align: center;
+                margin: 15px 0;
                 padding: 10px;
-              }
-              .header {
-                text-align: center;
-                border-bottom: 1px dashed #000;
-                padding-bottom: 10px;
-                margin-bottom: 10px;
-              }
-              .business-name {
-                font-size: 16px;
-                font-weight: bold;
-                margin-bottom: 5px;
-              }
-              .business-info {
-                font-size: 10px;
-                margin-bottom: 5px;
-              }
-              .receipt-info {
-                display: flex;
-                justify-content: space-between;
-                font-size: 10px;
-                margin-bottom: 10px;
-              }
-              .items {
-                margin-bottom: 10px;
-              }
-              .item {
-                display: flex;
-                margin-bottom: 5px;
-              }
-              .item-name {
-                flex: 2;
-              }
-              .item-details {
-                flex: 1;
-                text-align: right;
-              }
-              .item-price::before {
-                content: "@ ";
-              }
-              .item-total {
-                font-weight: bold;
-              }
-              .totals {
                 border-top: 1px dashed #000;
-                padding-top: 10px;
-                margin-top: 10px;
               }
-              .total-row {
-                display: flex;
-                justify-content: space-between;
+              .qr-label {
+                font-size: 9px;
                 margin-bottom: 5px;
               }
-              .final-total {
-                font-weight: bold;
-                font-size: 14px;
-                margin: 10px 0;
+              .qr-code-img {
+                max-width: 120px;
+                height: auto;
+                margin: 10px auto;
+                display: block;
               }
-              .payment-info {
-                border-top: 1px dashed #000;
-                padding-top: 10px;
-                margin-top: 10px;
-              }
-              .footer {
-                text-align: center;
-                margin-top: 20px;
-                font-size: 10px;
-              }
-              .thank-you {
-                font-weight: bold;
-                margin-bottom: 10px;
+              .qr-error {
+                font-size: 8px;
+                color: #666;
+                margin: 5px 0;
               }
             </style>
           </head>
@@ -818,7 +586,7 @@ export class PrintUtils {
             </div>
             
             <div class="receipt-info">
-              <div>Receipt #: ${transaction.receiptNumber || Date.now()}</div>
+              <div>Order #: ${transaction.orderNumber || 'PO-' + Date.now()}</div>
               <div>Date: ${new Date().toLocaleDateString()}</div>
               <div>Time: ${new Date().toLocaleTimeString()}</div>
             </div>
@@ -839,8 +607,8 @@ export class PrintUtils {
                 <div>${subtotal.toFixed(2)}</div>
               </div>
               <div class="total-row">
-                <div>Tax:</div>
-                <div>${tax.toFixed(2)}</div>
+                <div>Tax (18%):</div>
+                <div>${displayTax.toFixed(2)}</div>
               </div>
               <div class="total-row">
                 <div>Discount:</div>
@@ -853,6 +621,8 @@ export class PrintUtils {
             </div>
             
             <div class="payment-info">
+              <div>Payment Method:</div>
+              <div>${transaction.paymentMethod}</div>
               <div>Amount Received:</div>
               <div>${amountReceived.toFixed(2)}</div>
               <div>Change:</div>
@@ -863,234 +633,122 @@ export class PrintUtils {
               <div class="thank-you">Thank You!</div>
               <div>For more info, visit us at www.posbusiness.com</div>
             </div>
-          </body>
-        </html>
-      `;
-    }
-    return receiptContent;
-  }
-
-  static generatePurchaseReceiptContent(transaction: any) {
-    // Get purchase template configuration
-    const templateConfig = getPurchaseTemplateConfig();
-    
-    let receiptContent;
-    
-    // Use custom template if enabled
-    if (templateConfig.customTemplate) {
-      receiptContent = generateCustomPurchaseReceipt(transaction, templateConfig);
-    } else {
-      // Format items for receipt
-      const formattedItems = transaction.items || [];
-      
-      // Calculate totals
-      const subtotal = transaction.subtotal || formattedItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
-      // Display only tax (18% of subtotal) - for informational purposes only
-      const displayTax = subtotal * 0.18;
-      const discount = transaction.discount || 0;
-      // Actual total calculation (tax not included in computation)
-      const total = transaction.total || (subtotal - discount);
-      const amountReceived = transaction.amountReceived || total;
-      const change = transaction.change || (amountReceived - total);
-      
-      receiptContent = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Purchase Receipt</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              @media print {
-                @page {
-                  margin: 0.5in; /* Desktop-specific margin */
-                  size: auto;
-                }
-                body {
-                  margin: 0.5in;
-                  padding: 0;
-                }
-              }
-              body {
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
-                max-width: 320px;
-                margin: 0 auto;
-                padding: 10px;
-              }
-              .header {
-                text-align: center;
-                border-bottom: 1px dashed #000;
-                padding-bottom: 10px;
-                margin-bottom: 10px;
-              }
-              .business-name {
-                font-size: 16px;
-                font-weight: bold;
-                margin-bottom: 5px;
-              }
-              .business-info {
-                font-size: 10px;
-                margin-bottom: 5px;
-              }
-              .receipt-info {
-                display: flex;
-                justify-content: space-between;
-                font-size: 10px;
-                margin-bottom: 10px;
-              }
-              .items {
-                margin-bottom: 10px;
-              }
-              .item {
-                display: flex;
-                margin-bottom: 5px;
-              }
-              .item-name {
-                flex: 2;
-              }
-              .item-details {
-                flex: 1;
-                text-align: right;
-              }
-              .item-price::before {
-                content: "@ ";
-              }
-              .item-total {
-                font-weight: bold;
-              }
-              .totals {
-                border-top: 1px dashed #000;
-                padding-top: 10px;
-                margin-top: 10px;
-              }
-              .total-row {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 5px;
-              }
-              .final-total {
-                font-weight: bold;
-                font-size: 14px;
-                margin: 10px 0;
-              }
-              .payment-info {
-                border-top: 1px dashed #000;
-                padding-top: 10px;
-                margin-top: 10px;
-              }
-              .footer {
-                text-align: center;
-                margin-top: 20px;
-                font-size: 10px;
-              }
-              .thank-you {
-                font-weight: bold;
-                margin-bottom: 10px;
-              }
-              .note {
-                font-size: 9px;
-                font-style: italic;
-                margin-top: 5px;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div class="business-name">POS BUSINESS</div>
-              <div class="business-info">123 Business St, City, Country</div>
-              <div class="business-info">Phone: (123) 456-7890</div>
-            </div>
             
-            <div class="receipt-info">
-              <div>Purchase Order #: ${transaction.orderNumber || 'PO-' + Date.now()}</div>
-              <div>Date: ${new Date(transaction.date || Date.now()).toLocaleDateString()}</div>
-              <div>Time: ${new Date(transaction.date || Date.now()).toLocaleTimeString()}</div>
-            </div>
-            
-            ${transaction.supplier ? `
-            <div class="supplier-info" style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #000;">
-              <div class="total-row">
-                <div><strong>Supplier:</strong></div>
-                <div>${transaction.supplier.name}</div>
-              </div>
-              ${transaction.supplier.contactPerson ? `
-              <div class="total-row">
-                <div><strong>Contact:</strong></div>
-                <div>${transaction.supplier.contactPerson}</div>
-              </div>
-              ` : ''}
-            </div>
-            ` : ''}
-            
-            <div class="items">
-              ${formattedItems.map((item: any) => `
-                <div class="item">
-                  <div class="item-name">${item.name}</div>
-                  <div class="item-details">${item.quantity} x @ ${item.price.toFixed(2)}</div>
-                  <div class="item-total">${(item.price * item.quantity).toFixed(2)}</div>
-                </div>
-              `).join('')}
-            </div>
-            
-            <div class="totals">
-              <div class="total-row">
-                <div>Subtotal:</div>
-                <div>${subtotal.toFixed(2)}</div>
-              </div>
-              <div class="total-row">
-                <div>Tax (18% of subtotal):</div>
-                <div>${displayTax.toFixed(2)}</div>
-              </div>
-              ${discount > 0 ? `
-              <div class="total-row">
-                <div>Discount:</div>
-                <div>-${discount.toFixed(2)}</div>
-              </div>
-              ` : ''}
-              <div class="total-row final-total">
-                <div>TOTAL:</div>
-                <div>${total.toFixed(2)}</div>
-              </div>
-              <div class="note">Note: Tax is for display purposes only and not included in calculations</div>
-            </div>
-            
-            <div class="payment-info">
-              <div class="total-row">
-                <div>Payment Method:</div>
-                <div>${transaction.paymentMethod || 'Cash'}</div>
-              </div>
-              <div class="total-row">
-                <div>Amount Received:</div>
-                <div>${amountReceived.toFixed(2)}</div>
-              </div>
-              <div class="total-row">
-                <div>Change:</div>
-                <div>${change.toFixed(2)}</div>
-              </div>
-            </div>
-            
-            <div class="footer">
-              <div class="thank-you">Thank you for your business!</div>
-              <div>Items purchased are not returnable</div>
-              <div>Visit us again soon</div>
+            <div class="qr-section">
+              <div class="qr-label">Scan for Details</div>
+              ${qrCodeDataUrl && qrCodeDataUrl.length > 100 ? 
+                `<div style="margin: 10px 0; text-align: center;">
+                   <img src="${qrCodeDataUrl}" width="120" height="120" class="qr-code-img" alt="Receipt QR Code" 
+                        style="max-width: 120px; height: auto; width: 120px; height: 120px; margin: 10px auto; display: block; border: 1px solid #ccc; background: #f9f9f9;"
+                        onerror="console.error('QR Code failed to load - Data URL length:', this.src?.length || 0); 
+                                console.error('QR Code Data URL preview:', this.src?.substring(0, 100) || 'No src'); 
+                                this.style.display='none'; 
+                                var errorDiv = this.parentNode.querySelector('.qr-error'); 
+                                if (errorDiv) errorDiv.style.display='block';
+                                console.log('QR Code onerror triggered - src length:', this.src?.length || 0);" 
+                        onload="console.log('QR Code loaded successfully - src length:', this.src?.length || 0); 
+                                console.log('QR Code dimensions - naturalWidth:', this.naturalWidth, 'naturalHeight:', this.naturalHeight);" />
+                   <div class="qr-error" style="font-size: 8px; color: #666; margin: 5px 0; display: none;">QR Code failed to load</div>
+                 </div>` : 
+                `<div style="margin: 10px 0; text-align: center;">
+                   <div style="font-size: 8px; color: #666;">
+                     ${qrGenerationError ? 
+                       `QR Code generation failed: ${qrGenerationError.substring(0, 50)}...` : 
+                       'QR Code not available'}
+                   </div>
+                 </div>`}
+              <div style="font-size: 8px; margin-top: 5px;">Order #: ${transaction.orderNumber || 'PO-' + Date.now()}</div>
             </div>
           </body>
         </html>
       `;
     }
-    return receiptContent;
+    
+    
+    // Improved window handling to ensure proper QR code display
+    receiptWindow.document.open();
+    receiptWindow.document.write(receiptContent);
+    receiptWindow.document.close();
+    
+    // Wait for content to load before printing
+    receiptWindow.addEventListener('load', () => {
+      receiptWindow.focus();
+      // Small delay to ensure QR code image is fully rendered
+      setTimeout(() => {
+        receiptWindow.print();
+        // Don't close immediately to allow user to see the receipt
+        // receiptWindow.close();
+      }, 500);
+    });
+    // Hide loading indicator
+    this.hideLoadingIndicator();
   }
 
-  // Print inventory report
-  static printInventoryReport(products: any[]) {
+  // Show loading indicator
+  static showLoadingIndicator(message: string) {
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.style.position = 'fixed';
+    loadingIndicator.style.top = '50%';
+    loadingIndicator.style.left = '50%';
+    loadingIndicator.style.transform = 'translate(-50%, -50%)';
+    loadingIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    loadingIndicator.style.color = '#fff';
+    loadingIndicator.style.padding = '10px';
+    loadingIndicator.style.borderRadius = '5px';
+    loadingIndicator.style.zIndex = '1000';
+    loadingIndicator.textContent = message;
+    document.body.appendChild(loadingIndicator);
+  }
+
+  // Hide loading indicator
+  static hideLoadingIndicator() {
+    const loadingIndicator = document.querySelector('div[style*="position: fixed; top: 50%; left: 50%;"]');
+    if (loadingIndicator) {
+      document.body.removeChild(loadingIndicator);
+    }
+  }
+
+  // Fallback method for printing on mobile devices
+  static printReceiptMobile(transaction: any, qrCodeDataUrl: string) {
+    console.log('Trying mobile print fallback...');
+    // For now, just call the regular print method
+    this.printReceipt(transaction);
+  }
+
+  // Fallback method for printing on mobile devices
+  static printPurchaseReceiptMobile(transaction: any, qrCodeDataUrl: string) {
+    console.log('Trying mobile print fallback for purchase...');
+    // For now, just call the regular print method
+    this.printPurchaseReceipt(transaction);
+  }
+
+  // Fallback method for printing when popup blockers are enabled
+  static printReceiptFallback(transaction: any, qrCodeDataUrl: string) {
+    console.log('Popup blocked, trying fallback print...');
+    // For now, just call the regular print method
+    this.printReceipt(transaction);
+  }
+
+  // Fallback method for printing when popup blockers are enabled
+  static printPurchaseReceiptFallback(transaction: any, qrCodeDataUrl: string) {
+    console.log('Popup blocked, trying fallback print for purchase...');
+    // For now, just call the regular print method
+    this.printPurchaseReceipt(transaction);
+  }
+
+  // Print purchase report
+  static printPurchaseReport(transactions: any[]) {
     const reportWindow = window.open('', '_blank');
     if (!reportWindow) return;
+    
+    const totalPurchases = transactions.reduce((sum, t) => sum + t.total, 0);
+    const totalTransactions = transactions.length;
     
     const reportContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Inventory Report</title>
+          <title>Purchase Report</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -1113,34 +771,47 @@ export class PrintUtils {
               text-align: center;
               margin-bottom: 20px;
             }
+            .summary {
+              margin: 20px 0;
+              padding: 15px;
+              background-color: #f9f9f9;
+              border-radius: 5px;
+            }
           </style>
         </head>
         <body>
           <div class="header">
-            <h1>Inventory Report</h1>
+            <h1>Purchase Report</h1>
             <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          </div>
+          
+          <div class="summary">
+            <h2>Summary</h2>
+            <p><strong>Total Purchases:</strong> $${totalPurchases.toFixed(2)}</p>
+            <p><strong>Total Transactions:</strong> ${totalTransactions}</p>
+            <p><strong>Average Transaction:</strong> $${(totalPurchases / totalTransactions).toFixed(2)}</p>
           </div>
           
           <table>
             <thead>
               <tr>
-                <th>Product Name</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>Cost</th>
-                <th>Stock</th>
-                <th>Barcode</th>
+                <th>Date</th>
+                <th>Transaction ID</th>
+                <th>Supplier</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              ${products.map((product: any) => `
+              ${transactions.map(transaction => `
                 <tr>
-                  <td>${product.name}</td>
-                  <td>${product.category}</td>
-                  <td>${product.price.toFixed(2)}</td>
-                  <td>${product.cost.toFixed(2)}</td>
-                  <td>${product.stock}</td>
-                  <td>${product.barcode || 'N/A'}</td>
+                  <td>${new Date(transaction.date).toLocaleDateString()}</td>
+                  <td>${transaction.id}</td>
+                  <td>${transaction.supplier}</td>
+                  <td>${transaction.items} items</td>
+                  <td>$${transaction.total.toFixed(2)}</td>
+                  <td>${transaction.status}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -1226,7 +897,7 @@ export class PrintUtils {
               </tr>
             </thead>
             <tbody>
-              ${transactions.map((transaction: any) => `
+              ${transactions.map(transaction => `
                 <tr>
                   <td>${new Date(transaction.date).toLocaleDateString()}</td>
                   <td>${transaction.id}</td>
@@ -1251,86 +922,303 @@ export class PrintUtils {
     }, 250);
   }
 
-  // Print purchase report
-  static printPurchaseReport(transactions: any[]) {
+  // Print financial report
+  static printFinancialReport(reportData: any) {
     const reportWindow = window.open('', '_blank');
     if (!reportWindow) return;
-    
-    const totalPurchases = transactions.reduce((sum, t) => sum + t.total, 0);
-    const totalTransactions = transactions.length;
     
     const reportContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Purchase Report</title>
+          <title>${reportData.title}</title>
           <style>
             body {
               font-family: Arial, sans-serif;
               margin: 20px;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 20px;
-            }
-            th, td {
-              border: 1px solid #ddd;
-              padding: 8px;
-              text-align: left;
-            }
-            th {
-              background-color: #f2f2f2;
+              color: #333;
             }
             .header {
               text-align: center;
+              border-bottom: 2px solid #333;
+              padding-bottom: 10px;
               margin-bottom: 20px;
             }
-            .summary {
+            .report-title {
+              font-size: 24px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .report-period {
+              font-size: 16px;
+              color: #666;
+              margin-bottom: 10px;
+            }
+            .report-data {
               margin: 20px 0;
-              padding: 15px;
-              background-color: #f9f9f9;
-              border-radius: 5px;
+            }
+            .data-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 8px 0;
+              border-bottom: 1px solid #eee;
+            }
+            .data-label {
+              font-weight: bold;
+            }
+            .data-value {
+              font-weight: bold;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 12px;
+              color: #999;
             }
           </style>
         </head>
         <body>
           <div class="header">
-            <h1>Purchase Report</h1>
+            <div class="report-title">${reportData.title}</div>
+            <div class="report-period">${reportData.period || 'Current Period'}</div>
+          </div>
+          
+          <div class="report-data">
+            ${reportData.data.map((item: any) => `
+              <div class="data-row">
+                <span class="data-label">${item.name}:</span>
+                <span class="data-value">$${item.value.toLocaleString()}</span>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div class="footer">
             <p>Generated on: ${new Date().toLocaleDateString()}</p>
+            <p>Confidential - For Internal Use Only</p>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    reportWindow.document.write(reportContent);
+    reportWindow.document.close();
+    reportWindow.focus();
+    
+    // Give time for content to load before printing
+    setTimeout(() => {
+      reportWindow.print();
+      reportWindow.close();
+    }, 250);
+  }
+
+  // Print income statement
+  static printIncomeStatement(data: any) {
+    const reportWindow = window.open('', '_blank');
+    if (!reportWindow) return;
+    
+    const reportContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Income Statement</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 20px;
+              color: #333;
+              font-size: 14px;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 20px;
+            }
+            .business-name {
+              font-size: 20px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .report-title {
+              font-size: 18px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .report-period {
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 20px;
+            }
+            .report-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 20px 0;
+            }
+            .report-table th {
+              text-align: left;
+              border-bottom: 1px solid #333;
+              padding: 8px 0;
+            }
+            .report-table td {
+              padding: 4px 0;
+            }
+            .text-right {
+              text-align: right;
+            }
+            .font-semibold {
+              font-weight: 600;
+            }
+            .font-bold {
+              font-weight: bold;
+            }
+            .pl-4 {
+              padding-left: 30px;
+            }
+            .border-b {
+              border-bottom: 1px solid #ccc;
+            }
+            .border-t-2 {
+              border-top: 2px solid #333;
+            }
+            .border-b-2 {
+              border-bottom: 2px solid #333;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 12px;
+              color: #999;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="business-name">${data.businessName}</div>
+            <div class="report-title">INCOME STATEMENT</div>
+            <div class="report-period">For the period ended ${data.period}</div>
           </div>
           
-          <div class="summary">
-            <h2>Summary</h2>
-            <p><strong>Total Purchases:</strong> $${totalPurchases.toFixed(2)}</p>
-            <p><strong>Total Transactions:</strong> ${totalTransactions}</p>
-            <p><strong>Average Transaction:</strong> $${(totalPurchases / totalTransactions).toFixed(2)}</p>
-          </div>
-          
-          <table>
+          <table class="report-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Transaction ID</th>
-                <th>Supplier</th>
-                <th>Items</th>
-                <th>Total</th>
-                <th>Status</th>
+                <th>Account</th>
+                <th class="text-right">Amount (TZS)</th>
               </tr>
             </thead>
             <tbody>
-              ${transactions.map((transaction: any) => `
-                <tr>
-                  <td>${new Date(transaction.date).toLocaleDateString()}</td>
-                  <td>${transaction.id}</td>
-                  <td>${transaction.supplier}</td>
-                  <td>${transaction.items} items</td>
-                  <td>$${transaction.total.toFixed(2)}</td>
-                  <td>${transaction.status}</td>
-                </tr>
-              `).join('')}
+              <tr>
+                <td class="font-semibold">Revenue / Sales</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="pl-4">Total Sales</td>
+                <td></td>
+                <td class="text-right">${data.revenue.totalSales.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="pl-4">Less: Sales Returns & Allowances</td>
+                <td class="text-right">(${data.revenue.salesReturns.toLocaleString()})</td>
+              </tr>
+              <tr>
+                <td class="pl-4 font-semibold border-b">Net Sales</td>
+                <td></td>
+                <td class="text-right font-semibold border-b">${data.revenue.netSales.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Cost of Goods Sold (COGS)</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="pl-4">Opening Stock</td>
+                <td></td>
+                <td class="text-right">${data.cogs.openingStock.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="pl-4">Add: Purchases</td>
+                <td></td>
+                <td class="text-right">${data.cogs.purchases.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="pl-4">Less: Closing Stock</td>
+                <td class="text-right">(${data.cogs.closingStock.toLocaleString()})</td>
+              </tr>
+              <tr>
+                <td class="pl-4 font-semibold border-b">Cost of Goods Sold</td>
+                <td></td>
+                <td class="text-right font-semibold border-b">${data.cogs.costOfGoodsSold.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Gross Profit</td>
+                <td></td>
+                <td class="text-right font-semibold">${data.grossProfit.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Operating Expenses:</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="pl-4">Salaries & Wages</td>
+                <td></td>
+                <td class="text-right">${data.operatingExpenses.salaries.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="pl-4">Rent Expense</td>
+                <td></td>
+                <td class="text-right">${data.operatingExpenses.rent.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="pl-4">Utilities (Electricity, Water, etc)</td>
+                <td></td>
+                <td class="text-right">${data.operatingExpenses.utilities.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="pl-4">Depreciation</td>
+                <td></td>
+                <td class="text-right">${data.operatingExpenses.depreciation.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="pl-4">Other Operating Expenses</td>
+                <td></td>
+                <td class="text-right">${data.operatingExpenses.other.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="pl-4 font-semibold border-b">Total Operating Expenses</td>
+                <td></td>
+                <td class="text-right font-semibold border-b">${data.operatingExpenses.total.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Operating Profit</td>
+                <td></td>
+                <td class="text-right font-semibold">${data.operatingProfit.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Other Income</td>
+                <td></td>
+                <td class="text-right">${data.otherIncome.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Other Expenses</td>
+                <td class="text-right">(${data.otherExpenses.toLocaleString()})</td>
+              </tr>
+              <tr>
+                <td class="font-semibold border-t">Profit Before Tax</td>
+                <td></td>
+                <td class="text-right font-semibold border-t">${data.profitBeforeTax.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">Income Tax</td>
+                <td class="text-right">(${data.incomeTax.toLocaleString()})</td>
+              </tr>
+              <tr>
+                <td class="font-bold border-t-2">NET PROFIT</td>
+                <td></td>
+                <td class="text-right font-bold border-t-2">${data.netProfit.toLocaleString()}</td>
+              </tr>
             </tbody>
           </table>
+          
+          <div class="footer">
+            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+            <p>Confidential - For Internal Use Only</p>
+          </div>
         </body>
       </html>
     `;
@@ -1505,184 +1393,5 @@ export class PrintUtils {
       reportWindow.print();
       reportWindow.close();
     }, 250);
-  }
-
-  // Print financial report
-  static printFinancialReport(reportData: any) {
-    const reportWindow = window.open('', '_blank');
-    if (!reportWindow) return;
-    
-    const reportContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${reportData.title}</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              margin: 20px;
-              color: #333;
-            }
-            .header {
-              text-align: center;
-              border-bottom: 2px solid #333;
-              padding-bottom: 10px;
-              margin-bottom: 20px;
-            }
-            .report-title {
-              font-size: 24px;
-              font-weight: bold;
-              margin-bottom: 5px;
-            }
-            .report-period {
-              font-size: 16px;
-              color: #666;
-              margin-bottom: 10px;
-            }
-            .report-data {
-              margin: 20px 0;
-            }
-            .data-row {
-              display: flex;
-              justify-content: space-between;
-              padding: 8px 0;
-              border-bottom: 1px solid #eee;
-            }
-            .data-label {
-              font-weight: bold;
-            }
-            .data-value {
-              font-weight: bold;
-            }
-            .footer {
-              margin-top: 30px;
-              text-align: center;
-              font-size: 12px;
-              color: #999;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="report-title">${reportData.title}</div>
-            <div class="report-period">${reportData.period || 'Current Period'}</div>
-          </div>
-          
-          <div class="report-data">
-            ${reportData.data.map((item: any) => `
-              <div class="data-row">
-                <span class="data-label">${item.name}:</span>
-                <span class="data-value">$${item.value.toLocaleString()}</span>
-              </div>
-            `).join('')}
-          </div>
-          
-          <div class="footer">
-            <p>Generated on: ${new Date().toLocaleDateString()}</p>
-            <p>Confidential - For Internal Use Only</p>
-          </div>
-        </body>
-      </html>
-    `;
-    
-    reportWindow.document.write(reportContent);
-    reportWindow.document.close();
-    reportWindow.focus();
-    
-    // Give time for content to load before printing
-    setTimeout(() => {
-      reportWindow.print();
-      reportWindow.close();
-    }, 250);
-  }
-
-  // Show loading indicator during print operations
-  static showLoadingIndicator(message: string = 'Processing...') {
-    // Remove any existing loading indicator
-    const existingIndicator = document.querySelector('#printLoadingIndicator');
-    if (existingIndicator) {
-      document.body.removeChild(existingIndicator);
-    }
-    
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.id = 'printLoadingIndicator';
-    loadingIndicator.style.position = 'fixed';
-    loadingIndicator.style.top = '0';
-    loadingIndicator.style.left = '0';
-    loadingIndicator.style.width = '100%';
-    loadingIndicator.style.height = '100%';
-    loadingIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    loadingIndicator.style.zIndex = '10002';
-    loadingIndicator.style.display = 'flex';
-    loadingIndicator.style.alignItems = 'center';
-    loadingIndicator.style.justifyContent = 'center';
-    
-    loadingIndicator.innerHTML = `
-      <div style="background: white; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <div style="display: inline-block; width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #28a745; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px;"></div>
-        <div>${message}</div>
-      </div>
-      <style>
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      </style>
-    `;
-    
-    document.body.appendChild(loadingIndicator);
-  }
-
-  // Hide loading indicator
-  static hideLoadingIndicator() {
-    const loadingIndicator = document.querySelector('#printLoadingIndicator');
-    if (loadingIndicator && document.body.contains(loadingIndicator)) {
-      // Add fade out effect
-      (loadingIndicator as HTMLElement).style.transition = 'opacity 0.3s ease';
-      (loadingIndicator as HTMLElement).style.opacity = '0';
-      setTimeout(() => {
-        if (document.body.contains(loadingIndicator)) {
-          document.body.removeChild(loadingIndicator);
-        }
-      }, 300);
-    }
-  }
-
-  // Show print error message
-  static showPrintError(transaction: any) {
-    const errorMessage = document.createElement('div');
-    errorMessage.id = 'printErrorMessage';
-    errorMessage.style.position = 'fixed';
-    errorMessage.style.top = '50%';
-    errorMessage.style.left = '50%';
-    errorMessage.style.transform = 'translate(-50%, -50%)';
-    errorMessage.style.backgroundColor = '#f8d7da';
-    errorMessage.style.color = '#721c24';
-    errorMessage.style.padding = '20px';
-    errorMessage.style.borderRadius = '5px';
-    errorMessage.style.zIndex = '10003';
-    errorMessage.style.fontSize = '16px';
-    errorMessage.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-    errorMessage.style.maxWidth = '90%';
-    errorMessage.style.textAlign = 'center';
-    errorMessage.innerHTML = `
-      <div style="margin-bottom: 15px; font-weight: bold;">Print Error</div>
-      <div style="margin-bottom: 15px;">Unable to print receipt. Please try again.</div>
-      <button id="closeError" style="padding: 8px 16px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">Close</button>
-    `;
-    document.body.appendChild(errorMessage);
-    
-    // Add event listener to close button
-    const closeBtn = errorMessage.querySelector('#closeError') as HTMLButtonElement;
-    closeBtn.addEventListener('click', () => {
-      document.body.removeChild(errorMessage);
-    });
-    
-    // Auto-hide error message after 5 seconds
-    setTimeout(() => {
-      if (document.body.contains(errorMessage)) {
-        document.body.removeChild(errorMessage);
-      }
-    }, 5000);
   }
 }

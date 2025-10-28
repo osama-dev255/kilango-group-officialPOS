@@ -84,17 +84,22 @@ export class PrintUtils {
     console.log('Print Receipt - Final QR Code URL:', qrCodeUrl ? 'Present' : 'Empty');
     console.log('Print Receipt - QR Generation Error:', qrGenerationError);
     
-    // For mobile devices, use a more reliable printing approach
+    // For mobile devices, use the mobile print approach
     if (this.isMobileDevice()) {
       return this.printReceiptMobile(transaction, qrCodeUrl);
     }
 
-    const receiptWindow = window.open('', '_blank');
-    if (!receiptWindow) {
-      // Hide loading indicator
+    // For desktop, use a hidden iframe approach to avoid window stacking
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.top = '-1000px';
+    printFrame.style.left = '-1000px';
+    document.body.appendChild(printFrame);
+    
+    const printDocument = printFrame.contentDocument || printFrame.contentWindow?.document;
+    if (!printDocument) {
       this.hideLoadingIndicator();
-      // Fallback for popup blockers
-      this.printReceiptFallback(transaction, qrCodeUrl);
+      console.error('Could not access print frame document');
       return;
     }
     
@@ -324,23 +329,36 @@ export class PrintUtils {
 </html>`;
     }
     
-    // Improved window handling to ensure proper QR code display
-    receiptWindow.document.open();
-    receiptWindow.document.write(receiptContent);
-    receiptWindow.document.close();
+    // Write content to iframe and print
+    printDocument.open();
+    printDocument.write(receiptContent);
+    printDocument.close();
     
     // Wait for content to load before printing
-    receiptWindow.addEventListener('load', () => {
-      receiptWindow.focus();
-      // Small delay to ensure QR code image is fully rendered
-      setTimeout(() => {
-        receiptWindow.print();
-        // Don't close immediately to allow user to see the receipt
-        // receiptWindow.close();
-      }, 500);
-    });
-    // Hide loading indicator
-    this.hideLoadingIndicator();
+    printFrame.onload = () => {
+      try {
+        printFrame.contentWindow?.focus();
+        printFrame.contentWindow?.print();
+      } catch (error) {
+        console.error('Error during printing:', error);
+      } finally {
+        // Clean up - remove iframe after a short delay to ensure printing started
+        setTimeout(() => {
+          if (printFrame.parentNode) {
+            printFrame.parentNode.removeChild(printFrame);
+          }
+          this.hideLoadingIndicator();
+        }, 1000);
+      }
+    };
+    
+    // Fallback cleanup in case onload doesn't fire
+    setTimeout(() => {
+      if (printFrame.parentNode) {
+        printFrame.parentNode.removeChild(printFrame);
+      }
+      this.hideLoadingIndicator();
+    }, 5000);
   }
 
   // Print purchase receipt for a single transaction
@@ -384,17 +402,22 @@ export class PrintUtils {
     console.log('Print Purchase Receipt - Final QR Code URL:', qrCodeUrl ? 'Present' : 'Empty');
     console.log('Print Purchase Receipt - QR Generation Error:', qrGenerationError);
     
-    // For mobile devices, use a more reliable printing approach
+    // For mobile devices, use the mobile print approach
     if (this.isMobileDevice()) {
       return this.printPurchaseReceiptMobile(transaction, qrCodeUrl);
     }
 
-    const receiptWindow = window.open('', '_blank');
-    if (!receiptWindow) {
-      // Hide loading indicator
+    // For desktop, use a hidden iframe approach to avoid window stacking
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.top = '-1000px';
+    printFrame.style.left = '-1000px';
+    document.body.appendChild(printFrame);
+    
+    const printDocument = printFrame.contentDocument || printFrame.contentWindow?.document;
+    if (!printDocument) {
       this.hideLoadingIndicator();
-      // Fallback for popup blockers
-      this.printPurchaseReceiptFallback(transaction, qrCodeUrl);
+      console.error('Could not access print frame document');
       return;
     }
     
@@ -622,23 +645,36 @@ export class PrintUtils {
       `;
     }
     
-    // Improved window handling to ensure proper QR code display
-    receiptWindow.document.open();
-    receiptWindow.document.write(receiptContent);
-    receiptWindow.document.close();
+    // Write content to iframe and print
+    printDocument.open();
+    printDocument.write(receiptContent);
+    printDocument.close();
     
     // Wait for content to load before printing
-    receiptWindow.addEventListener('load', () => {
-      receiptWindow.focus();
-      // Small delay to ensure QR code image is fully rendered
-      setTimeout(() => {
-        receiptWindow.print();
-        // Don't close immediately to allow user to see the receipt
-        // receiptWindow.close();
-      }, 500);
-    });
-    // Hide loading indicator
-    this.hideLoadingIndicator();
+    printFrame.onload = () => {
+      try {
+        printFrame.contentWindow?.focus();
+        printFrame.contentWindow?.print();
+      } catch (error) {
+        console.error('Error during printing:', error);
+      } finally {
+        // Clean up - remove iframe after a short delay to ensure printing started
+        setTimeout(() => {
+          if (printFrame.parentNode) {
+            printFrame.parentNode.removeChild(printFrame);
+          }
+          this.hideLoadingIndicator();
+        }, 1000);
+      }
+    };
+    
+    // Fallback cleanup in case onload doesn't fire
+    setTimeout(() => {
+      if (printFrame.parentNode) {
+        printFrame.parentNode.removeChild(printFrame);
+      }
+      this.hideLoadingIndicator();
+    }, 5000);
   }
 
   // Show loading indicator
@@ -667,16 +703,250 @@ export class PrintUtils {
 
   // Fallback method for printing on mobile devices
   static printReceiptMobile(transaction: any, qrCodeUrl: string) {
-    console.log('Trying mobile print fallback...');
-    // For now, just call the regular print method
-    this.printReceipt(transaction);
+    console.log('Using mobile print approach...');
+    
+    // Create a modal dialog for mobile printing with a clear print button
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    modal.style.zIndex = '10000';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    
+    // Get template configuration
+    const templateConfig = getTemplateConfig();
+    
+    let receiptContent;
+    
+    // Use custom template if enabled
+    if (templateConfig.customTemplate) {
+      receiptContent = generateCustomReceipt(transaction, templateConfig);
+    } else {
+      // Format items for receipt
+      const formattedItems = transaction.items.map((item: any) => {
+        const total = item.price * item.quantity;
+        return {
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: total
+        };
+      });
+      
+      // Calculate totals
+      const subtotal = transaction.subtotal || formattedItems.reduce((sum: number, item: any) => sum + item.total, 0);
+      const tax = transaction.tax || 0;
+      const discount = transaction.discount || 0;
+      const total = transaction.total || (subtotal + tax - discount);
+      const amountReceived = transaction.amountReceived || total;
+      const change = transaction.change || (amountReceived - total);
+      
+      // Simplified mobile receipt content
+      receiptContent = `
+        <div style="background: white; padding: 20px; border-radius: 10px; max-width: 90%; max-height: 80%; overflow-y: auto;">
+          <h2 style="text-align: center; margin-bottom: 20px;">Receipt Preview</h2>
+          <div style="font-family: monospace; font-size: 14px;">
+            <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 18px;">POS BUSINESS</div>
+              <div style="font-size: 12px;">123 Business St, City, Country</div>
+              <div style="font-size: 12px;">Phone: (123) 456-7890</div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px;">
+              <div>Receipt #: ${transaction.receiptNumber || Date.now()}</div>
+              <div>${new Date().toLocaleDateString()}</div>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              ${formattedItems.map((item: any) => `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                  <div>${item.name} (${item.quantity})</div>
+                  <div>${item.total.toFixed(2)}</div>
+                </div>
+              `).join('')}
+            </div>
+            
+            <div style="border-top: 1px dashed #000; padding-top: 10px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <div>Subtotal:</div>
+                <div>${subtotal.toFixed(2)}</div>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <div>Tax:</div>
+                <div>${tax.toFixed(2)}</div>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <div>Discount:</div>
+                <div>${discount.toFixed(2)}</div>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px;">
+                <div>Total:</div>
+                <div>${total.toFixed(2)}</div>
+              </div>
+            </div>
+            
+            <div style="text-align: center; margin: 15px 0;">
+              <div style="font-size: 12px; margin-bottom: 10px;">Scan for Details</div>
+              ${qrCodeUrl ? 
+                `<img src="${qrCodeUrl}" style="width: 120px; height: 120px; margin: 0 auto; display: block;" alt="Receipt QR Code" />` : 
+                `<div style="font-size: 10px; color: #666;">QR Code not available</div>`}
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button id="cancelPrint" style="flex: 1; padding: 12px; background: #ccc; border: none; border-radius: 5px; font-size: 16px;">Cancel</button>
+            <button id="confirmPrint" style="flex: 1; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 5px; font-size: 16px;">Print Receipt</button>
+          </div>
+        </div>
+      `;
+    }
+    
+    modal.innerHTML = receiptContent;
+    document.body.appendChild(modal);
+    
+    // Add event listeners
+    const confirmBtn = modal.querySelector('#confirmPrint');
+    const cancelBtn = modal.querySelector('#cancelPrint');
+    
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => {
+        // Use the standard print method for mobile
+        this.printReceipt(transaction);
+        document.body.removeChild(modal);
+      });
+    }
+    
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+      });
+    }
   }
 
   // Fallback method for printing on mobile devices
   static printPurchaseReceiptMobile(transaction: any, qrCodeUrl: string) {
-    console.log('Trying mobile print fallback for purchase...');
-    // For now, just call the regular print method
-    this.printPurchaseReceipt(transaction);
+    console.log('Using mobile print approach for purchase receipt...');
+    
+    // Create a modal dialog for mobile printing with a clear print button
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    modal.style.zIndex = '10000';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    
+    // Get purchase template configuration
+    const templateConfig = getPurchaseTemplateConfig();
+    
+    let receiptContent;
+    
+    // Use custom template if enabled
+    if (templateConfig.customTemplate) {
+      receiptContent = generateCustomPurchaseReceipt(transaction, templateConfig);
+    } else {
+      // Format items for receipt
+      const formattedItems = transaction.items || [];
+      
+      // Calculate totals
+      const subtotal = transaction.subtotal || formattedItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+      // Display only tax (18% of subtotal) - for informational purposes only
+      const displayTax = subtotal * 0.18;
+      const discount = transaction.discount || 0;
+      // Actual total calculation (tax not included in computation)
+      const total = transaction.total || (subtotal - discount);
+      const amountReceived = transaction.amountReceived || total;
+      const change = transaction.change || (amountReceived - total);
+      
+      // Simplified mobile receipt content
+      receiptContent = `
+        <div style="background: white; padding: 20px; border-radius: 10px; max-width: 90%; max-height: 80%; overflow-y: auto;">
+          <h2 style="text-align: center; margin-bottom: 20px;">Purchase Receipt Preview</h2>
+          <div style="font-family: monospace; font-size: 14px;">
+            <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 18px;">POS BUSINESS</div>
+              <div style="font-size: 12px;">123 Business St, City, Country</div>
+              <div style="font-size: 12px;">Phone: (123) 456-7890</div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px;">
+              <div>Order #: ${transaction.orderNumber || 'PO-' + Date.now()}</div>
+              <div>${new Date().toLocaleDateString()}</div>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+              ${formattedItems.map((item: any) => `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                  <div>${item.name} (${item.quantity})</div>
+                  <div>${item.total.toFixed(2)}</div>
+                </div>
+              `).join('')}
+            </div>
+            
+            <div style="border-top: 1px dashed #000; padding-top: 10px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <div>Subtotal:</div>
+                <div>${subtotal.toFixed(2)}</div>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <div>Tax (18%):</div>
+                <div>${displayTax.toFixed(2)}</div>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <div>Discount:</div>
+                <div>${discount.toFixed(2)}</div>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px;">
+                <div>Total:</div>
+                <div>${total.toFixed(2)}</div>
+              </div>
+            </div>
+            
+            <div style="text-align: center; margin: 15px 0;">
+              <div style="font-size: 12px; margin-bottom: 10px;">Scan for Details</div>
+              ${qrCodeUrl ? 
+                `<img src="${qrCodeUrl}" style="width: 120px; height: 120px; margin: 0 auto; display: block;" alt="Receipt QR Code" />` : 
+                `<div style="font-size: 10px; color: #666;">QR Code not available</div>`}
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button id="cancelPrint" style="flex: 1; padding: 12px; background: #ccc; border: none; border-radius: 5px; font-size: 16px;">Cancel</button>
+            <button id="confirmPrint" style="flex: 1; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 5px; font-size: 16px;">Print Receipt</button>
+          </div>
+        </div>
+      `;
+    }
+    
+    modal.innerHTML = receiptContent;
+    document.body.appendChild(modal);
+    
+    // Add event listeners
+    const confirmBtn = modal.querySelector('#confirmPrint');
+    const cancelBtn = modal.querySelector('#cancelPrint');
+    
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => {
+        // Use the standard print method for mobile
+        this.printPurchaseReceipt(transaction);
+        document.body.removeChild(modal);
+      });
+    }
+    
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+      });
+    }
   }
 
   // Fallback method for printing when popup blockers are enabled

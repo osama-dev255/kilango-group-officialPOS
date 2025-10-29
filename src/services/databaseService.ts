@@ -1880,3 +1880,216 @@ export const searchProducts = async (query: string, filters?: {
     return [];
   }
 };
+
+// Sales Analytics Functions
+export const getSalesAnalytics = async (days: number = 30): Promise<any> => {
+  try {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    // Fetch sales data for the specified period
+    const { data: sales, error: salesError } = await supabase
+      .from('sales')
+      .select('*')
+      .gte('sale_date', startDate.toISOString())
+      .order('sale_date', { ascending: true });
+    
+    if (salesError) throw salesError;
+    
+    // Fetch sale items with product information
+    const { data: saleItems, error: itemsError } = await supabase
+      .from('sale_items')
+      .select(`
+        *,
+        products (name, category_id),
+        sales (sale_date)
+      `)
+      .gte('sales.sale_date', startDate.toISOString());
+    
+    if (itemsError) throw itemsError;
+    
+    // Fetch categories
+    const { data: categories, error: categoriesError } = await supabase
+      .from('categories')
+      .select('*');
+    
+    if (categoriesError) throw categoriesError;
+    
+    return {
+      sales,
+      saleItems,
+      categories
+    };
+  } catch (error) {
+    console.error('Error fetching sales analytics data:', error);
+    return {
+      sales: [],
+      saleItems: [],
+      categories: []
+    };
+  }
+};
+
+// Get sales data grouped by date for charting
+export const getDailySales = async (days: number = 30): Promise<any[]> => {
+  try {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    const { data, error } = await supabase
+      .from('sales')
+      .select('sale_date, total_amount')
+      .gte('sale_date', startDate.toISOString())
+      .order('sale_date', { ascending: true });
+    
+    if (error) throw error;
+    
+    // Group by date and calculate totals
+    const dailySales: { [key: string]: { sales: number; transactions: number } } = {};
+    
+    data.forEach(sale => {
+      const date = new Date(sale.sale_date).toISOString().split('T')[0];
+      if (!dailySales[date]) {
+        dailySales[date] = { sales: 0, transactions: 0 };
+      }
+      dailySales[date].sales += sale.total_amount;
+      dailySales[date].transactions += 1;
+    });
+    
+    // Convert to array format for charts
+    return Object.keys(dailySales).map(date => ({
+      name: formatDate(new Date(date)),
+      sales: dailySales[date].sales,
+      transactions: dailySales[date].transactions
+    }));
+  } catch (error) {
+    console.error('Error fetching daily sales:', error);
+    return [];
+  }
+};
+
+// Get category performance data
+export const getCategoryPerformance = async (): Promise<any[]> => {
+  try {
+    // Fetch sale items with product and category information
+    const { data: saleItems, error } = await supabase
+      .from('sale_items')
+      .select(`
+        quantity,
+        total_price,
+        products (category_id),
+        sales (sale_date)
+      `)
+      .gte('sales.sale_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()); // Last 30 days
+    
+    if (error) throw error;
+    
+    // Fetch categories
+    const { data: categories, error: categoriesError } = await supabase
+      .from('categories')
+      .select('*');
+    
+    if (categoriesError) throw categoriesError;
+    
+    // Group by category and calculate totals
+    const categorySales: { [key: string]: { sales: number; quantity: number } } = {};
+    
+    saleItems.forEach(item => {
+      const categoryId = item.products?.category_id;
+      if (categoryId) {
+        if (!categorySales[categoryId]) {
+          categorySales[categoryId] = { sales: 0, quantity: 0 };
+        }
+        categorySales[categoryId].sales += item.total_price;
+        categorySales[categoryId].quantity += item.quantity;
+      }
+    });
+    
+    // Convert to array format
+    return categories.map(category => ({
+      name: category.name,
+      sales: categorySales[category.id]?.sales || 0,
+      growth: calculateGrowth(categorySales[category.id]?.sales || 0, 0), // Simplified growth calculation
+    }));
+  } catch (error) {
+    console.error('Error fetching category performance:', error);
+    return [];
+  }
+};
+
+// Get product performance data
+export const getProductPerformance = async (limit: number = 10): Promise<any[]> => {
+  try {
+    // Fetch sale items with product information
+    const { data: saleItems, error } = await supabase
+      .from('sale_items')
+      .select(`
+        quantity,
+        total_price,
+        products (name, category_id),
+        sales (sale_date)
+      `)
+      .gte('sales.sale_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()); // Last 30 days
+    
+    if (error) throw error;
+    
+    // Group by product and calculate totals
+    const productSales: { [key: string]: { name: string; category_id: string; sales: number; quantity: number } } = {};
+    
+    saleItems.forEach(item => {
+      if (item.products) {
+        const productId = item.product_id;
+        if (!productSales[productId]) {
+          productSales[productId] = {
+            name: item.products.name,
+            category_id: item.products.category_id,
+            sales: 0,
+            quantity: 0
+          };
+        }
+        productSales[productId].sales += item.total_price;
+        productSales[productId].quantity += item.quantity;
+      }
+    });
+    
+    // Convert to array, sort by sales, and limit
+    const sortedProducts = Object.values(productSales)
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, limit);
+    
+    // Add category names
+    const { data: categories, error: categoriesError } = await supabase
+      .from('categories')
+      .select('*');
+    
+    if (categoriesError) throw categoriesError;
+    
+    const categoryMap = categories.reduce((map, category) => {
+      map[category.id] = category.name;
+      return map;
+    }, {} as { [key: string]: string });
+    
+    return sortedProducts.map(product => ({
+      name: product.name,
+      category: categoryMap[product.category_id] || 'Unknown',
+      sales: product.sales,
+      quantity: product.quantity,
+      growth: calculateGrowth(product.sales, 0) // Simplified growth calculation
+    }));
+  } catch (error) {
+    console.error('Error fetching product performance:', error);
+    return [];
+  }
+};
+
+// Helper function to format dates
+const formatDate = (date: Date): string => {
+  return date.toLocaleDateString('en-US', { weekday: 'short' });
+};
+
+// Helper function to calculate growth percentage
+const calculateGrowth = (current: number, previous: number): number => {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return ((current - previous) / previous) * 100;
+};
+

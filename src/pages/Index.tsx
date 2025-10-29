@@ -32,10 +32,9 @@ import { IncomeStatement } from "@/pages/IncomeStatement";
 import { Settings } from "@/pages/Settings";
 import { AutomatedDashboard } from "@/pages/AutomatedDashboard";
 import { SplashScreen } from "@/components/SplashScreen";
-import { TestDataDisplay } from "@/testDataDisplay";
 import { useAuth } from "@/contexts/AuthContext";
 
-type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "sales-orders" | "test-sales-orders" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "spending-analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "purchase-transactions" | "purchase-reports" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "comprehensive" | "reports" | "financial-reports" | "income-statement" | "settings" | "automated" | "test-data";
+type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "sales-orders" | "test-sales-orders" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "spending-analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "purchase-transactions" | "purchase-reports" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "comprehensive" | "reports" | "financial-reports" | "income-statement" | "settings" | "automated";
 
 const Index = () => {
   const { user, login } = useAuth();
@@ -87,9 +86,6 @@ const Index = () => {
         break;
       case "test-sales-orders":
         setCurrentView("test-sales-orders");
-        break;
-      case "test-data":
-        setCurrentView("test-data");
         break;
       case "inventory":
       case "products":
@@ -558,11 +554,6 @@ const Index = () => {
                 onBack={handleBack}
                 onLogout={handleLogout}
               />
-            );
-          case "test-data":
-            console.log("Rendering TestDataDisplay");
-            return (
-              <TestDataDisplay />
             );
           default:
             console.log("Rendering default fallback for:", currentView);

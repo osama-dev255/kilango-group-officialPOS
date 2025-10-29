@@ -34,7 +34,7 @@ import { AutomatedDashboard } from "@/pages/AutomatedDashboard";
 import { SplashScreen } from "@/components/SplashScreen";
 import { useAuth } from "@/contexts/AuthContext";
 
-type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "sales-orders" | "test-sales-orders" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "spending-analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "purchase-transactions" | "purchase-reports" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "comprehensive" | "reports" | "financial-reports" | "income-statement" | "settings" | "automated";
+type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "sales-orders" | "test-sales-orders" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "sales-analytics" | "spending-analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "purchase-transactions" | "purchase-reports" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "comprehensive" | "reports" | "financial-reports" | "income-statement" | "settings" | "automated";
 
 const Index = () => {
   const { user, login } = useAuth();
@@ -105,7 +105,7 @@ const Index = () => {
         setCurrentView("transactions");
         break;
       case "analytics":
-        setCurrentView("spending-analytics");
+        setCurrentView("sales-analytics");
         break;
       case "employees":
         setCurrentView("employees");
@@ -201,6 +201,9 @@ const Index = () => {
         setCurrentView("sales");
         break;
       case "analytics":
+      case "sales-analytics":
+        setCurrentView("sales");
+        break;
       case "spending-analytics":
         setCurrentView("purchase");
         break;
@@ -364,6 +367,15 @@ const Index = () => {
               />
             );
           case "analytics":
+          case "sales-analytics":
+            console.log("Rendering SalesAnalytics");
+            return (
+              <SalesAnalytics
+                username={user?.email || "admin"}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
           case "spending-analytics":
             console.log("Rendering SpendingAnalytics");
             return (

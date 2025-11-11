@@ -201,6 +201,18 @@ export interface Return {
   updated_at?: string;
 }
 
+export interface ReturnItem {
+  id?: string;
+  return_id: string;
+  sale_item_id?: string;
+  product_id?: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  reason?: string;
+  created_at?: string;
+}
+
 export interface InventoryAudit {
   id?: string;
   product_id?: string;
@@ -211,6 +223,53 @@ export interface InventoryAudit {
   difference: number;
   reason?: string;
   notes?: string;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AccessLog {
+  id?: string;
+  user_id?: string;
+  action: string;
+  description?: string;
+  ip_address?: string;
+  user_agent?: string;
+  created_at?: string;
+}
+
+export interface DamagedProduct {
+  id?: string;
+  product_id?: string;
+  user_id?: string;
+  quantity: number;
+  reason?: string;
+  date_reported?: string;
+  status: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DiscountCategory {
+  discount_id: string;
+  category_id: string;
+}
+
+export interface DiscountProduct {
+  discount_id: string;
+  product_id: string;
+}
+
+export interface Report {
+  id?: string;
+  user_id?: string;
+  report_type: string;
+  title: string;
+  description?: string;
+  start_date?: string;
+  end_date?: string;
+  file_url?: string;
   status: string;
   created_at?: string;
   updated_at?: string;
@@ -273,6 +332,70 @@ export const getUsers = async (): Promise<User[]> => {
   }
 };
 
+export const getUserById = async (id: string): Promise<User | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error fetching user by ID:', error);
+    return null;
+  }
+};
+
+export const createUser = async (user: Omit<User, 'id'>): Promise<User | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .insert([{ ...user, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return null;
+  }
+};
+
+export const updateUser = async (id: string, user: Partial<User>): Promise<User | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ ...user, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return null;
+  }
+};
+
+export const deleteUser = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return false;
+  }
+};
+
 // Product CRUD operations
 export const getProducts = async (): Promise<Product[]> => {
   try {
@@ -288,6 +411,8 @@ export const getProducts = async (): Promise<Product[]> => {
     return [];
   }
 };
+
+
 
 // Enhanced getProductById with better error handling
 export const getProductById = async (id: string): Promise<Product | null> => {
@@ -1079,9 +1204,37 @@ export const getSaleById = async (id: string): Promise<Sale | null> => {
 
 export const createSale = async (sale: Omit<Sale, 'id'>): Promise<Sale | null> => {
   try {
+    // Get the current user ID from Supabase auth
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // If user is authenticated, check if they exist in the users table
+    let userId = sale.user_id || null;
+    if (user) {
+      // Check if the user exists in the users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+      
+      // If user exists in the users table, use their ID
+      if (userData && !userError) {
+        userId = user.id;
+      }
+    }
+    
+    // Add the user_id to the sale data
+    const saleWithUser = {
+      ...sale,
+      user_id: userId,
+      sale_date: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
     const { data, error } = await supabase
       .from('sales')
-      .insert([{ ...sale, sale_date: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+      .insert([saleWithUser])
       .select()
       .single();
       
@@ -1995,7 +2148,9 @@ export const getCategoryPerformance = async (): Promise<any[]> => {
     const categorySales: { [key: string]: { sales: number; quantity: number } } = {};
     
     saleItems.forEach(item => {
-      const categoryId = item.products?.category_id;
+      // item.products is an array, get the first element
+      const product = item.products && item.products.length > 0 ? item.products[0] : null;
+      const categoryId = product?.category_id;
       if (categoryId) {
         if (!categorySales[categoryId]) {
           categorySales[categoryId] = { sales: 0, quantity: 0 };
@@ -2026,6 +2181,7 @@ export const getProductPerformance = async (limit: number = 10): Promise<any[]> 
       .select(`
         quantity,
         total_price,
+        product_id,
         products (name, category_id),
         sales (sale_date)
       `)
@@ -2038,11 +2194,15 @@ export const getProductPerformance = async (limit: number = 10): Promise<any[]> 
     
     saleItems.forEach(item => {
       if (item.products) {
+        // Get the product ID from the item
+        // In the joined query result, product_id is directly on the item
         const productId = item.product_id;
         if (!productSales[productId]) {
+          // item.products is an array, get the first element
+          const product = item.products && item.products.length > 0 ? item.products[0] : null;
           productSales[productId] = {
-            name: item.products.name,
-            category_id: item.products.category_id,
+            name: product?.name || 'Unknown',
+            category_id: product?.category_id || null,
             sales: 0,
             quantity: 0
           };
@@ -2091,5 +2251,417 @@ const formatDate = (date: Date): string => {
 const calculateGrowth = (current: number, previous: number): number => {
   if (previous === 0) return current > 0 ? 100 : 0;
   return ((current - previous) / previous) * 100;
+};
+
+// Access Logs CRUD operations
+export const getAccessLogs = async (): Promise<AccessLog[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('access_logs')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching access logs:', error);
+    return [];
+  }
+};
+
+export const getAccessLogById = async (id: string): Promise<AccessLog | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('access_logs')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error fetching access log:', error);
+    return null;
+  }
+};
+
+export const createAccessLog = async (accessLog: Omit<AccessLog, 'id'>): Promise<AccessLog | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('access_logs')
+      .insert([{ ...accessLog, created_at: new Date().toISOString() }])
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error creating access log:', error);
+    return null;
+  }
+};
+
+export const updateAccessLog = async (id: string, accessLog: Partial<AccessLog>): Promise<AccessLog | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('access_logs')
+      .update({ ...accessLog, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error updating access log:', error);
+    return null;
+  }
+};
+
+export const deleteAccessLog = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('access_logs')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting access log:', error);
+    return false;
+  }
+};
+
+// Damaged Products CRUD operations
+export const getDamagedProducts = async (): Promise<DamagedProduct[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('damaged_products')
+      .select('*')
+      .order('date_reported', { ascending: false });
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching damaged products:', error);
+    return [];
+  }
+};
+
+export const getDamagedProductById = async (id: string): Promise<DamagedProduct | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('damaged_products')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error fetching damaged product:', error);
+    return null;
+  }
+};
+
+export const createDamagedProduct = async (damagedProduct: Omit<DamagedProduct, 'id'>): Promise<DamagedProduct | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('damaged_products')
+      .insert([{ ...damagedProduct, date_reported: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error creating damaged product:', error);
+    return null;
+  }
+};
+
+export const updateDamagedProduct = async (id: string, damagedProduct: Partial<DamagedProduct>): Promise<DamagedProduct | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('damaged_products')
+      .update({ ...damagedProduct, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error updating damaged product:', error);
+    return null;
+  }
+};
+
+export const deleteDamagedProduct = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('damaged_products')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting damaged product:', error);
+    return false;
+  }
+};
+
+// Discount Categories CRUD operations
+export const getDiscountCategories = async (): Promise<DiscountCategory[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('discount_categories')
+      .select('*');
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching discount categories:', error);
+    return [];
+  }
+};
+
+export const createDiscountCategory = async (discountCategory: DiscountCategory): Promise<DiscountCategory | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('discount_categories')
+      .insert([discountCategory])
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error creating discount category:', error);
+    return null;
+  }
+};
+
+export const deleteDiscountCategory = async (discountId: string, categoryId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('discount_categories')
+      .delete()
+      .match({ discount_id: discountId, category_id: categoryId });
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting discount category:', error);
+    return false;
+  }
+};
+
+// Discount Products CRUD operations
+export const getDiscountProducts = async (): Promise<DiscountProduct[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('discount_products')
+      .select('*');
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching discount products:', error);
+    return [];
+  }
+};
+
+export const createDiscountProduct = async (discountProduct: DiscountProduct): Promise<DiscountProduct | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('discount_products')
+      .insert([discountProduct])
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error creating discount product:', error);
+    return null;
+  }
+};
+
+export const deleteDiscountProduct = async (discountId: string, productId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('discount_products')
+      .delete()
+      .match({ discount_id: discountId, product_id: productId });
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting discount product:', error);
+    return false;
+  }
+};
+
+// Reports CRUD operations
+export const getReports = async (): Promise<Report[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('reports')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching reports:', error);
+    return [];
+  }
+};
+
+export const getReportById = async (id: string): Promise<Report | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('reports')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error fetching report:', error);
+    return null;
+  }
+};
+
+export const createReport = async (report: Omit<Report, 'id'>): Promise<Report | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('reports')
+      .insert([{ ...report, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error creating report:', error);
+    return null;
+  }
+};
+
+export const updateReport = async (id: string, report: Partial<Report>): Promise<Report | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('reports')
+      .update({ ...report, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error updating report:', error);
+    return null;
+  }
+};
+
+export const deleteReport = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('reports')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting report:', error);
+    return false;
+  }
+};
+
+// Return Items CRUD operations
+export const getReturnItems = async (returnId: string): Promise<ReturnItem[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('return_items')
+      .select('*')
+      .eq('return_id', returnId);
+      
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching return items:', error);
+    return [];
+  }
+};
+
+export const getReturnItemById = async (id: string): Promise<ReturnItem | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('return_items')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error fetching return item:', error);
+    return null;
+  }
+};
+
+export const createReturnItem = async (returnItem: Omit<ReturnItem, 'id'>): Promise<ReturnItem | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('return_items')
+      .insert([returnItem])
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error creating return item:', error);
+    return null;
+  }
+};
+
+export const updateReturnItem = async (id: string, returnItem: Partial<ReturnItem>): Promise<ReturnItem | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('return_items')
+      .update(returnItem)
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return data || null;
+  } catch (error) {
+    console.error('Error updating return item:', error);
+    return null;
+  }
+};
+
+export const deleteReturnItem = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('return_items')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting return item:', error);
+    return false;
+  }
 };
 

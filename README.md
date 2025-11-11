@@ -34,6 +34,23 @@ This is a fully-featured Point of Sale (POS) system built with modern web techno
 - **Inventory Tracking**: Real-time stock levels and low stock alerts
 - **Multi-Device Support**: Responsive design for desktops, tablets, and mobile devices
 
+## Sales Permission System
+
+This POS system implements a restricted sales access system that only allows authorized personnel to register sales:
+
+### Key Features
+- **Role-Based Access Control**: Only users with roles 'salesman' or 'admin' can create sales
+- **Database-Level Security**: Row Level Security (RLS) policies in Supabase enforce access control
+- **Automatic User Association**: All sales are automatically linked to the creating user
+- **Comprehensive Documentation**: Implementation details in `SALES_PERMISSION_IMPLEMENTATION.md`
+
+### Implementation
+1. RLS policies in `RESTRICTED_SALES_RLS_POLICIES.sql` restrict database access
+2. Application-level authentication ensures only authorized users can access sales functions
+3. Utility functions in `src/utils/salesPermissionUtils.ts` provide permission checking
+
+For detailed implementation information, see [SALES_PERMISSION_IMPLEMENTATION.md](SALES_PERMISSION_IMPLEMENTATION.md).
+
 ## Supabase Integration
 
 This project now includes Supabase integration for real-time data persistence and authentication. To set up Supabase:

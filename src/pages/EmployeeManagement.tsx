@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Search, Plus, Edit, Trash2, User, Shield, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  getUsers, 
+  getUserById, 
+  createUser, 
+  updateUser, 
+  deleteUser 
+} from "@/services/databaseService";
 
 interface Employee {
   id: string;
@@ -46,47 +53,8 @@ const permissionsList = [
 ];
 
 export const EmployeeManagement = ({ username, onBack, onLogout }: { username: string; onBack: () => void; onLogout: () => void }) => {
-  const [employees, setEmployees] = useState<Employee[]>([
-    {
-      id: "1",
-      name: "John Admin",
-      email: "admin@pos.com",
-      role: "admin",
-      status: "active",
-      hireDate: "2023-01-15",
-      lastLogin: "2023-05-18 14:30",
-      permissions: permissionsList
-    },
-    {
-      id: "2",
-      name: "Sarah Manager",
-      email: "manager@pos.com",
-      role: "manager",
-      status: "active",
-      hireDate: "2023-02-20",
-      lastLogin: "2023-05-18 11:15",
-      permissions: ["manage_products", "process_sales", "view_reports", "manage_customers", "manage_inventory"]
-    },
-    {
-      id: "3",
-      name: "Mike Cashier",
-      email: "cashier@pos.com",
-      role: "cashier",
-      status: "active",
-      hireDate: "2023-03-10",
-      permissions: ["process_sales"]
-    },
-    {
-      id: "4",
-      name: "Lisa Staff",
-      email: "staff@pos.com",
-      role: "staff",
-      status: "inactive",
-      hireDate: "2023-04-05",
-      permissions: ["process_sales"]
-    }
-  ]);
-  
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -100,7 +68,44 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
   });
   const { toast } = useToast();
 
-  const handleAddEmployee = () => {
+  // Load employees from database
+  useEffect(() => {
+    const loadEmployees = async () => {
+      try {
+        setLoading(true);
+        const userData = await getUsers();
+        
+        // Transform database user data to Employee format
+        const employeeData: Employee[] = userData.map(user => ({
+          id: user.id || '',
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown',
+          email: user.email || '',
+          role: (user.role as "admin" | "manager" | "cashier" | "staff") || 'staff',
+          status: user.is_active ? "active" : "inactive",
+          hireDate: user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          // Note: Last login and permissions would need to be handled separately
+          // This is a simplified implementation
+          lastLogin: undefined,
+          permissions: []
+        }));
+        
+        setEmployees(employeeData);
+      } catch (error) {
+        console.error("Error loading employees:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load employees",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEmployees();
+  }, []);
+
+  const handleAddEmployee = async () => {
     if (!newEmployee.name || !newEmployee.email) {
       toast({
         title: "Error",
@@ -120,22 +125,56 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
       return;
     }
 
-    const employee: Employee = {
-      ...newEmployee,
-      id: Date.now().toString()
-    };
+    try {
+      // Transform Employee data to User format
+      const [firstName, ...lastNameParts] = newEmployee.name.split(' ');
+      const lastName = lastNameParts.join(' ') || '';
+      
+      const userData = {
+        username: newEmployee.email.split('@')[0],
+        email: newEmployee.email,
+        first_name: firstName,
+        last_name: lastName,
+        role: newEmployee.role,
+        is_active: newEmployee.status === "active"
+      };
 
-    setEmployees([...employees, employee]);
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Employee added successfully"
-    });
+      const createdUser = await createUser(userData);
+      
+      if (createdUser) {
+        // Transform created user back to Employee format
+        const employee: Employee = {
+          id: createdUser.id || '',
+          name: `${createdUser.first_name || ''} ${createdUser.last_name || ''}`.trim() || 'Unknown',
+          email: createdUser.email || '',
+          role: (createdUser.role as "admin" | "manager" | "cashier" | "staff") || 'staff',
+          status: createdUser.is_active ? "active" : "inactive",
+          hireDate: createdUser.created_at ? new Date(createdUser.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          permissions: []
+        };
+
+        setEmployees([...employees, employee]);
+        resetForm();
+        setIsDialogOpen(false);
+        
+        toast({
+          title: "Success",
+          description: "Employee added successfully"
+        });
+      } else {
+        throw new Error("Failed to create user");
+      }
+    } catch (error) {
+      console.error("Error creating employee:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add employee: " + (error as Error).message,
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleUpdateEmployee = () => {
+  const handleUpdateEmployee = async () => {
     if (!editingEmployee || !editingEmployee.name || !editingEmployee.email) {
       toast({
         title: "Error",
@@ -155,17 +194,56 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
       return;
     }
 
-    setEmployees(employees.map(emp => emp.id === editingEmployee.id ? editingEmployee : emp));
-    resetForm();
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Employee updated successfully"
-    });
+    try {
+      // Transform Employee data to User format
+      const [firstName, ...lastNameParts] = editingEmployee.name.split(' ');
+      const lastName = lastNameParts.join(' ') || '';
+      
+      const userData = {
+        username: editingEmployee.email.split('@')[0],
+        email: editingEmployee.email,
+        first_name: firstName,
+        last_name: lastName,
+        role: editingEmployee.role,
+        is_active: editingEmployee.status === "active"
+      };
+
+      const updatedUser = await updateUser(editingEmployee.id, userData);
+      
+      if (updatedUser) {
+        // Transform updated user back to Employee format
+        const employee: Employee = {
+          id: updatedUser.id || '',
+          name: `${updatedUser.first_name || ''} ${updatedUser.last_name || ''}`.trim() || 'Unknown',
+          email: updatedUser.email || '',
+          role: (updatedUser.role as "admin" | "manager" | "cashier" | "staff") || 'staff',
+          status: updatedUser.is_active ? "active" : "inactive",
+          hireDate: updatedUser.created_at ? new Date(updatedUser.created_at).toISOString().split('T')[0] : editingEmployee.hireDate,
+          permissions: editingEmployee.permissions
+        };
+
+        setEmployees(employees.map(emp => emp.id === editingEmployee.id ? employee : emp));
+        resetForm();
+        setIsDialogOpen(false);
+        
+        toast({
+          title: "Success",
+          description: "Employee updated successfully"
+        });
+      } else {
+        throw new Error("Failed to update user");
+      }
+    } catch (error) {
+      console.error("Error updating employee:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update employee: " + (error as Error).message,
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleDeleteEmployee = (id: string) => {
+  const handleDeleteEmployee = async (id: string) => {
     // Prevent deleting the current user
     if (employees.find(emp => emp.id === id)?.email === username) {
       toast({
@@ -176,11 +254,26 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
       return;
     }
     
-    setEmployees(employees.filter(emp => emp.id !== id));
-    toast({
-      title: "Success",
-      description: "Employee deleted successfully"
-    });
+    try {
+      const result = await deleteUser(id);
+      
+      if (result) {
+        setEmployees(employees.filter(emp => emp.id !== id));
+        toast({
+          title: "Success",
+          description: "Employee deleted successfully"
+        });
+      } else {
+        throw new Error("Failed to delete user");
+      }
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete employee: " + (error as Error).message,
+        variant: "destructive"
+      });
+    }
   };
 
   const resetForm = () => {
@@ -237,6 +330,11 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
     employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     getRoleName(employee.role).toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Calculate summary statistics
+  const totalEmployees = employees.length;
+  const activeEmployees = employees.filter(emp => emp.status === "active").length;
+  const adminEmployees = employees.filter(emp => emp.role === "admin").length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -422,6 +520,42 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
           </div>
         </div>
         
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
+              <User className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalEmployees}</div>
+              <p className="text-xs text-muted-foreground">All team members</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Employees</CardTitle>
+              <User className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-500">{activeEmployees}</div>
+              <p className="text-xs text-muted-foreground">Currently working</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Administrators</CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{adminEmployees}</div>
+              <p className="text-xs text-muted-foreground">System administrators</p>
+            </CardContent>
+          </Card>
+        </div>
+        
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -430,81 +564,87 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Hire Date</TableHead>
-                  <TableHead>Last Login</TableHead>
-                  <TableHead>Permissions</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredEmployees.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading employees...
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No employees found
-                    </TableCell>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Hire Date</TableHead>
+                    <TableHead>Last Login</TableHead>
+                    <TableHead>Permissions</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : (
-                  filteredEmployees.map((employee) => (
-                    <TableRow key={employee.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{employee.name}</div>
-                          <div className="text-sm text-muted-foreground">{employee.email}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="flex items-center gap-1">
-                          <Shield className="h-3 w-3" />
-                          {getRoleName(employee.role)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={employee.status === "active" ? "default" : "destructive"}>
-                          {employee.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{employee.hireDate}</TableCell>
-                      <TableCell>{employee.lastLogin || "Never"}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">
-                            {employee.permissions.length} perms
-                          </Badge>
-                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(employee)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => openEditDialog(employee)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => handleDeleteEmployee(employee.id)}
-                            disabled={employee.email === username}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredEmployees.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No employees found
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredEmployees.map((employee) => (
+                      <TableRow key={employee.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{employee.name}</div>
+                            <div className="text-sm text-muted-foreground">{employee.email}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="flex items-center gap-1">
+                            <Shield className="h-3 w-3" />
+                            {getRoleName(employee.role)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={employee.status === "active" ? "default" : "destructive"}>
+                            {employee.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{employee.hireDate}</TableCell>
+                        <TableCell>{employee.lastLogin || "Never"}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">
+                              {employee.permissions.length} perms
+                            </Badge>
+                            <Button variant="ghost" size="sm" onClick={() => openEditDialog(employee)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => openEditDialog(employee)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => handleDeleteEmployee(employee.id)}
+                              disabled={employee.email === username}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </main>

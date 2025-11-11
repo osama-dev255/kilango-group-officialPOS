@@ -17,6 +17,7 @@ import { PrintUtils } from "@/utils/printUtils";
 import WhatsAppUtils from "@/utils/whatsappUtils";
 // Import Supabase database service
 import { getProducts, getCustomers, updateProductStock, createCustomer, createSale, createSaleItem, createDebt, Product, Customer as DatabaseCustomer } from "@/services/databaseService";
+import { canCreateSales } from "@/utils/salesPermissionUtils";
 
 interface CartItem {
   id: string;
@@ -222,6 +223,17 @@ export const SalesCart = ({ username, onBack, onLogout }: SalesCartProps) => {
       toast({
         title: "Error",
         description: "Insufficient payment amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if user has permission to create sales
+    const hasPermission = await canCreateSales();
+    if (!hasPermission) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to create sales. Only salesmen and admins can create sales.",
         variant: "destructive",
       });
       return;

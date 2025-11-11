@@ -41,7 +41,12 @@ interface ReportData {
 
 interface IncomeData {
   revenues: number;
-  expenses: number;
+  cogs: number;
+  grossProfit: number;
+  operatingExpenses: number;
+  operatingProfit: number;
+  otherIncomeExpenses: number;
+  tax: number;
   netProfit: number;
   period: string;
 }
@@ -69,6 +74,8 @@ export const FinancialReports = ({ username, onBack, onLogout, onNavigate }: Fin
   const [isViewReportDialogOpen, setIsViewReportDialogOpen] = useState(false);
   const [isCustomReportViewOpen, setIsCustomReportViewOpen] = useState(false);
   const [isTaxPeriodDialogOpen, setIsTaxPeriodDialogOpen] = useState(false);
+  const [isCalculationDialogOpen, setIsCalculationDialogOpen] = useState(false);
+  const [calculationData, setCalculationData] = useState<{ title: string; description: string; formula: string; example: string } | null>(null);
   const [taxPeriod, setTaxPeriod] = useState({ startDate: "", endDate: "" });
   const [viewReportData, setViewReportData] = useState<ReportData | null>(null);
   const [customReportViewData, setCustomReportViewData] = useState<ReportData | null>(null);
@@ -83,8 +90,13 @@ export const FinancialReports = ({ username, onBack, onLogout, onNavigate }: Fin
   // Mock data for reports
   const mockIncomeData: IncomeData = {
     revenues: 125000,
-    expenses: 85000,
-    netProfit: 40000,
+    cogs: 75000,
+    grossProfit: 50000,
+    operatingExpenses: 30000,
+    operatingProfit: 20000,
+    otherIncomeExpenses: 2000,
+    tax: 10000,
+    netProfit: 12000,
     period: "January 2024"
   };
 
@@ -123,13 +135,19 @@ export const FinancialReports = ({ username, onBack, onLogout, onNavigate }: Fin
     
     switch(reportType) {
       case "Income Statement":
+        // Use detailed income statement structure
         reportData = {
           title: "Income Statement",
           period: mockIncomeData.period,
           data: [
-            { name: "Total Revenues", value: mockIncomeData.revenues },
-            { name: "Total Expenses", value: mockIncomeData.expenses },
-            { name: "Net Profit", value: mockIncomeData.netProfit }
+            { name: "1. Revenue (Sales)", value: mockIncomeData.revenues },
+            { name: "2. Cost of Goods Sold (COGS)", value: mockIncomeData.cogs },
+            { name: "= Gross Profit", value: mockIncomeData.grossProfit },
+            { name: "3. Operating Expenses", value: mockIncomeData.operatingExpenses },
+            { name: "= Operating Profit", value: mockIncomeData.operatingProfit },
+            { name: "4. Other Income / Expenses", value: mockIncomeData.otherIncomeExpenses },
+            { name: "5. Tax (Income Tax)", value: mockIncomeData.tax },
+            { name: "= Net Profit", value: mockIncomeData.netProfit }
           ]
         };
         break;
@@ -230,13 +248,19 @@ export const FinancialReports = ({ username, onBack, onLogout, onNavigate }: Fin
     
     switch(reportType) {
       case "Income Statement":
+        // Use detailed income statement structure for printing
         reportData = {
           title: "Income Statement",
           period: mockIncomeData.period,
           data: [
-            { name: "Total Revenues", value: mockIncomeData.revenues },
-            { name: "Total Expenses", value: mockIncomeData.expenses },
-            { name: "Net Profit", value: mockIncomeData.netProfit }
+            { name: "1. Revenue (Sales)", value: mockIncomeData.revenues },
+            { name: "2. Cost of Goods Sold (COGS)", value: mockIncomeData.cogs },
+            { name: "= Gross Profit", value: mockIncomeData.grossProfit },
+            { name: "3. Operating Expenses", value: mockIncomeData.operatingExpenses },
+            { name: "= Operating Profit", value: mockIncomeData.operatingProfit },
+            { name: "4. Other Income / Expenses", value: mockIncomeData.otherIncomeExpenses },
+            { name: "5. Tax (Income Tax)", value: mockIncomeData.tax },
+            { name: "= Net Profit", value: mockIncomeData.netProfit }
           ]
         };
         break;
@@ -766,22 +790,65 @@ export const FinancialReports = ({ username, onBack, onLogout, onNavigate }: Fin
                                 size="sm" 
                                 className="flex items-center gap-1"
                                 onClick={() => {
-                                  if (item.name === "Total Revenues") {
-                                    toast({
-                                      title: "Revenue Calculation",
-                                      description: "Total Sales (125,000) - Sales Returns (5,000) = Net Sales (120,000)",
+                                  // Show detailed calculation card based on the metric
+                                  if (item.name === "1. Revenue (Sales)") {
+                                    setCalculationData({
+                                      title: "Revenue (Sales) Calculation",
+                                      description: "Total sales revenue generated from all sales transactions during the period.",
+                                      formula: "Total Sales - Sales Returns = Net Sales Revenue",
+                                      example: "Total Sales (130,000) - Sales Returns (5,000) = Net Sales Revenue (125,000)"
                                     });
-                                  } else if (item.name === "Total Expenses") {
-                                    toast({
-                                      title: "Total Expenses Calculation",
-                                      description: "Salaries (15,000) + Rent (8,000) + Utilities (3,000) + Transport (2,500) + Office Supplies (1,500) + Depreciation (2,000) + Other Expenses (3,000) = Total Operating Expenses (35,000)",
+                                  } else if (item.name === "2. Cost of Goods Sold (COGS)") {
+                                    setCalculationData({
+                                      title: "Cost of Goods Sold (COGS) Calculation",
+                                      description: "Direct costs attributable to the production of goods sold during the period.",
+                                      formula: "Beginning Inventory + Purchases - Ending Inventory",
+                                      example: "Beginning Inventory (20,000) + Purchases (80,000) - Ending Inventory (25,000) = COGS (75,000)"
                                     });
-                                  } else if (item.name === "Net Profit") {
-                                    toast({
+                                  } else if (item.name === "= Gross Profit") {
+                                    setCalculationData({
+                                      title: "Gross Profit Calculation",
+                                      description: "Profit after deducting the cost of goods sold from total revenue.",
+                                      formula: "Revenue - Cost of Goods Sold",
+                                      example: "Revenue (125,000) - COGS (75,000) = Gross Profit (50,000)"
+                                    });
+                                  } else if (item.name === "3. Operating Expenses") {
+                                    setCalculationData({
+                                      title: "Operating Expenses Calculation",
+                                      description: "Expenses incurred in the normal day-to-day operations of the business.",
+                                      formula: "Sum of all operating expenses",
+                                      example: "Salaries (15,000) + Rent (8,000) + Utilities (3,000) + Transport (2,500) + Office Supplies (1,500) + Depreciation (2,000) + Other Expenses (3,000) = Total Operating Expenses (35,000)"
+                                    });
+                                  } else if (item.name === "= Operating Profit") {
+                                    setCalculationData({
+                                      title: "Operating Profit Calculation",
+                                      description: "Profit generated from normal business operations, excluding taxes and other non-operational expenses.",
+                                      formula: "Gross Profit - Operating Expenses",
+                                      example: "Gross Profit (50,000) - Operating Expenses (30,000) = Operating Profit (20,000)"
+                                    });
+                                  } else if (item.name === "4. Other Income / Expenses") {
+                                    setCalculationData({
+                                      title: "Other Income/Expenses Calculation",
+                                      description: "Income or expenses not related to core business operations.",
+                                      formula: "Total Other Income - Total Other Expenses",
+                                      example: "Interest Income (3,000) - Interest Expense (1,000) = Net Other Income (2,000)"
+                                    });
+                                  } else if (item.name === "5. Tax (Income Tax)") {
+                                    setCalculationData({
+                                      title: "Tax Calculation",
+                                      description: "Income tax based on taxable income at the applicable tax rate.",
+                                      formula: "Taxable Income × Tax Rate",
+                                      example: "Taxable Income (22,000) × 45.5% Tax Rate = Tax (10,000)"
+                                    });
+                                  } else if (item.name === "= Net Profit") {
+                                    setCalculationData({
                                       title: "Net Profit Calculation",
-                                      description: "Operating Profit (5,000) + Other Income (1,000) - Other Losses (500) - Income Tax (1,100) = Net Profit (4,400)",
+                                      description: "Total profit after all expenses, taxes, and costs have been deducted from total revenue.",
+                                      formula: "Operating Profit + Other Income - Tax",
+                                      example: "Operating Profit (20,000) + Other Income (2,000) - Tax (10,000) = Net Profit (12,000)"
                                     });
                                   }
+                                  setIsCalculationDialogOpen(true);
                                 }}
                               >
                                 <Eye className="h-4 w-4" />
@@ -883,6 +950,37 @@ export const FinancialReports = ({ username, onBack, onLogout, onNavigate }: Fin
                 <Button onClick={handlePrintAndViewedReport}>
                   <Printer className="h-4 w-4 mr-2" />
                   Print Report
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
+          {/* Calculation Dialog */}
+          <Dialog open={isCalculationDialogOpen} onOpenChange={setIsCalculationDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>
+                  {calculationData?.title}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <p className="text-muted-foreground mb-4">
+                  {calculationData?.description}
+                </p>
+                
+                <div className="bg-muted p-4 rounded-lg mb-4">
+                  <h4 className="font-semibold mb-2">Formula:</h4>
+                  <p className="font-mono text-sm">{calculationData?.formula}</p>
+                </div>
+                
+                <div className="bg-muted p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">Example:</h4>
+                  <p className="font-mono text-sm">{calculationData?.example}</p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => setIsCalculationDialogOpen(false)}>
+                  Close
                 </Button>
               </DialogFooter>
             </DialogContent>

@@ -1243,6 +1243,25 @@ export class PrintUtils {
     const reportWindow = window.open('', '_blank');
     if (!reportWindow) return;
     
+    // Format numbers with proper signs
+    const formatAmount = (amount: number, isNegativeFormat: boolean = false) => {
+      if (isNegativeFormat && amount > 0) {
+        return `(${amount.toLocaleString()})`;
+      } else if (!isNegativeFormat && amount < 0) {
+        return `(${Math.abs(amount).toLocaleString()})`;
+      } else {
+        return amount.toLocaleString();
+      }
+    };
+    
+    const formatOtherIncome = (amount: number) => {
+      if (amount >= 0) {
+        return `+${amount.toLocaleString()}`;
+      } else {
+        return `(${Math.abs(amount).toLocaleString()})`;
+      }
+    };
+    
     const reportContent = `
       <!DOCTYPE html>
       <html>
@@ -1285,7 +1304,7 @@ export class PrintUtils {
               padding: 8px 0;
             }
             .report-table td {
-              padding: 4px 0;
+              padding: 8px 0;
             }
             .text-right {
               text-align: right;
@@ -1296,8 +1315,8 @@ export class PrintUtils {
             .font-bold {
               font-weight: bold;
             }
-            .pl-4 {
-              padding-left: 30px;
+            .border-t {
+              border-top: 1px solid #ccc;
             }
             .border-b {
               border-bottom: 1px solid #ccc;
@@ -1326,119 +1345,51 @@ export class PrintUtils {
           <table class="report-table">
             <thead>
               <tr>
-                <th>Account</th>
+                <th>Section</th>
+                <th class="text-right">Description</th>
                 <th class="text-right">Amount (TZS)</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td class="font-semibold">Revenue / Sales</td>
-                <td></td>
+                <td class="font-semibold">1. Revenue (Sales)</td>
+                <td class="text-right">Total sales to customers</td>
+                <td class="text-right font-semibold">${data.revenue.toLocaleString()}</td>
               </tr>
               <tr>
-                <td class="pl-4">Total Sales</td>
-                <td></td>
-                <td class="text-right">${data.revenue.totalSales.toLocaleString()}</td>
+                <td class="font-semibold">2. Cost of Goods Sold (COGS)</td>
+                <td class="text-right">Cost of items sold — includes purchases, transport, and other direct costs</td>
+                <td class="text-right font-semibold">${formatAmount(data.cogs, true)}</td>
               </tr>
-              <tr>
-                <td class="pl-4">Less: Sales Returns & Allowances</td>
-                <td class="text-right">(${data.revenue.salesReturns.toLocaleString()})</td>
-              </tr>
-              <tr>
-                <td class="pl-4 font-semibold border-b">Net Sales</td>
-                <td></td>
-                <td class="text-right font-semibold border-b">${data.revenue.netSales.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Cost of Goods Sold (COGS)</td>
-                <td></td>
-              </tr>
-              <tr>
-                <td class="pl-4">Opening Stock</td>
-                <td></td>
-                <td class="text-right">${data.cogs.openingStock.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td class="pl-4">Add: Purchases</td>
-                <td></td>
-                <td class="text-right">${data.cogs.purchases.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td class="pl-4">Less: Closing Stock</td>
-                <td class="text-right">(${data.cogs.closingStock.toLocaleString()})</td>
-              </tr>
-              <tr>
-                <td class="pl-4 font-semibold border-b">Cost of Goods Sold</td>
-                <td></td>
-                <td class="text-right font-semibold border-b">${data.cogs.costOfGoodsSold.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Gross Profit</td>
-                <td></td>
+              <tr class="border-t border-b">
+                <td class="font-semibold">= Gross Profit</td>
+                <td class="text-right">Revenue − COGS</td>
                 <td class="text-right font-semibold">${data.grossProfit.toLocaleString()}</td>
               </tr>
               <tr>
-                <td class="font-semibold">Operating Expenses:</td>
-                <td></td>
+                <td class="font-semibold">3. Operating Expenses</td>
+                <td class="text-right">Rent, salaries, utilities, admin, etc.</td>
+                <td class="text-right font-semibold">${formatAmount(data.operatingExpenses, true)}</td>
               </tr>
-              <tr>
-                <td class="pl-4">Salaries & Wages</td>
-                <td></td>
-                <td class="text-right">${data.operatingExpenses.salaries.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td class="pl-4">Rent Expense</td>
-                <td></td>
-                <td class="text-right">${data.operatingExpenses.rent.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td class="pl-4">Utilities (Electricity, Water, etc)</td>
-                <td></td>
-                <td class="text-right">${data.operatingExpenses.utilities.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td class="pl-4">Depreciation</td>
-                <td></td>
-                <td class="text-right">${data.operatingExpenses.depreciation.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td class="pl-4">Other Operating Expenses</td>
-                <td></td>
-                <td class="text-right">${data.operatingExpenses.other.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td class="pl-4 font-semibold border-b">Total Operating Expenses</td>
-                <td></td>
-                <td class="text-right font-semibold border-b">${data.operatingExpenses.total.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Operating Profit</td>
-                <td></td>
+              <tr class="border-t border-b">
+                <td class="font-semibold">= Operating Profit</td>
+                <td class="text-right">Gross Profit − Operating Expenses</td>
                 <td class="text-right font-semibold">${data.operatingProfit.toLocaleString()}</td>
               </tr>
               <tr>
-                <td class="font-semibold">Other Income</td>
-                <td></td>
-                <td class="text-right">${data.otherIncome.toLocaleString()}</td>
+                <td class="font-semibold">4. Other Income / Expenses</td>
+                <td class="text-right">Interest, asset sales, etc.</td>
+                <td class="text-right font-semibold">${formatOtherIncome(data.otherIncomeExpenses)}</td>
               </tr>
               <tr>
-                <td class="font-semibold">Other Expenses</td>
-                <td></td>
-                <td class="text-right">(${data.otherExpenses.toLocaleString()})</td>
+                <td class="font-semibold">5. Tax (Income Tax)</td>
+                <td class="text-right">Based on profit before tax</td>
+                <td class="text-right font-semibold">${formatAmount(data.tax, true)}</td>
               </tr>
-              <tr>
-                <td class="font-semibold border-t">Profit Before Tax</td>
-                <td></td>
-                <td class="text-right font-semibold border-t">${data.profitBeforeTax.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td class="font-semibold">Income Tax</td>
-                <td class="text-right">(${data.incomeTax.toLocaleString()})</td>
-              </tr>
-              <tr>
-                <td class="font-bold border-t-2">NET PROFIT</td>
-                <td></td>
-                <td class="text-right font-bold border-t-2">${data.netProfit.toLocaleString()}</td>
+              <tr class="border-t-2 border-b-2">
+                <td class="font-bold">= Net Profit</td>
+                <td class="text-right">Final profit after all costs and tax</td>
+                <td class="text-right font-bold">${data.netProfit.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>

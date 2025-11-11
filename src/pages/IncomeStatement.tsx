@@ -5,13 +5,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { 
   Printer, 
   Download, 
-  Calendar, 
-  Filter,
   ArrowLeft,
-  Eye
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PrintUtils } from "@/utils/printUtils";
+import { 
+  getSales, 
+  getPurchaseOrders, 
+  getExpenses 
+} from "@/services/databaseService";
+import { Sale, PurchaseOrder, Expense } from "@/services/databaseService";
 
 interface IncomeStatementProps {
   username: string;
@@ -19,43 +23,99 @@ interface IncomeStatementProps {
   onLogout: () => void;
 }
 
+interface IncomeStatementData {
+  businessName: string;
+  period: string;
+  revenue: number;
+  cogs: number;
+  grossProfit: number;
+  operatingExpenses: number;
+  operatingProfit: number;
+  otherIncomeExpenses: number;
+  tax: number;
+  netProfit: number;
+}
+
 export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementProps) => {
   const { toast } = useToast();
   const [period, setPeriod] = useState("January 2024");
-
-  // Mock data for the income statement
-  const incomeStatementData = {
+  const [isLoading, setIsLoading] = useState(true);
+  const [incomeStatementData, setIncomeStatementData] = useState<IncomeStatementData>({
     businessName: "POS Business",
     period: period,
-    revenue: {
-      totalSales: 125000,
-      salesReturns: 5000,
-      netSales: 120000
-    },
-    cogs: {
-      openingStock: 25000,
-      purchases: 85000,
-      closingStock: 30000,
-      costOfGoodsSold: 80000
-    },
-    grossProfit: 40000,
-    operatingExpenses: {
-      salaries: 15000,
-      rent: 8000,
-      utilities: 3000,
-      transport: 2500,
-      officeSupplies: 1500,
-      depreciation: 2000,
-      otherExpenses: 3000,
-      totalOperatingExpenses: 35000
-    },
-    operatingProfit: 5000,
-    otherIncome: 1000,
-    otherLosses: 500,
-    profitBeforeTax: 5500,
-    incomeTax: 1100,
-    netProfit: 4400
-  };
+    revenue: 0,
+    cogs: 0,
+    grossProfit: 0,
+    operatingExpenses: 0,
+    operatingProfit: 0,
+    otherIncomeExpenses: 0,
+    tax: 0,
+    netProfit: 0
+  });
+
+  // Fetch data for the income statement
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch all necessary data
+        const [sales, purchases, expenses] = await Promise.all([
+          getSales(),
+          getPurchaseOrders(),
+          getExpenses()
+        ]);
+
+        // Calculate revenue (total sales)
+        const revenue = sales.reduce((sum, sale) => sum + (sale.total_amount || 0), 0);
+
+        // Calculate COGS (cost of goods sold) - based on purchase orders
+        const cogs = purchases.reduce((sum, purchase) => sum + (purchase.total_amount || 0), 0);
+
+        // Calculate gross profit
+        const grossProfit = revenue - cogs;
+
+        // Calculate operating expenses - based on expense records
+        const operatingExpenses = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+
+        // Calculate operating profit
+        const operatingProfit = grossProfit - operatingExpenses;
+
+        // Other income/expenses (using a placeholder for now)
+        const otherIncomeExpenses = 0;
+
+        // Tax calculation (using a placeholder for now)
+        const tax = 0;
+
+        // Calculate net profit
+        const netProfit = operatingProfit + otherIncomeExpenses - tax;
+
+        // Update state with calculated values
+        setIncomeStatementData({
+          businessName: "POS Business",
+          period: period,
+          revenue,
+          cogs,
+          grossProfit,
+          operatingExpenses,
+          operatingProfit,
+          otherIncomeExpenses,
+          tax,
+          netProfit
+        });
+      } catch (error) {
+        console.error("Error fetching income statement data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load income statement data",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [period, toast]);
 
   const handlePrint = () => {
     PrintUtils.printIncomeStatement(incomeStatementData);
@@ -79,6 +139,17 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
       });
     }, 1500);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+          <p className="mt-2">Loading income statement data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -129,282 +200,70 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
               <p className="text-muted-foreground">For the period ended {incomeStatementData.period}</p>
             </div>
             
-            {/* Income Statement Table */}
+            {/* Income Statement Table - Restructured to match specification */}
             <div className="space-y-4">
-              {/* Revenue Section */}
-              <div>
-                <div className="grid grid-cols-3 gap-4 py-2 border-b">
-                  <div className="font-semibold">Account</div>
-                  <div className="font-semibold text-right">Amount (TZS)</div>
-                  <div className="font-semibold text-right">Details</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-2">
-                  <div className="font-semibold">Revenue / Sales</div>
-                  <div className="font-semibold text-right">{incomeStatementData.revenue.netSales.toLocaleString()}</div>
-                  <div className="text-right">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex items-center gap-1"
-                      onClick={() => {
-                        toast({
-                          title: "Revenue Calculation",
-                          description: `Total Sales (${incomeStatementData.revenue.totalSales.toLocaleString()}) - Sales Returns (${incomeStatementData.revenue.salesReturns.toLocaleString()}) = Net Sales (${incomeStatementData.revenue.netSales.toLocaleString()})`,
-                        });
-                      }}
-                    >
-                      <Eye className="h-4 w-4" />
-                      View
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Total Sales</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.revenue.totalSales.toLocaleString()}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Less: Sales Returns & Allowances</div>
-                  <div className="text-right">({incomeStatementData.revenue.salesReturns.toLocaleString()})</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-2 pl-4 font-semibold border-b">
-                  <div>Net Sales</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.revenue.netSales.toLocaleString()}</div>
+              <div className="grid grid-cols-3 gap-4 py-2 border-b">
+                <div className="font-semibold">Section</div>
+                <div className="font-semibold text-right">Description</div>
+                <div className="font-semibold text-right">Amount (TZS)</div>
+              </div>
+              
+              {/* Section 1: Revenue (Sales) */}
+              <div className="grid grid-cols-3 gap-4 py-2">
+                <div className="font-semibold">1. Revenue (Sales)</div>
+                <div className="text-right">Total sales to customers</div>
+                <div className="text-right font-semibold">{incomeStatementData.revenue.toLocaleString()}</div>
+              </div>
+              
+              {/* Section 2: Cost of Goods Sold (COGS) */}
+              <div className="grid grid-cols-3 gap-4 py-2">
+                <div className="font-semibold">2. Cost of Goods Sold (COGS)</div>
+                <div className="text-right">Cost of items sold — includes purchases, transport, and other direct costs</div>
+                <div className="text-right font-semibold">({incomeStatementData.cogs.toLocaleString()})</div>
+              </div>
+              
+              {/* = Gross Profit */}
+              <div className="grid grid-cols-3 gap-4 py-2 border-t border-b">
+                <div className="font-semibold">= Gross Profit</div>
+                <div className="text-right">Revenue − COGS</div>
+                <div className="text-right font-semibold">{incomeStatementData.grossProfit.toLocaleString()}</div>
+              </div>
+              
+              {/* Section 3: Operating Expenses */}
+              <div className="grid grid-cols-3 gap-4 py-2">
+                <div className="font-semibold">3. Operating Expenses</div>
+                <div className="text-right">Rent, salaries, utilities, admin, etc.</div>
+                <div className="text-right font-semibold">({incomeStatementData.operatingExpenses.toLocaleString()})</div>
+              </div>
+              
+              {/* = Operating Profit */}
+              <div className="grid grid-cols-3 gap-4 py-2 border-t border-b">
+                <div className="font-semibold">= Operating Profit</div>
+                <div className="text-right">Gross Profit − Operating Expenses</div>
+                <div className="text-right font-semibold">{incomeStatementData.operatingProfit.toLocaleString()}</div>
+              </div>
+              
+              {/* Section 4: Other Income / Expenses */}
+              <div className="grid grid-cols-3 gap-4 py-2">
+                <div className="font-semibold">4. Other Income / Expenses</div>
+                <div className="text-right">Interest, asset sales, etc.</div>
+                <div className="text-right font-semibold">
+                  {incomeStatementData.otherIncomeExpenses >= 0 ? '+' : ''}{incomeStatementData.otherIncomeExpenses.toLocaleString()}
                 </div>
               </div>
               
-              {/* COGS Section */}
-              <div>
-                <div className="grid grid-cols-3 gap-4 py-2">
-                  <div className="font-semibold">Cost of Goods Sold (COGS)</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Opening Stock</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.cogs.openingStock.toLocaleString()}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Add: Purchases</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.cogs.purchases.toLocaleString()}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Less: Closing Stock</div>
-                  <div className="text-right">({incomeStatementData.cogs.closingStock.toLocaleString()})</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-2 pl-4 font-semibold border-b">
-                  <div>Cost of Goods Sold</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.cogs.costOfGoodsSold.toLocaleString()}</div>
-                </div>
+              {/* Section 5: Tax (Income Tax) */}
+              <div className="grid grid-cols-3 gap-4 py-2">
+                <div className="font-semibold">5. Tax (Income Tax)</div>
+                <div className="text-right">Based on profit before tax</div>
+                <div className="text-right font-semibold">({incomeStatementData.tax.toLocaleString()})</div>
               </div>
               
-              {/* Gross Profit */}
-              <div className="grid grid-cols-3 gap-4 py-2 font-semibold">
-                <div>Gross Profit</div>
-                <div className="text-right">{incomeStatementData.grossProfit.toLocaleString()}</div>
-                <div className="text-right">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-1"
-                    onClick={() => {
-                      toast({
-                        title: "Gross Profit Calculation",
-                        description: `Net Sales (${incomeStatementData.revenue.netSales.toLocaleString()}) - Cost of Goods Sold (${incomeStatementData.cogs.costOfGoodsSold.toLocaleString()}) = Gross Profit (${incomeStatementData.grossProfit.toLocaleString()})`,
-                      });
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                    View
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Operating Expenses Section */}
-              <div>
-                <div className="grid grid-cols-3 gap-4 py-2">
-                  <div className="font-semibold">Operating Expenses:</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Salaries & Wages</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.operatingExpenses.salaries.toLocaleString()}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Rent Expense</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.operatingExpenses.rent.toLocaleString()}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Utilities (Electricity, Water, etc)</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.operatingExpenses.utilities.toLocaleString()}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Transport & Fuel</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.operatingExpenses.transport.toLocaleString()}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Office Supplies</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.operatingExpenses.officeSupplies.toLocaleString()}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Depreciation</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.operatingExpenses.depreciation.toLocaleString()}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-1 pl-4">
-                  <div>Other Expenses</div>
-                  <div></div>
-                  <div className="text-right">{incomeStatementData.operatingExpenses.otherExpenses.toLocaleString()}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 py-2 pl-4 font-semibold border-b">
-                  <div>Total Operating Expenses</div>
-                  <div className="text-right">{incomeStatementData.operatingExpenses.totalOperatingExpenses.toLocaleString()}</div>
-                  <div className="text-right">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex items-center gap-1"
-                      onClick={() => {
-                        const totalExpenses = Object.values(incomeStatementData.operatingExpenses).reduce((sum, value) => {
-                          if (typeof value === 'number' && value !== incomeStatementData.operatingExpenses.totalOperatingExpenses) {
-                            return sum + value;
-                          }
-                          return sum;
-                        }, 0);
-                        
-                        toast({
-                          title: "Total Expenses Calculation",
-                          description: `Salaries (${incomeStatementData.operatingExpenses.salaries.toLocaleString()}) + Rent (${incomeStatementData.operatingExpenses.rent.toLocaleString()}) + Utilities (${incomeStatementData.operatingExpenses.utilities.toLocaleString()}) + Transport (${incomeStatementData.operatingExpenses.transport.toLocaleString()}) + Office Supplies (${incomeStatementData.operatingExpenses.officeSupplies.toLocaleString()}) + Depreciation (${incomeStatementData.operatingExpenses.depreciation.toLocaleString()}) + Other Expenses (${incomeStatementData.operatingExpenses.otherExpenses.toLocaleString()}) = Total Operating Expenses (${incomeStatementData.operatingExpenses.totalOperatingExpenses.toLocaleString()})`,
-                        });
-                      }}
-                    >
-                      <Eye className="h-4 w-4" />
-                      View
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Operating Profit */}
-              <div className="grid grid-cols-3 gap-4 py-2 font-semibold">
-                <div>Operating Profit (EBIT)</div>
-                <div className="text-right">{incomeStatementData.operatingProfit.toLocaleString()}</div>
-                <div className="text-right">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-1"
-                    onClick={() => {
-                      toast({
-                        title: "Operating Profit Calculation",
-                        description: `Gross Profit (${incomeStatementData.grossProfit.toLocaleString()}) - Total Operating Expenses (${incomeStatementData.operatingExpenses.totalOperatingExpenses.toLocaleString()}) = Operating Profit (${incomeStatementData.operatingProfit.toLocaleString()})`,
-                      });
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                    View
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Other Income/Losses */}
-              <div className="grid grid-cols-3 gap-4 py-1">
-                <div>Add: Other Income (e.g. interest)</div>
-                <div></div>
-                <div className="text-right">{incomeStatementData.otherIncome.toLocaleString()}</div>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-4 py-1">
-                <div>Less: Other Losses (if any)</div>
-                <div className="text-right">({incomeStatementData.otherLosses.toLocaleString()})</div>
-              </div>
-              
-              {/* Profit Before Tax */}
-              <div className="grid grid-cols-3 gap-4 py-2 font-semibold">
-                <div>Profit Before Tax</div>
-                <div className="text-right">{incomeStatementData.profitBeforeTax.toLocaleString()}</div>
-                <div className="text-right">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-1"
-                    onClick={() => {
-                      toast({
-                        title: "Profit Before Tax Calculation",
-                        description: `Operating Profit (${incomeStatementData.operatingProfit.toLocaleString()}) + Other Income (${incomeStatementData.otherIncome.toLocaleString()}) - Other Losses (${incomeStatementData.otherLosses.toLocaleString()}) = Profit Before Tax (${incomeStatementData.profitBeforeTax.toLocaleString()})`,
-                      });
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                    View
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Income Tax */}
-              <div className="grid grid-cols-3 gap-4 py-1">
-                <div>Less: Income Tax</div>
-                <div className="text-right">({incomeStatementData.incomeTax.toLocaleString()})</div>
-                <div className="text-right">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-1"
-                    onClick={() => {
-                      toast({
-                        title: "Income Tax Calculation",
-                        description: `Typically calculated as a percentage of profit before tax. In this case, 20% of ${incomeStatementData.profitBeforeTax.toLocaleString()} = ${incomeStatementData.incomeTax.toLocaleString()}`,
-                      });
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                    View
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Net Profit */}
+              {/* = Net Profit */}
               <div className="grid grid-cols-3 gap-4 py-2 font-bold text-lg border-t-2 border-b-2">
-                <div>Net Profit (Loss)</div>
-                <div className="text-right">{incomeStatementData.netProfit.toLocaleString()}</div>
-                <div className="text-right">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-1"
-                    onClick={() => {
-                      toast({
-                        title: "Net Profit Calculation",
-                        description: `Profit Before Tax (${incomeStatementData.profitBeforeTax.toLocaleString()}) - Income Tax (${incomeStatementData.incomeTax.toLocaleString()}) = Net Profit (${incomeStatementData.netProfit.toLocaleString()})`,
-                      });
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                    View
-                  </Button>
-                </div>
+                <div className="font-bold">= Net Profit</div>
+                <div className="text-right">Final profit after all costs and tax</div>
+                <div className="text-right font-bold">{incomeStatementData.netProfit.toLocaleString()}</div>
               </div>
             </div>
             

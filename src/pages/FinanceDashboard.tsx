@@ -55,6 +55,13 @@ export const FinanceDashboard = ({ username, onBack, onLogout, onNavigate }: Fin
       color: "bg-white border border-gray-200"
     },
     {
+      id: "financial-statements",
+      title: "Financial Statements",
+      description: "Access income statement, balance sheet, and cash flow statements",
+      icon: FileText,
+      color: "bg-white border border-gray-200"
+    },
+    {
       id: "analytics",
       title: "Financial Analytics",
       description: "Analyze financial performance and trends",
@@ -105,7 +112,13 @@ export const FinanceDashboard = ({ username, onBack, onLogout, onNavigate }: Fin
                 // Special handling for reports module
                 if (module.id === "reports") {
                   console.log("Financial reports module clicked");
-                  onNavigate("reports");
+                  onNavigate("statements-reports");
+                  return;
+                }
+                // Special handling for financial statements module
+                if (module.id === "financial-statements") {
+                  console.log("Financial statements module clicked");
+                  onNavigate("financial-reports");
                   return;
                 }
                 onNavigate(module.id);

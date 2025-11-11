@@ -29,12 +29,13 @@ import { ComprehensiveDashboard } from "@/pages/ComprehensiveDashboard";
 import { FinanceDashboard } from "@/pages/FinanceDashboard";
 import { FinancialReports } from "@/pages/FinancialReports";
 import { IncomeStatement } from "@/pages/IncomeStatement";
+import { Reports } from "@/pages/Reports";
 import { Settings } from "@/pages/Settings";
 import { AutomatedDashboard } from "@/pages/AutomatedDashboard";
 import { SplashScreen } from "@/components/SplashScreen";
 import { useAuth } from "@/contexts/AuthContext";
 
-type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "sales-orders" | "test-sales-orders" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "sales-analytics" | "spending-analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "purchase-transactions" | "purchase-reports" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "comprehensive" | "reports" | "financial-reports" | "income-statement" | "settings" | "automated";
+type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "sales-orders" | "test-sales-orders" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "sales-analytics" | "spending-analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "purchase-transactions" | "purchase-reports" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "comprehensive" | "reports" | "financial-reports" | "income-statement" | "statements-reports" | "settings" | "automated";
 
 const Index = () => {
   const { user, login } = useAuth();
@@ -153,8 +154,16 @@ const Index = () => {
         setCurrentView("comprehensive");
         break;
       case "reports":
-        // Show financial reports view
+        // Show financial management dashboard instead of going directly to reports
+        setCurrentView("finance");
+        break;
+      case "financial-reports":
+        // Show financial reports page
         setCurrentView("financial-reports");
+        break;
+      case "statements-reports":
+        // Show statements and reports page
+        setCurrentView("statements-reports");
         break;
       case "income-statement":
         // Show income statement view
@@ -459,6 +468,15 @@ const Index = () => {
                 onNavigate={handleNavigate}
               />
             );
+          case "statements-reports":
+            console.log("Rendering Reports");
+            return (
+              <Reports
+                username={user?.email || "admin"}
+                onBack={handleBack}
+                onLogout={handleLogout}
+              />
+            );
           case "expenses":
             console.log("Rendering ExpenseManagement");
             return (
@@ -538,6 +556,7 @@ const Index = () => {
                 username={user?.email || "admin"}
                 onBack={handleBack}
                 onLogout={handleLogout}
+                onNavigate={handleNavigate}
               />
             );
           case "income-statement":

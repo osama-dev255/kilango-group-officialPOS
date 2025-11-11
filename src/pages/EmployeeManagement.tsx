@@ -23,7 +23,7 @@ interface Employee {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "manager" | "cashier" | "staff";
+  role: "admin" | "manager" | "salesman" | "cashier" | "staff";
   status: "active" | "inactive";
   hireDate: string;
   lastLogin?: string;
@@ -33,6 +33,7 @@ interface Employee {
 const roles = [
   { id: "admin", name: "Administrator", description: "Full access to all system features" },
   { id: "manager", name: "Manager", description: "Manage sales, inventory, and staff" },
+  { id: "salesman", name: "Salesman", description: "Process sales and handle transactions" },
   { id: "cashier", name: "Cashier", description: "Process sales and handle transactions" },
   { id: "staff", name: "Staff", description: "Limited access to basic functions" },
 ];
@@ -80,7 +81,7 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
           id: user.id || '',
           name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown',
           email: user.email || '',
-          role: (user.role as "admin" | "manager" | "cashier" | "staff") || 'staff',
+          role: (user.role as "admin" | "manager" | "salesman" | "cashier" | "staff") || 'staff',
           status: user.is_active ? "active" : "inactive",
           hireDate: user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           // Note: Last login and permissions would need to be handled separately
@@ -147,7 +148,7 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
           id: createdUser.id || '',
           name: `${createdUser.first_name || ''} ${createdUser.last_name || ''}`.trim() || 'Unknown',
           email: createdUser.email || '',
-          role: (createdUser.role as "admin" | "manager" | "cashier" | "staff") || 'staff',
+          role: (createdUser.role as "admin" | "manager" | "salesman" | "cashier" | "staff") || 'staff',
           status: createdUser.is_active ? "active" : "inactive",
           hireDate: createdUser.created_at ? new Date(createdUser.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           permissions: []
@@ -216,7 +217,7 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
           id: updatedUser.id || '',
           name: `${updatedUser.first_name || ''} ${updatedUser.last_name || ''}`.trim() || 'Unknown',
           email: updatedUser.email || '',
-          role: (updatedUser.role as "admin" | "manager" | "cashier" | "staff") || 'staff',
+          role: (updatedUser.role as "admin" | "manager" | "salesman" | "cashier" | "staff") || 'staff',
           status: updatedUser.is_active ? "active" : "inactive",
           hireDate: updatedUser.created_at ? new Date(updatedUser.created_at).toISOString().split('T')[0] : editingEmployee.hireDate,
           permissions: editingEmployee.permissions

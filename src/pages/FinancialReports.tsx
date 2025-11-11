@@ -174,6 +174,41 @@ export const FinancialReports = ({ username, onBack, onLogout, onNavigate }: Fin
           ]
         };
         break;
+      case "Fund Flow":
+        reportData = {
+          title: "Fund Flow Statement",
+          period: "January 2024",
+          data: [
+            { name: "Funds from Operations", value: 45000 },
+            { name: "Add: Non-operating Inflows", value: 5000 },
+            { name: "Total Sources of Funds", value: 50000 },
+            { name: "Less: Non-operating Outflows", value: 8000 },
+            { name: "Net Increase in Working Capital", value: 12000 },
+            { name: "Application of Funds", value: 30000 },
+            { name: "Net Increase in Working Capital", value: 12000 },
+            { name: "Net Decrease in Working Capital", value: -12000 }
+          ]
+        };
+        break;
+      case "Trial Balance":
+        reportData = {
+          title: "Trial Balance",
+          period: "January 2024",
+          data: [
+            { name: "Cash", value: 25000 },
+            { name: "Accounts Receivable", value: 15000 },
+            { name: "Inventory", value: 30000 },
+            { name: "Equipment", value: 50000 },
+            { name: "Accounts Payable", value: -10000 },
+            { name: "Loans Payable", value: -20000 },
+            { name: "Capital", value: -45000 },
+            { name: "Retained Earnings", value: -15000 },
+            { name: "Sales Revenue", value: -80000 },
+            { name: "Cost of Goods Sold", value: 40000 },
+            { name: "Operating Expenses", value: 25000 }
+          ]
+        };
+        break;
       case "Expense Report":
         reportData = {
           title: "Expense Report",
@@ -284,6 +319,41 @@ export const FinancialReports = ({ username, onBack, onLogout, onNavigate }: Fin
             { name: "Investing Activities", value: mockCashFlowData.investing },
             { name: "Financing Activities", value: mockCashFlowData.financing },
             { name: "Net Cash Flow", value: mockCashFlowData.netCash }
+          ]
+        };
+        break;
+      case "Fund Flow":
+        reportData = {
+          title: "Fund Flow Statement",
+          period: "January 2024",
+          data: [
+            { name: "Funds from Operations", value: 45000 },
+            { name: "Add: Non-operating Inflows", value: 5000 },
+            { name: "Total Sources of Funds", value: 50000 },
+            { name: "Less: Non-operating Outflows", value: 8000 },
+            { name: "Net Increase in Working Capital", value: 12000 },
+            { name: "Application of Funds", value: 30000 },
+            { name: "Net Increase in Working Capital", value: 12000 },
+            { name: "Net Decrease in Working Capital", value: -12000 }
+          ]
+        };
+        break;
+      case "Trial Balance":
+        reportData = {
+          title: "Trial Balance",
+          period: "January 2024",
+          data: [
+            { name: "Cash", value: 25000 },
+            { name: "Accounts Receivable", value: 15000 },
+            { name: "Inventory", value: 30000 },
+            { name: "Equipment", value: 50000 },
+            { name: "Accounts Payable", value: -10000 },
+            { name: "Loans Payable", value: -20000 },
+            { name: "Capital", value: -45000 },
+            { name: "Retained Earnings", value: -15000 },
+            { name: "Sales Revenue", value: -80000 },
+            { name: "Cost of Goods Sold", value: 40000 },
+            { name: "Operating Expenses", value: 25000 }
           ]
         };
         break;
@@ -491,6 +561,20 @@ export const FinancialReports = ({ username, onBack, onLogout, onNavigate }: Fin
       description: "Track the flow of cash in and out of your business",
       icon: TrendingUp,
       color: "bg-purple-50"
+    },
+    {
+      id: "fund-flow",
+      title: "Fund Flow",
+      description: "Analyze sources and applications of funds during a period",
+      icon: TrendingUp,
+      color: "bg-cyan-50"
+    },
+    {
+      id: "trial-balance",
+      title: "Trial Balance",
+      description: "Verify accounting accuracy with debit and credit balances",
+      icon: FileText,
+      color: "bg-amber-50"
     },
     {
       id: "expense-report",

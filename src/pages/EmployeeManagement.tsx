@@ -148,6 +148,30 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
         throw new Error(signUpResult.error.message);
       }
 
+      // Check if email confirmation is required
+      if (signUpResult.user && !signUpResult.user.confirmed_at) {
+        toast({
+          title: "Email Confirmation Required",
+          description: "An email confirmation has been sent to the user. They must confirm their email before they can log in.",
+          variant: "destructive"
+        });
+        // Still add the user to the list for display purposes
+        const employee: Employee = {
+          id: signUpResult.user.id || '',
+          name: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Unknown',
+          email: signUpResult.user.email || '',
+          role: (userData.role as "admin" | "manager" | "cashier" | "staff") || 'staff',
+          status: userData.is_active ? "active" : "inactive",
+          hireDate: signUpResult.user.created_at ? new Date(signUpResult.user.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          permissions: []
+        };
+
+        setEmployees([...employees, employee]);
+        resetForm();
+        setIsDialogOpen(false);
+        return;
+      }
+
       if (signUpResult.user) {
         // Transform created user back to Employee format
         const employee: Employee = {
@@ -166,7 +190,7 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
         
         toast({
           title: "Success",
-          description: "Employee added successfully"
+          description: "Employee added successfully. If email confirmation is enabled, the user must confirm their email before logging in."
         });
       } else {
         throw new Error("Failed to create user");
@@ -427,7 +451,7 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
                           ? setEditingEmployee({...editingEmployee, password: e.target.value}) 
                           : setNewEmployee({...newEmployee, password: e.target.value})
                       }
-                      placeholder={editingEmployee ? "Leave blank to keep current password" : "Enter password"}
+                      placeholder={editingEmployee ? "Leave blank to keep current password" : "Enter password (user must confirm email)"}
                     />
                   </div>
                   

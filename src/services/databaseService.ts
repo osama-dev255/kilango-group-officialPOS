@@ -370,11 +370,12 @@ export const updateUser = async (id: string, user: Partial<User>): Promise<User 
       .from('users')
       .update({ ...user, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .select()
-      .single();
+      .select();
       
     if (error) throw error;
-    return data || null;
+    
+    // Return the first item if data exists, otherwise null
+    return data && data.length > 0 ? data[0] : null;
   } catch (error) {
     console.error('Error updating user:', error);
     return null;

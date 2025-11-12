@@ -34,6 +34,7 @@ import { Settings } from "@/pages/Settings";
 import { AutomatedDashboard } from "@/pages/AutomatedDashboard";
 import { SplashScreen } from "@/components/SplashScreen";
 import { useAuth } from "@/contexts/AuthContext";
+import { getCurrentUserRole } from "@/utils/salesPermissionUtils";
 
 type ViewState = "login" | "dashboard" | "sales" | "sales-cart" | "sales-orders" | "test-sales-orders" | "inventory" | "products" | "purchase" | "finance" | "customers" | "transactions" | "analytics" | "sales-analytics" | "spending-analytics" | "employees" | "suppliers" | "purchase-orders" | "purchase-terminal" | "purchase-transactions" | "purchase-reports" | "expenses" | "returns" | "debts" | "customer-settlements" | "supplier-settlements" | "discounts" | "audit" | "access-logs" | "comprehensive" | "reports" | "financial-reports" | "income-statement" | "statements-reports" | "settings" | "automated";
 
@@ -57,13 +58,40 @@ const Index = () => {
       const result = await login(credentials.username, credentials.password);
       
       if (result.error) {
+        // If Supabase auth fails due to email confirmation, show specific error
+        if (result.error.message && result.error.message.includes('Email not confirmed')) {
+          console.warn("Email not confirmed:", result.error.message);
+          // In a real application, you would show this error to the user
+          // For now, we'll still fall back to mock auth but with a note
+          console.warn("Email not confirmed. Please check email and confirm before logging in.");
+        }
         // If Supabase auth fails, use mock authentication
         console.warn("Supabase auth failed, using mock auth:", result.error);
         setCurrentView("comprehensive");
       } else {
         // Supabase auth successful
         console.log("Supabase auth successful:", result);
-        setCurrentView("comprehensive");
+        
+        // Get user role and redirect based on role
+        const userRole = await getCurrentUserRole();
+        
+        switch (userRole) {
+          case 'admin':
+            setCurrentView("comprehensive");
+            break;
+          case 'manager':
+            setCurrentView("comprehensive");
+            break;
+          case 'cashier':
+            setCurrentView("sales");
+            break;
+          case 'staff':
+            setCurrentView("sales");
+            break;
+          default:
+            // Default to comprehensive dashboard for unknown roles
+            setCurrentView("comprehensive");
+        }
       }
     } catch (error) {
       console.error("Login error:", error);

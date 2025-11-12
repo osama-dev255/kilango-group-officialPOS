@@ -55,8 +55,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) throw error;
       setUser(data.user);
       return { user: data.user };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+      // Provide more specific error message for email confirmation
+      if (error.message && error.message.includes('Email not confirmed')) {
+        return { 
+          error: new Error('Email not confirmed. Please check your email and click the confirmation link before logging in.') 
+        };
+      }
       return { error };
     }
   };

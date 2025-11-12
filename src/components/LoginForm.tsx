@@ -38,7 +38,18 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
       const result = await signIn(email, password);
       
       if (result.error) {
-        // If Supabase auth fails, fall back to mock authentication
+        // Handle specific email confirmation error
+        if (result.error.message && result.error.message.includes('Email not confirmed')) {
+          toast({
+            title: "Email Confirmation Required",
+            description: "Please check your email and click the confirmation link before logging in.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        // If other Supabase auth fails, fall back to mock authentication
         console.warn("Supabase auth failed, using mock auth:", result.error);
         setTimeout(() => {
           onLogin({ username: email, password });

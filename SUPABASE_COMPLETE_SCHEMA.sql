@@ -357,40 +357,6 @@ CREATE INDEX IF NOT EXISTS idx_reports_type ON reports(report_type);
 CREATE INDEX IF NOT EXISTS idx_access_logs_user ON access_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_access_logs_date ON access_logs(created_at);
 
--- Enable Row Level Security (RLS) for all tables
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE access_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE discounts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE discount_products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE discount_categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE returns ENABLE ROW LEVEL SECURITY;
-ALTER TABLE return_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE damaged_products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE purchase_orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE purchase_order_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE debts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE customer_settlements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE supplier_settlements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE inventory_audits ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
-
--- Create policies (adjust as needed for your security requirements)
-CREATE POLICY "Enable read access for all users" ON users FOR SELECT USING (true);
-CREATE POLICY "Enable insert access for all users" ON users FOR INSERT WITH CHECK (true);
-CREATE POLICY "Enable update access for all users" ON users FOR UPDATE USING (true);
-CREATE POLICY "Enable delete access for all users" ON users FOR DELETE USING (true);
-
--- Repeat for other tables as needed
--- For simplicity, we're enabling full access for all operations on all tables
--- In production, you should create more restrictive policies based on your security requirements
-
 -- Insert sample data for initial setup
 INSERT INTO categories (name, description) VALUES 
   ('Electronics', 'Electronic devices and accessories'),

@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT,
   first_name VARCHAR(100),
   last_name VARCHAR(100),
-  role VARCHAR(20) NOT NULL DEFAULT 'cashier' CHECK (role IN ('admin', 'manager', 'cashier', 'staff')),
+  role VARCHAR(20) NOT NULL DEFAULT 'cashier' CHECK (role IN ('admin', 'manager', 'salesman', 'cashier', 'staff')),
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

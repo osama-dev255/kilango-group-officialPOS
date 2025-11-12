@@ -6,32 +6,13 @@ import { User } from '@/services/databaseService';
  * @returns Promise<boolean> - True if user can create sales, false otherwise
  */
 export const canCreateSales = async (): Promise<boolean> => {
+  // After removing RLS, all authenticated users can create sales
   try {
     // Get the current user
     const { data: { user } } = await supabase.auth.getUser();
     
-    // If no user is logged in, they can't create sales
-    if (!user) {
-      return false;
-    }
-    
-    // Get user details from the database
-    const { data, error } = await supabase
-      .from('users')
-      .select('role, is_active')
-      .eq('id', user.id);
-    
-    if (error) {
-      console.error('Error fetching user details:', error);
-      return false;
-    }
-    
-    // Check if user is active and has the right role
-    if (data && data.length > 0 && data[0].is_active && (data[0].role === 'salesman' || data[0].role === 'admin')) {
-      return true;
-    }
-    
-    return false;
+    // If user is logged in, they can create sales
+    return !!user;
   } catch (error) {
     console.error('Error checking sales permission:', error);
     return false;
@@ -47,7 +28,6 @@ export const getCurrentUserRole = async (): Promise<string | null> => {
     // Get the current user
     const { data: { user } } = await supabase.auth.getUser();
     
-    // If no user is logged in, return null
     if (!user) {
       return null;
     }
@@ -56,16 +36,17 @@ export const getCurrentUserRole = async (): Promise<string | null> => {
     const { data, error } = await supabase
       .from('users')
       .select('role')
-      .eq('id', user.id);
+      .eq('id', user.id)
+      .single();
     
     if (error) {
       console.error('Error fetching user role:', error);
       return null;
     }
     
-    return (data && data.length > 0) ? data[0].role : null;
+    return data?.role || null;
   } catch (error) {
-    console.error('Error getting user role:', error);
+    console.error('Error getting current user role:', error);
     return null;
   }
 };

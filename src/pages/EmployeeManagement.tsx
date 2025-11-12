@@ -18,6 +18,7 @@ import {
   updateUser, 
   deleteUser 
 } from "@/services/databaseService";
+import { signUp } from "@/services/authService";
 
 interface Employee {
   id: string;
@@ -28,6 +29,7 @@ interface Employee {
   hireDate: string;
   lastLogin?: string;
   permissions: string[];
+  password?: string;
 }
 
 const roles = [
@@ -64,7 +66,8 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
     role: "staff",
     status: "active",
     hireDate: new Date().toISOString().split('T')[0],
-    permissions: []
+    permissions: [],
+    password: ""
   });
   const { toast } = useToast();
 
@@ -106,10 +109,10 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
   }, []);
 
   const handleAddEmployee = async () => {
-    if (!newEmployee.name || !newEmployee.email) {
+    if (!newEmployee.name || !newEmployee.email || !newEmployee.password) {
       toast({
         title: "Error",
-        description: "Please fill in required fields",
+        description: "Please fill in all required fields",
         variant: "destructive"
       });
       return;
@@ -126,7 +129,7 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
     }
 
     try {
-      // Transform Employee data to User format
+      // Create user with password using signUp function
       const [firstName, ...lastNameParts] = newEmployee.name.split(' ');
       const lastName = lastNameParts.join(' ') || '';
       
@@ -139,17 +142,21 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
         is_active: newEmployee.status === "active"
       };
 
-      const createdUser = await createUser(userData);
+      const signUpResult = await signUp(newEmployee.email, newEmployee.password, userData);
       
-      if (createdUser) {
+      if (signUpResult.error) {
+        throw new Error(signUpResult.error.message);
+      }
+
+      if (signUpResult.user) {
         // Transform created user back to Employee format
         const employee: Employee = {
-          id: createdUser.id || '',
-          name: `${createdUser.first_name || ''} ${createdUser.last_name || ''}`.trim() || 'Unknown',
-          email: createdUser.email || '',
-          role: (createdUser.role as "admin" | "manager" | "cashier" | "staff") || 'staff',
-          status: createdUser.is_active ? "active" : "inactive",
-          hireDate: createdUser.created_at ? new Date(createdUser.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          id: signUpResult.user.id || '',
+          name: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Unknown',
+          email: signUpResult.user.email || '',
+          role: (userData.role as "admin" | "manager" | "cashier" | "staff") || 'staff',
+          status: userData.is_active ? "active" : "inactive",
+          hireDate: signUpResult.user.created_at ? new Date(signUpResult.user.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           permissions: []
         };
 
@@ -402,6 +409,21 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
                           ? setEditingEmployee({...editingEmployee, email: e.target.value}) 
                           : setNewEmployee({...newEmployee, email: e.target.value})
                       }
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="password">Password {editingEmployee ? "" : "*"}</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={editingEmployee ? (editingEmployee.password || "") : newEmployee.password}
+                      onChange={(e) => 
+                        editingEmployee 
+                          ? setEditingEmployee({...editingEmployee, password: e.target.value}) 
+                          : setNewEmployee({...newEmployee, password: e.target.value})
+                      }
+                      placeholder={editingEmployee ? "Leave blank to keep current password" : "Enter password"}
                     />
                   </div>
                   

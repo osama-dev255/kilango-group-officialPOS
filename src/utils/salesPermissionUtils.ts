@@ -19,8 +19,7 @@ export const canCreateSales = async (): Promise<boolean> => {
     const { data, error } = await supabase
       .from('users')
       .select('role, is_active')
-      .eq('id', user.id)
-      .single();
+      .eq('id', user.id);
     
     if (error) {
       console.error('Error fetching user details:', error);
@@ -28,7 +27,7 @@ export const canCreateSales = async (): Promise<boolean> => {
     }
     
     // Check if user is active and has the right role
-    if (data && data.is_active && (data.role === 'salesman' || data.role === 'admin')) {
+    if (data && data.length > 0 && data[0].is_active && (data[0].role === 'salesman' || data[0].role === 'admin')) {
       return true;
     }
     
@@ -57,15 +56,14 @@ export const getCurrentUserRole = async (): Promise<string | null> => {
     const { data, error } = await supabase
       .from('users')
       .select('role')
-      .eq('id', user.id)
-      .single();
+      .eq('id', user.id);
     
     if (error) {
       console.error('Error fetching user role:', error);
       return null;
     }
     
-    return data?.role || null;
+    return (data && data.length > 0) ? data[0].role : null;
   } catch (error) {
     console.error('Error getting user role:', error);
     return null;

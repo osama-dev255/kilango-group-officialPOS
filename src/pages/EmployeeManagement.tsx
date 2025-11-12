@@ -290,13 +290,17 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
       role: "staff",
       status: "active",
       hireDate: new Date().toISOString().split('T')[0],
-      permissions: []
+      permissions: [],
+      password: ""
     });
     setEditingEmployee(null);
   };
 
   const openEditDialog = (employee: Employee) => {
-    setEditingEmployee(employee);
+    setEditingEmployee({
+      ...employee,
+      password: ""
+    });
     setIsDialogOpen(true);
   };
 
@@ -417,7 +421,7 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
                     <Input
                       id="password"
                       type="password"
-                      value={editingEmployee ? (editingEmployee.password || "") : newEmployee.password}
+                      value={editingEmployee ? (editingEmployee.password || "") : (newEmployee.password || "")}
                       onChange={(e) => 
                         editingEmployee 
                           ? setEditingEmployee({...editingEmployee, password: e.target.value}) 

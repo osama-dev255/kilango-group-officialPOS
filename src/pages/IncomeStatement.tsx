@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Printer, 
   Download, 
   ArrowLeft,
   Loader2,
-  Eye
+  Eye,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Percent
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PrintUtils } from "@/utils/printUtils";
@@ -25,6 +29,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 interface IncomeStatementProps {
   username: string;
@@ -38,11 +51,14 @@ interface IncomeStatementData {
   revenue: number;
   cogs: number;
   grossProfit: number;
+  grossProfitMargin: number;
   operatingExpenses: number;
   operatingProfit: number;
+  operatingProfitMargin: number;
   otherIncomeExpenses: number;
   tax: number;
   netProfit: number;
+  netProfitMargin: number;
 }
 
 interface DetailInfo {
@@ -50,6 +66,7 @@ interface DetailInfo {
   description: string;
   calculation: string;
   dataSources: string[];
+  additionalInfo?: string;
 }
 
 export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementProps) => {
@@ -62,11 +79,14 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
     revenue: 0,
     cogs: 0,
     grossProfit: 0,
+    grossProfitMargin: 0,
     operatingExpenses: 0,
     operatingProfit: 0,
+    operatingProfitMargin: 0,
     otherIncomeExpenses: 0,
     tax: 0,
-    netProfit: 0
+    netProfit: 0,
+    netProfitMargin: 0
   });
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [currentDetail, setCurrentDetail] = useState<DetailInfo | null>(null);
@@ -83,7 +103,8 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
             "All sales records in the system",
             "Includes cash, credit, and mobile payment transactions",
             "Net of returns and discounts"
-          ]
+          ],
+          additionalInfo: `Gross Profit Margin: ${incomeStatementData.grossProfitMargin.toFixed(2)}%`
         };
       case "cogs":
         return {
@@ -95,7 +116,8 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
             "Transportation costs for inventory",
             "Direct labor costs for production",
             "Storage and handling costs"
-          ]
+          ],
+          additionalInfo: `COGS as % of Revenue: ${(incomeStatementData.cogs / incomeStatementData.revenue * 100).toFixed(2)}%`
         };
       case "grossProfit":
         return {
@@ -105,7 +127,8 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
           dataSources: [
             "Sales data (revenue)",
             "Purchase data (cost of goods)"
-          ]
+          ],
+          additionalInfo: `Gross Profit Margin: ${incomeStatementData.grossProfitMargin.toFixed(2)}%`
         };
       case "operatingExpenses":
         return {
@@ -119,7 +142,8 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
             "Salaries and wages",
             "Marketing costs",
             "Administrative expenses"
-          ]
+          ],
+          additionalInfo: `Operating Expenses as % of Revenue: ${(incomeStatementData.operatingExpenses / incomeStatementData.revenue * 100).toFixed(2)}%`
         };
       case "operatingProfit":
         return {
@@ -129,7 +153,8 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
           dataSources: [
             "Gross profit calculation",
             "Operating expense records"
-          ]
+          ],
+          additionalInfo: `Operating Profit Margin: ${incomeStatementData.operatingProfitMargin.toFixed(2)}%`
         };
       case "otherIncomeExpenses":
         return {
@@ -141,7 +166,8 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
             "Asset sale proceeds",
             "Investment returns",
             "Penalties or fines"
-          ]
+          ],
+          additionalInfo: `Other Income/Expenses as % of Revenue: ${(incomeStatementData.otherIncomeExpenses / incomeStatementData.revenue * 100).toFixed(2)}%`
         };
       case "tax":
         return {
@@ -152,7 +178,8 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
             "Tax regulations",
             "Taxable income calculation",
             "Applicable tax rates"
-          ]
+          ],
+          additionalInfo: `Effective Tax Rate: ${(incomeStatementData.tax / (incomeStatementData.operatingProfit + incomeStatementData.otherIncomeExpenses) * 100).toFixed(2)}%`
         };
       case "netProfit":
         return {
@@ -163,7 +190,8 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
             "Operating profit",
             "Other income/expense records",
             "Tax calculations"
-          ]
+          ],
+          additionalInfo: `Net Profit Margin: ${incomeStatementData.netProfitMargin.toFixed(2)}%`
         };
       default:
         return {
@@ -204,12 +232,14 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
 
         // Calculate gross profit
         const grossProfit = revenue - cogs;
+        const grossProfitMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
 
         // Calculate operating expenses - based on expense records
         const operatingExpenses = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
 
         // Calculate operating profit
         const operatingProfit = grossProfit - operatingExpenses;
+        const operatingProfitMargin = revenue > 0 ? (operatingProfit / revenue) * 100 : 0;
 
         // Other income/expenses (using a placeholder for now)
         const otherIncomeExpenses = 0;
@@ -219,6 +249,7 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
 
         // Calculate net profit
         const netProfit = operatingProfit + otherIncomeExpenses - tax;
+        const netProfitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
         // Update state with calculated values
         setIncomeStatementData({
@@ -227,11 +258,14 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
           revenue,
           cogs,
           grossProfit,
+          grossProfitMargin,
           operatingExpenses,
           operatingProfit,
+          operatingProfitMargin,
           otherIncomeExpenses,
           tax,
-          netProfit
+          netProfit,
+          netProfitMargin
         });
       } catch (error) {
         console.error("Error fetching income statement data:", error);
@@ -291,8 +325,8 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
         username={username}
       />
       
-      <main className="container mx-auto p-6">
-        <div className="mb-6 flex justify-between items-center">
+      <main className="container mx-auto p-4 md:p-6">
+        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <Button 
             variant="outline" 
             onClick={onBack}
@@ -322,160 +356,233 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
           </div>
         </div>
         
-        <Card className="border border-gray-200 rounded-lg">
-          <CardContent className="p-8">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold mb-2">{incomeStatementData.businessName}</h1>
-              <h2 className="text-xl font-semibold mb-2">INCOME STATEMENT</h2>
-              <p className="text-muted-foreground">For the period ended {incomeStatementData.period}</p>
+        <Card className="border border-gray-200 rounded-lg mb-6">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-center">
+              <h1 className="text-2xl md:text-3xl font-bold">{incomeStatementData.businessName}</h1>
+              <h2 className="text-xl md:text-2xl font-semibold mt-2">INCOME STATEMENT</h2>
+              <p className="text-muted-foreground mt-1">For the period ended {incomeStatementData.period}</p>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 md:p-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <Card className="bg-green-50 border-green-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-green-800">Revenue</p>
+                      <p className="text-xl font-bold text-green-900">{incomeStatementData.revenue.toLocaleString()} TZS</p>
+                    </div>
+                    <DollarSign className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">Gross Profit</p>
+                      <p className="text-xl font-bold text-blue-900">{incomeStatementData.grossProfit.toLocaleString()} TZS</p>
+                      <p className="text-xs text-blue-700 mt-1">{incomeStatementData.grossProfitMargin.toFixed(2)}%</p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-purple-50 border-purple-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-purple-800">Operating Profit</p>
+                      <p className="text-xl font-bold text-purple-900">{incomeStatementData.operatingProfit.toLocaleString()} TZS</p>
+                      <p className="text-xs text-purple-700 mt-1">{incomeStatementData.operatingProfitMargin.toFixed(2)}%</p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-purple-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className={`${incomeStatementData.netProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{incomeStatementData.netProfit >= 0 ? 'Net Profit' : 'Net Loss'}</p>
+                      <p className="text-xl font-bold">{incomeStatementData.netProfit.toLocaleString()} TZS</p>
+                      <p className="text-xs mt-1">{incomeStatementData.netProfitMargin.toFixed(2)}%</p>
+                    </div>
+                    {incomeStatementData.netProfit >= 0 ? (
+                      <TrendingUp className="h-8 w-8 text-emerald-600" />
+                    ) : (
+                      <TrendingDown className="h-8 w-8 text-red-600" />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
             
-            {/* Income Statement Table - Restructured to match specification */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4 py-2 border-b">
-                <div className="font-semibold">Section</div>
-                <div className="font-semibold text-right">Description</div>
-                <div className="font-semibold text-right">Amount (TZS)</div>
-              </div>
-              
-              {/* Section 1: Revenue (Sales) */}
-              <div className="grid grid-cols-3 gap-4 py-2">
-                <div className="font-semibold">1. Revenue (Sales)</div>
-                <div className="flex items-center justify-end gap-2">
-                  <span>Total sales to customers - Total sales returns</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => showDetail("revenue")}
-                    className="h-6 w-6"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="text-right font-semibold">{incomeStatementData.revenue.toLocaleString()}</div>
-              </div>
-              
-              {/* Section 2: Cost of Goods Sold (COGS) */}
-              <div className="grid grid-cols-3 gap-4 py-2">
-                <div className="font-semibold">2. Cost of Goods Sold (COGS)</div>
-                <div className="flex items-center justify-end gap-2">
-                  <span>Cost of items sold — includes purchases, transport, and other direct costs</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => showDetail("cogs")}
-                    className="h-6 w-6"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="text-right font-semibold">({incomeStatementData.cogs.toLocaleString()})</div>
-              </div>
-              
-              {/* = Gross Profit */}
-              <div className="grid grid-cols-3 gap-4 py-2 border-t border-b">
-                <div className="font-semibold">= Gross Profit</div>
-                <div className="flex items-center justify-end gap-2">
-                  <span>Revenue − COGS</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => showDetail("grossProfit")}
-                    className="h-6 w-6"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="text-right font-semibold">{incomeStatementData.grossProfit.toLocaleString()}</div>
-              </div>
-              
-              {/* Section 3: Operating Expenses */}
-              <div className="grid grid-cols-3 gap-4 py-2">
-                <div className="font-semibold">3. Operating Expenses</div>
-                <div className="flex items-center justify-end gap-2">
-                  <span>Rent, salaries, utilities, admin, etc.</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => showDetail("operatingExpenses")}
-                    className="h-6 w-6"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="text-right font-semibold">({incomeStatementData.operatingExpenses.toLocaleString()})</div>
-              </div>
-              
-              {/* = Operating Profit */}
-              <div className="grid grid-cols-3 gap-4 py-2 border-t border-b">
-                <div className="font-semibold">= Operating Profit</div>
-                <div className="flex items-center justify-end gap-2">
-                  <span>Gross Profit − Operating Expenses</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => showDetail("operatingProfit")}
-                    className="h-6 w-6"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="text-right font-semibold">{incomeStatementData.operatingProfit.toLocaleString()}</div>
-              </div>
-              
-              {/* Section 4: Other Income / Expenses */}
-              <div className="grid grid-cols-3 gap-4 py-2">
-                <div className="font-semibold">4. Other Income / Expenses</div>
-                <div className="flex items-center justify-end gap-2">
-                  <span>Interest, asset sales, etc.</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => showDetail("otherIncomeExpenses")}
-                    className="h-6 w-6"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="text-right font-semibold">
-                  {incomeStatementData.otherIncomeExpenses >= 0 ? '+' : ''}{incomeStatementData.otherIncomeExpenses.toLocaleString()}
-                </div>
-              </div>
-              
-              {/* Section 5: Tax (Income Tax) */}
-              <div className="grid grid-cols-3 gap-4 py-2">
-                <div className="font-semibold">5. Tax (Income Tax)</div>
-                <div className="flex items-center justify-end gap-2">
-                  <span>Based on profit before tax</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => showDetail("tax")}
-                    className="h-6 w-6"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="text-right font-semibold">({incomeStatementData.tax.toLocaleString()})</div>
-              </div>
-              
-              {/* = Net Profit */}
-              <div className="grid grid-cols-3 gap-4 py-2 font-bold text-lg border-t-2 border-b-2">
-                <div className="font-bold">= Net Profit</div>
-                <div className="flex items-center justify-end gap-2">
-                  <span>Final profit after all costs and tax</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => showDetail("netProfit")}
-                    className="h-6 w-6"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="text-right font-bold">{incomeStatementData.netProfit.toLocaleString()}</div>
-              </div>
+            {/* Income Statement Table */}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-1/3">Section</TableHead>
+                    <TableHead className="text-right">Description</TableHead>
+                    <TableHead className="text-right w-32">Amount (TZS)</TableHead>
+                    <TableHead className="text-right w-24">Margin %</TableHead>
+                    <TableHead className="text-center w-12">Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {/* Section 1: Revenue (Sales) */}
+                  <TableRow>
+                    <TableCell className="font-semibold">1. Revenue (Sales)</TableCell>
+                    <TableCell className="text-right text-muted-foreground">Total sales to customers - Total sales returns</TableCell>
+                    <TableCell className="text-right font-semibold">{incomeStatementData.revenue.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">100.00%</TableCell>
+                    <TableCell className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => showDetail("revenue")}
+                        className="h-8 w-8"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* Section 2: Cost of Goods Sold (COGS) */}
+                  <TableRow>
+                    <TableCell className="font-semibold">2. Cost of Goods Sold (COGS)</TableCell>
+                    <TableCell className="text-right text-muted-foreground">Cost of items sold — includes purchases, transport, and other direct costs</TableCell>
+                    <TableCell className="text-right font-semibold">({incomeStatementData.cogs.toLocaleString()})</TableCell>
+                    <TableCell className="text-right">{(incomeStatementData.cogs / incomeStatementData.revenue * 100).toFixed(2)}%</TableCell>
+                    <TableCell className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => showDetail("cogs")}
+                        className="h-8 w-8"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* = Gross Profit */}
+                  <TableRow className="bg-muted/50">
+                    <TableCell className="font-semibold">= Gross Profit</TableCell>
+                    <TableCell className="text-right text-muted-foreground">Revenue − COGS</TableCell>
+                    <TableCell className="text-right font-semibold">{incomeStatementData.grossProfit.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-semibold">{incomeStatementData.grossProfitMargin.toFixed(2)}%</TableCell>
+                    <TableCell className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => showDetail("grossProfit")}
+                        className="h-8 w-8"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* Section 3: Operating Expenses */}
+                  <TableRow>
+                    <TableCell className="font-semibold">3. Operating Expenses</TableCell>
+                    <TableCell className="text-right text-muted-foreground">Rent, salaries, utilities, admin, etc.</TableCell>
+                    <TableCell className="text-right font-semibold">({incomeStatementData.operatingExpenses.toLocaleString()})</TableCell>
+                    <TableCell className="text-right">{(incomeStatementData.operatingExpenses / incomeStatementData.revenue * 100).toFixed(2)}%</TableCell>
+                    <TableCell className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => showDetail("operatingExpenses")}
+                        className="h-8 w-8"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* = Operating Profit */}
+                  <TableRow className="bg-muted/50">
+                    <TableCell className="font-semibold">= Operating Profit</TableCell>
+                    <TableCell className="text-right text-muted-foreground">Gross Profit − Operating Expenses</TableCell>
+                    <TableCell className="text-right font-semibold">{incomeStatementData.operatingProfit.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-semibold">{incomeStatementData.operatingProfitMargin.toFixed(2)}%</TableCell>
+                    <TableCell className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => showDetail("operatingProfit")}
+                        className="h-8 w-8"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* Section 4: Other Income / Expenses */}
+                  <TableRow>
+                    <TableCell className="font-semibold">4. Other Income / Expenses</TableCell>
+                    <TableCell className="text-right text-muted-foreground">Interest, asset sales, etc.</TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {incomeStatementData.otherIncomeExpenses >= 0 ? '+' : ''}{incomeStatementData.otherIncomeExpenses.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right">{(incomeStatementData.otherIncomeExpenses / incomeStatementData.revenue * 100).toFixed(2)}%</TableCell>
+                    <TableCell className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => showDetail("otherIncomeExpenses")}
+                        className="h-8 w-8"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* Section 5: Tax (Income Tax) */}
+                  <TableRow>
+                    <TableCell className="font-semibold">5. Tax (Income Tax)</TableCell>
+                    <TableCell className="text-right text-muted-foreground">Based on profit before tax</TableCell>
+                    <TableCell className="text-right font-semibold">({incomeStatementData.tax.toLocaleString()})</TableCell>
+                    <TableCell className="text-right">{incomeStatementData.tax > 0 ? (incomeStatementData.tax / (incomeStatementData.operatingProfit + incomeStatementData.otherIncomeExpenses) * 100).toFixed(2) : '0.00'}%</TableCell>
+                    <TableCell className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => showDetail("tax")}
+                        className="h-8 w-8"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* = Net Profit */}
+                  <TableRow className="bg-muted font-bold text-lg">
+                    <TableCell className="font-bold">= Net Profit</TableCell>
+                    <TableCell className="text-right text-muted-foreground">Final profit after all costs and tax</TableCell>
+                    <TableCell className="text-right font-bold">{incomeStatementData.netProfit.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-bold">{incomeStatementData.netProfitMargin.toFixed(2)}%</TableCell>
+                    <TableCell className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => showDetail("netProfit")}
+                        className="h-8 w-8"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </div>
             
             {/* Footer */}
@@ -485,11 +592,82 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
             </div>
           </CardContent>
         </Card>
+        
+        {/* Key Metrics */}
+        <Card className="border border-gray-200 rounded-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Percent className="h-5 w-5" />
+              Key Financial Metrics
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold mb-2">Profitability Ratios</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Gross Profit Margin:</span>
+                    <Badge variant="secondary">{incomeStatementData.grossProfitMargin.toFixed(2)}%</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Operating Profit Margin:</span>
+                    <Badge variant="secondary">{incomeStatementData.operatingProfitMargin.toFixed(2)}%</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Net Profit Margin:</span>
+                    <Badge variant={incomeStatementData.netProfitMargin >= 10 ? "default" : "destructive"}>
+                      {incomeStatementData.netProfitMargin.toFixed(2)}%
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold mb-2">Cost Analysis</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>COGS Ratio:</span>
+                    <Badge variant="secondary">{(incomeStatementData.cogs / incomeStatementData.revenue * 100).toFixed(2)}%</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Operating Expense Ratio:</span>
+                    <Badge variant="secondary">{(incomeStatementData.operatingExpenses / incomeStatementData.revenue * 100).toFixed(2)}%</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Other Income/Expense Ratio:</span>
+                    <Badge variant="secondary">{(incomeStatementData.otherIncomeExpenses / incomeStatementData.revenue * 100).toFixed(2)}%</Badge>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold mb-2">Performance Indicators</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Revenue:</span>
+                    <Badge>{incomeStatementData.revenue.toLocaleString()} TZS</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Expenses:</span>
+                    <Badge variant="destructive">{(incomeStatementData.cogs + incomeStatementData.operatingExpenses + incomeStatementData.tax).toLocaleString()} TZS</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Net Result:</span>
+                    <Badge variant={incomeStatementData.netProfit >= 0 ? "default" : "destructive"}>
+                      {incomeStatementData.netProfit >= 0 ? '+' : ''}{incomeStatementData.netProfit.toLocaleString()} TZS
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </main>
       
       {/* Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{currentDetail?.title}</DialogTitle>
             <DialogDescription>
@@ -507,6 +685,13 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
                 <h3 className="font-semibold mb-2">Calculation</h3>
                 <p className="font-mono text-sm p-2 bg-muted rounded">{currentDetail.calculation}</p>
               </div>
+              
+              {currentDetail.additionalInfo && (
+                <div>
+                  <h3 className="font-semibold mb-2">Additional Metrics</h3>
+                  <p className="text-muted-foreground">{currentDetail.additionalInfo}</p>
+                </div>
+              )}
               
               <div>
                 <h3 className="font-semibold mb-2">Data Sources</h3>

@@ -1279,19 +1279,50 @@ export class PrintUtils {
               margin-bottom: 20px;
             }
             .business-name {
-              font-size: 20px;
+              font-size: 24px;
               font-weight: bold;
               margin-bottom: 5px;
             }
             .report-title {
-              font-size: 18px;
+              font-size: 20px;
               font-weight: bold;
               margin-bottom: 5px;
             }
             .report-period {
-              font-size: 14px;
+              font-size: 16px;
               color: #666;
               margin-bottom: 20px;
+            }
+            .summary-cards {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 15px;
+              margin: 20px 0;
+            }
+            .summary-card {
+              border: 1px solid #ddd;
+              border-radius: 8px;
+              padding: 15px;
+              text-align: center;
+            }
+            .summary-card.revenue { background-color: #f0fdf4; border-color: #bbf7d0; }
+            .summary-card.gross-profit { background-color: #eff6ff; border-color: #bfdbfe; }
+            .summary-card.operating-profit { background-color: #f5f3ff; border-color: #ddd6fe; }
+            .summary-card.net-profit { background-color: #ecfdf5; border-color: #a7f3d0; }
+            .summary-card.net-loss { background-color: #fef2f2; border-color: #fecaca; }
+            .summary-card h3 {
+              font-size: 14px;
+              margin: 0 0 10px 0;
+              color: #4b5563;
+            }
+            .summary-card .amount {
+              font-size: 18px;
+              font-weight: bold;
+              margin: 5px 0;
+            }
+            .summary-card .margin {
+              font-size: 12px;
+              color: #6b7280;
             }
             .report-table {
               width: 100%;
@@ -1301,13 +1332,21 @@ export class PrintUtils {
             .report-table th {
               text-align: left;
               border-bottom: 1px solid #333;
-              padding: 8px 0;
+              padding: 12px 8px;
+              background-color: #f9fafb;
             }
             .report-table td {
-              padding: 8px 0;
+              padding: 10px 8px;
+              border-bottom: 1px solid #eee;
+            }
+            .report-table tr.bg-muted td {
+              background-color: #f9fafb;
             }
             .text-right {
               text-align: right;
+            }
+            .text-center {
+              text-align: center;
             }
             .font-semibold {
               font-weight: 600;
@@ -1327,11 +1366,49 @@ export class PrintUtils {
             .border-b-2 {
               border-bottom: 2px solid #333;
             }
+            .key-metrics {
+              margin: 30px 0;
+            }
+            .metrics-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 20px;
+              margin-top: 15px;
+            }
+            .metric-card {
+              border: 1px solid #ddd;
+              border-radius: 8px;
+              padding: 15px;
+            }
+            .metric-card h3 {
+              font-size: 16px;
+              margin: 0 0 15px 0;
+            }
+            .metric-item {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 10px;
+              font-size: 14px;
+            }
+            .metric-label {
+              color: #4b5563;
+            }
+            .metric-value {
+              font-weight: 500;
+            }
             .footer {
               margin-top: 30px;
               text-align: center;
               font-size: 12px;
               color: #999;
+            }
+            @media print {
+              .summary-cards {
+                grid-template-columns: repeat(2, 1fr);
+              }
+              .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+              }
             }
           </style>
         </head>
@@ -1342,57 +1419,147 @@ export class PrintUtils {
             <div class="report-period">For the period ended ${data.period}</div>
           </div>
           
+          <!-- Summary Cards -->
+          <div class="summary-cards">
+            <div class="summary-card revenue">
+              <h3>Revenue</h3>
+              <div class="amount">${data.revenue.toLocaleString()} TZS</div>
+            </div>
+            
+            <div class="summary-card gross-profit">
+              <h3>Gross Profit</h3>
+              <div class="amount">${data.grossProfit.toLocaleString()} TZS</div>
+              <div class="margin">${data.grossProfitMargin.toFixed(2)}%</div>
+            </div>
+            
+            <div class="summary-card operating-profit">
+              <h3>Operating Profit</h3>
+              <div class="amount">${data.operatingProfit.toLocaleString()} TZS</div>
+              <div class="margin">${data.operatingProfitMargin.toFixed(2)}%</div>
+            </div>
+            
+            <div class="summary-card ${data.netProfit >= 0 ? 'net-profit' : 'net-loss'}">
+              <h3>${data.netProfit >= 0 ? 'Net Profit' : 'Net Loss'}</h3>
+              <div class="amount">${data.netProfit.toLocaleString()} TZS</div>
+              <div class="margin">${data.netProfitMargin.toFixed(2)}%</div>
+            </div>
+          </div>
+          
+          <!-- Income Statement Table -->
           <table class="report-table">
             <thead>
               <tr>
                 <th>Section</th>
-                <th class="text-right">Description</th>
+                <th>Description</th>
                 <th class="text-right">Amount (TZS)</th>
+                <th class="text-right">Margin %</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td class="font-semibold">1. Revenue (Sales)</td>
-                <td class="text-right">Total sales to customers</td>
+                <td>Total sales to customers - Total sales returns</td>
                 <td class="text-right font-semibold">${data.revenue.toLocaleString()}</td>
+                <td class="text-right">100.00%</td>
               </tr>
               <tr>
                 <td class="font-semibold">2. Cost of Goods Sold (COGS)</td>
-                <td class="text-right">Cost of items sold — includes purchases, transport, and other direct costs</td>
+                <td>Cost of items sold — includes purchases, transport, and other direct costs</td>
                 <td class="text-right font-semibold">${formatAmount(data.cogs, true)}</td>
+                <td class="text-right">${(data.cogs / data.revenue * 100).toFixed(2)}%</td>
               </tr>
-              <tr class="border-t border-b">
+              <tr class="bg-muted">
                 <td class="font-semibold">= Gross Profit</td>
-                <td class="text-right">Revenue − COGS</td>
+                <td>Revenue − COGS</td>
                 <td class="text-right font-semibold">${data.grossProfit.toLocaleString()}</td>
+                <td class="text-right font-semibold">${data.grossProfitMargin.toFixed(2)}%</td>
               </tr>
               <tr>
                 <td class="font-semibold">3. Operating Expenses</td>
-                <td class="text-right">Rent, salaries, utilities, admin, etc.</td>
+                <td>Rent, salaries, utilities, admin, etc.</td>
                 <td class="text-right font-semibold">${formatAmount(data.operatingExpenses, true)}</td>
+                <td class="text-right">${(data.operatingExpenses / data.revenue * 100).toFixed(2)}%</td>
               </tr>
-              <tr class="border-t border-b">
+              <tr class="bg-muted">
                 <td class="font-semibold">= Operating Profit</td>
-                <td class="text-right">Gross Profit − Operating Expenses</td>
+                <td>Gross Profit − Operating Expenses</td>
                 <td class="text-right font-semibold">${data.operatingProfit.toLocaleString()}</td>
+                <td class="text-right font-semibold">${data.operatingProfitMargin.toFixed(2)}%</td>
               </tr>
               <tr>
                 <td class="font-semibold">4. Other Income / Expenses</td>
-                <td class="text-right">Interest, asset sales, etc.</td>
+                <td>Interest, asset sales, etc.</td>
                 <td class="text-right font-semibold">${formatOtherIncome(data.otherIncomeExpenses)}</td>
+                <td class="text-right">${(data.otherIncomeExpenses / data.revenue * 100).toFixed(2)}%</td>
               </tr>
               <tr>
                 <td class="font-semibold">5. Tax (Income Tax)</td>
-                <td class="text-right">Based on profit before tax</td>
+                <td>Based on profit before tax</td>
                 <td class="text-right font-semibold">${formatAmount(data.tax, true)}</td>
+                <td class="text-right">${data.tax > 0 ? (data.tax / (data.operatingProfit + data.otherIncomeExpenses) * 100).toFixed(2) : '0.00'}%</td>
               </tr>
               <tr class="border-t-2 border-b-2">
                 <td class="font-bold">= Net Profit</td>
-                <td class="text-right">Final profit after all costs and tax</td>
+                <td>Final profit after all costs and tax</td>
                 <td class="text-right font-bold">${data.netProfit.toLocaleString()}</td>
+                <td class="text-right font-bold">${data.netProfitMargin.toFixed(2)}%</td>
               </tr>
             </tbody>
           </table>
+          
+          <!-- Key Metrics -->
+          <div class="key-metrics">
+            <h2>Key Financial Metrics</h2>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <h3>Profitability Ratios</h3>
+                <div class="metric-item">
+                  <span class="metric-label">Gross Profit Margin:</span>
+                  <span class="metric-value">${data.grossProfitMargin.toFixed(2)}%</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">Operating Profit Margin:</span>
+                  <span class="metric-value">${data.operatingProfitMargin.toFixed(2)}%</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">Net Profit Margin:</span>
+                  <span class="metric-value">${data.netProfitMargin.toFixed(2)}%</span>
+                </div>
+              </div>
+              
+              <div class="metric-card">
+                <h3>Cost Analysis</h3>
+                <div class="metric-item">
+                  <span class="metric-label">COGS Ratio:</span>
+                  <span class="metric-value">${(data.cogs / data.revenue * 100).toFixed(2)}%</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">Operating Expense Ratio:</span>
+                  <span class="metric-value">${(data.operatingExpenses / data.revenue * 100).toFixed(2)}%</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">Other Income/Expense Ratio:</span>
+                  <span class="metric-value">${(data.otherIncomeExpenses / data.revenue * 100).toFixed(2)}%</span>
+                </div>
+              </div>
+              
+              <div class="metric-card">
+                <h3>Performance Indicators</h3>
+                <div class="metric-item">
+                  <span class="metric-label">Revenue:</span>
+                  <span class="metric-value">${data.revenue.toLocaleString()} TZS</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">Total Expenses:</span>
+                  <span class="metric-value">${(data.cogs + data.operatingExpenses + data.tax).toLocaleString()} TZS</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">Net Result:</span>
+                  <span class="metric-value">${data.netProfit >= 0 ? '+' : ''}${data.netProfit.toLocaleString()} TZS</span>
+                </div>
+              </div>
+            </div>
+          </div>
           
           <div class="footer">
             <p>Generated on: ${new Date().toLocaleDateString()}</p>

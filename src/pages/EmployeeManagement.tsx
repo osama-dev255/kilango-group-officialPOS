@@ -18,7 +18,7 @@ import {
   updateUser, 
   deleteUser 
 } from "@/services/databaseService";
-import { signUp } from "@/services/authService";
+import { signUp, getCurrentUser } from "@/services/authService";
 
 interface Employee {
   id: string;
@@ -328,11 +328,6 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
     setIsDialogOpen(true);
   };
 
-  const openAddDialog = () => {
-    resetForm();
-    setIsDialogOpen(true);
-  };
-
   const togglePermission = (permission: string) => {
     if (editingEmployee) {
       const updatedPermissions = editingEmployee.permissions.includes(permission)
@@ -355,21 +350,21 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
     }
   };
 
+  const filteredEmployees = employees.filter(employee =>
+    employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.role.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const getRoleName = (roleId: string) => {
     const role = roles.find(r => r.id === roleId);
     return role ? role.name : roleId;
   };
 
-  const filteredEmployees = employees.filter(employee => 
-    employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    getRoleName(employee.role).toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Calculate summary statistics
-  const totalEmployees = employees.length;
-  const activeEmployees = employees.filter(emp => emp.status === "active").length;
-  const adminEmployees = employees.filter(emp => emp.role === "admin").length;
+  const getRoleDescription = (roleId: string) => {
+    const role = roles.find(r => r.id === roleId);
+    return role ? role.description : "";
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -380,19 +375,19 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
         username={username}
       />
       
-      <main className="container mx-auto p-6">
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <main className="container mx-auto p-4 md:p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
           <div>
-            <h2 className="text-3xl font-bold">Employees</h2>
-            <p className="text-muted-foreground">Manage your team members and permissions</p>
+            <h1 className="text-2xl md:text-3xl font-bold">Employee Management</h1>
+            <p className="text-muted-foreground">Manage your team members and their permissions</p>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search employees..."
-                className="pl-8 w-full sm:w-64"
+                className="pl-8 w-full md:w-64"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -400,12 +395,12 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
             
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={openAddDialog}>
-                  <Plus className="h-4 w-4 mr-2" />
+                <Button onClick={resetForm}>
+                  <Plus className="mr-2 h-4 w-4" />
                   Add Employee
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
                     {editingEmployee ? "Edit Employee" : "Add New Employee"}
@@ -413,155 +408,150 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
                 </DialogHeader>
                 
                 <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Full Name *</Label>
-                    <Input
-                      id="name"
-                      value={editingEmployee ? editingEmployee.name : newEmployee.name}
-                      onChange={(e) => 
-                        editingEmployee 
-                          ? setEditingEmployee({...editingEmployee, name: e.target.value}) 
-                          : setNewEmployee({...newEmployee, name: e.target.value})
-                      }
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Full Name *</Label>
+                      <Input
+                        id="name"
+                        value={editingEmployee ? editingEmployee.name : newEmployee.name}
+                        onChange={(e) => 
+                          editingEmployee 
+                            ? setEditingEmployee({...editingEmployee, name: e.target.value})
+                            : setNewEmployee({...newEmployee, name: e.target.value})
+                        }
+                        placeholder="Enter full name"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={editingEmployee ? editingEmployee.email : newEmployee.email}
+                        onChange={(e) => 
+                          editingEmployee 
+                            ? setEditingEmployee({...editingEmployee, email: e.target.value})
+                            : setNewEmployee({...newEmployee, email: e.target.value})
+                        }
+                        placeholder="Enter email"
+                        disabled={!!editingEmployee}
+                      />
+                    </div>
                   </div>
                   
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={editingEmployee ? editingEmployee.email : newEmployee.email}
-                      onChange={(e) => 
-                        editingEmployee 
-                          ? setEditingEmployee({...editingEmployee, email: e.target.value}) 
-                          : setNewEmployee({...newEmployee, email: e.target.value})
-                      }
-                    />
+                  {!editingEmployee && (
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password *</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={newEmployee.password || ""}
+                        onChange={(e) => setNewEmployee({...newEmployee, password: e.target.value})}
+                        placeholder="Enter password"
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Role</Label>
+                      <Select
+                        value={editingEmployee ? editingEmployee.role : newEmployee.role}
+                        onValueChange={(value: "admin" | "manager" | "cashier" | "staff") => 
+                          editingEmployee 
+                            ? setEditingEmployee({...editingEmployee, role: value})
+                            : setNewEmployee({...newEmployee, role: value})
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roles.map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-sm text-muted-foreground">
+                        {getRoleDescription(editingEmployee ? editingEmployee.role : newEmployee.role)}
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="hireDate">Hire Date</Label>
+                      <Input
+                        id="hireDate"
+                        type="date"
+                        value={editingEmployee ? editingEmployee.hireDate : newEmployee.hireDate}
+                        onChange={(e) => 
+                          editingEmployee 
+                            ? setEditingEmployee({...editingEmployee, hireDate: e.target.value})
+                            : setNewEmployee({...newEmployee, hireDate: e.target.value})
+                        }
+                      />
+                    </div>
                   </div>
                   
-                  <div className="grid gap-2">
-                    <Label htmlFor="password">Password {editingEmployee ? "" : "*"}</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={editingEmployee ? (editingEmployee.password || "") : (newEmployee.password || "")}
-                      onChange={(e) => 
-                        editingEmployee 
-                          ? setEditingEmployee({...editingEmployee, password: e.target.value}) 
-                          : setNewEmployee({...newEmployee, password: e.target.value})
-                      }
-                      placeholder={editingEmployee ? "Leave blank to keep current password" : "Enter password (user must confirm email)"}
-                    />
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label htmlFor="role">Role</Label>
-                    <Select
-                      value={editingEmployee ? editingEmployee.role : newEmployee.role}
-                      onValueChange={(value: "admin" | "manager" | "cashier" | "staff") => 
-                        editingEmployee 
-                          ? setEditingEmployee({...editingEmployee, role: value}) 
-                          : setNewEmployee({...newEmployee, role: value})
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roles.map(role => (
-                          <SelectItem key={role.id} value={role.id}>
-                            <div>
-                              <div>{role.name}</div>
-                              <div className="text-xs text-muted-foreground">{role.description}</div>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label htmlFor="hireDate">Hire Date</Label>
-                    <Input
-                      id="hireDate"
-                      type="date"
-                      value={editingEmployee ? editingEmployee.hireDate : newEmployee.hireDate}
-                      onChange={(e) => 
-                        editingEmployee 
-                          ? setEditingEmployee({...editingEmployee, hireDate: e.target.value}) 
-                          : setNewEmployee({...newEmployee, hireDate: e.target.value})
-                      }
-                    />
-                  </div>
-                  
-                  <div className="grid gap-2">
+                  <div className="space-y-2">
                     <Label>Status</Label>
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <div className="font-medium">Active</div>
-                        <div className="text-sm text-muted-foreground">
-                          {editingEmployee 
-                            ? editingEmployee.status === "active" 
-                              ? "Employee can log in" 
-                              : "Employee cannot log in"
-                            : newEmployee.status === "active"
-                              ? "Employee can log in"
-                              : "Employee cannot log in"
-                          }
-                        </div>
-                      </div>
+                    <div className="flex items-center space-x-2">
                       <Switch
+                        id="status"
                         checked={editingEmployee 
                           ? editingEmployee.status === "active" 
                           : newEmployee.status === "active"
                         }
                         onCheckedChange={(checked) => 
                           editingEmployee 
-                            ? setEditingEmployee({
-                                ...editingEmployee, 
-                                status: checked ? "active" : "inactive"
-                              }) 
-                            : setNewEmployee({
-                                ...newEmployee, 
-                                status: checked ? "active" : "inactive"
-                              })
+                            ? setEditingEmployee({...editingEmployee, status: checked ? "active" : "inactive"})
+                            : setNewEmployee({...newEmployee, status: checked ? "active" : "inactive"})
                         }
                       />
+                      <Label htmlFor="status">
+                        {editingEmployee 
+                          ? editingEmployee.status === "active" ? "Active" : "Inactive"
+                          : newEmployee.status === "active" ? "Active" : "Inactive"
+                        }
+                      </Label>
                     </div>
                   </div>
                   
-                  <div className="grid gap-2">
+                  <div className="space-y-2">
                     <Label>Permissions</Label>
-                    <div className="border rounded-lg p-3 max-h-40 overflow-y-auto">
-                      {permissionsList.map(permission => (
-                        <div 
-                          key={permission} 
-                          className="flex items-center justify-between py-2 border-b last:border-b-0"
-                        >
-                          <div className="text-sm">
-                            {permission.split('_').map(word => 
-                              word.charAt(0).toUpperCase() + word.slice(1)
-                            ).join(' ')}
-                          </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {permissionsList.map((permission) => (
+                        <div key={permission} className="flex items-center space-x-2">
                           <Switch
+                            id={permission}
                             checked={editingEmployee 
                               ? editingEmployee.permissions.includes(permission)
                               : newEmployee.permissions.includes(permission)
                             }
                             onCheckedChange={() => togglePermission(permission)}
                           />
+                          <Label 
+                            htmlFor={permission} 
+                            className="text-sm font-normal capitalize"
+                          >
+                            {permission.replace(/_/g, ' ')}
+                          </Label>
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={editingEmployee ? handleUpdateEmployee : handleAddEmployee}>
+                  <Button 
+                    onClick={editingEmployee ? handleUpdateEmployee : handleAddEmployee}
+                    disabled={loading}
+                  >
                     {editingEmployee ? "Update" : "Add"} Employee
                   </Button>
                 </div>
@@ -570,86 +560,35 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
           </div>
         </div>
         
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-              <User className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalEmployees}</div>
-              <p className="text-xs text-muted-foreground">All team members</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Employees</CardTitle>
-              <User className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-500">{activeEmployees}</div>
-              <p className="text-xs text-muted-foreground">Currently working</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Administrators</CardTitle>
-              <Shield className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{adminEmployees}</div>
-              <p className="text-xs text-muted-foreground">System administrators</p>
-            </CardContent>
-          </Card>
-        </div>
-        
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Employee Directory
-            </CardTitle>
+            <CardTitle>Employee List</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Loading employees...
+              <div className="flex justify-center items-center h-32">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Employee</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Hire Date</TableHead>
-                    <TableHead>Last Login</TableHead>
-                    <TableHead>Permissions</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEmployees.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        No employees found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
+                  {filteredEmployees.length > 0 ? (
                     filteredEmployees.map((employee) => (
                       <TableRow key={employee.id}>
+                        <TableCell className="font-medium">{employee.name}</TableCell>
+                        <TableCell>{employee.email}</TableCell>
                         <TableCell>
-                          <div>
-                            <div className="font-medium">{employee.name}</div>
-                            <div className="text-sm text-muted-foreground">{employee.email}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="flex items-center gap-1">
-                            <Shield className="h-3 w-3" />
+                          <Badge variant="secondary">
                             {getRoleName(employee.role)}
                           </Badge>
                         </TableCell>
@@ -659,28 +598,17 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
                           </Badge>
                         </TableCell>
                         <TableCell>{employee.hireDate}</TableCell>
-                        <TableCell>{employee.lastLogin || "Never"}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">
-                              {employee.permissions.length} perms
-                            </Badge>
-                            <Button variant="ghost" size="sm" onClick={() => openEditDialog(employee)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
+                        <TableCell className="text-right">
+                          <div className="flex justify-end space-x-2">
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => openEditDialog(employee)}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="destructive" 
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => handleDeleteEmployee(employee.id)}
                               disabled={employee.email === username}
@@ -691,6 +619,18 @@ export const EmployeeManagement = ({ username, onBack, onLogout }: { username: s
                         </TableCell>
                       </TableRow>
                     ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <User className="mx-auto h-12 w-12 text-muted-foreground" />
+                        <h3 className="mt-4 text-lg font-medium">No employees found</h3>
+                        <p className="text-muted-foreground">
+                          {searchTerm 
+                            ? "No employees match your search criteria" 
+                            : "Get started by adding a new employee"}
+                        </p>
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>

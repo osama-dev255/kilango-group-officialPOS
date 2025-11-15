@@ -21,6 +21,8 @@ import { useEffect } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 // Import language context
 import { LanguageProvider } from "@/contexts/LanguageContext";
+// Import RegisterPage
+import { RegisterPage } from "./pages/RegisterPage";
 
 // Import Supabase test function
 import { testSupabaseConnection } from "@/services/supabaseService";
@@ -59,6 +61,7 @@ const App = () => {
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/register" element={<RegisterPage />} />
                 <Route path="/dashboard" element={<Dashboard username="admin" onNavigate={() => {}} onLogout={() => {}} />} />
                 <Route path="/sales" element={<SalesDashboard username="admin" onBack={() => {}} onLogout={() => {}} onNavigate={() => {}} />} />
                 <Route path="/sales/cart" element={<SalesCart username="admin" onBack={() => {}} onLogout={() => {}} />} />

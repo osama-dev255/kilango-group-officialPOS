@@ -1,13 +1,13 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import { User as SupabaseUser } from '@supabase/supabase-js';
-import { getCurrentUser } from '@/services/authService';
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { User as SupabaseUser } from "@supabase/supabase-js";
+import { User } from "@/services/databaseService";
 
 interface AuthContextType {
   user: SupabaseUser | null;
   login: (email: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
-  signUp: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, userData?: Partial<User>) => Promise<any>;
   isLoading: boolean;
 }
 
@@ -19,18 +19,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     // Check active session
-    const checkUser = async () => {
+    const checkSession = async () => {
       try {
-        const currentUser = await getCurrentUser();
-        setUser(currentUser);
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
       } catch (error) {
-        console.error('Error checking user session:', error);
+        console.error("Error checking session:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    checkUser();
+    checkSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -54,15 +54,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (error) throw error;
       setUser(data.user);
-      return { user: data.user };
-    } catch (error: any) {
+      return { user: data.user, session: data.session };
+    } catch (error) {
       console.error('Login error:', error);
-      // Provide more specific error message for email confirmation
-      if (error.message && error.message.includes('Email not confirmed')) {
-        return { 
-          error: new Error('Email not confirmed. Please check your email and click the confirmation link before logging in.') 
-        };
-      }
       return { error };
     }
   };
@@ -76,11 +70,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, userData?: Partial<User>) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: userData
+        }
       });
       
       if (error) throw error;

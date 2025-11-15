@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, Lock, User, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 // Import Supabase auth service
 import { signIn } from "@/services/authService";
 
@@ -18,6 +19,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +36,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
     setIsLoading(true);
     
     try {
-      // Try Supabase authentication first
+      // Try Supabase authentication
       const result = await signIn(email, password);
       
       if (result.error) {
@@ -49,12 +51,13 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
           return;
         }
         
-        // If other Supabase auth fails, fall back to mock authentication
-        console.warn("Supabase auth failed, using mock auth:", result.error);
-        setTimeout(() => {
-          onLogin({ username: email, password });
-          setIsLoading(false);
-        }, 1000);
+        // Show error for failed authentication
+        toast({
+          title: "Authentication Failed",
+          description: result.error.message || "Invalid email or password",
+          variant: "destructive",
+        });
+        setIsLoading(false);
       } else {
         // Supabase auth successful
         console.log("Supabase auth successful:", result);
@@ -133,6 +136,19 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
+          
+          <div className="mt-4 text-center text-sm">
+            <p>
+              Don't have an account?{" "}
+              <Button 
+                variant="link" 
+                className="p-0 h-auto font-medium"
+                onClick={() => navigate("/register")}
+              >
+                Sign up
+              </Button>
+            </p>
+          </div>
           
           <div className="mt-4 text-center">
             <Button variant="link" className="text-sm">

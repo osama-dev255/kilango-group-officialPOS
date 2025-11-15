@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient';
-import { User } from '@/services/databaseService';
+import { User, createUser } from '@/services/databaseService';
 
 // Sign up a new user
 export const signUp = async (email: string, password: string, userData?: Partial<User>) => {
@@ -14,6 +14,26 @@ export const signUp = async (email: string, password: string, userData?: Partial
     });
 
     if (error) throw error;
+    
+    // If signup is successful and we have user data, also create a database record
+    if (data.user && userData) {
+      try {
+        // Create user record in database
+        const dbUserData = {
+          ...userData,
+          id: data.user.id,
+          email: data.user.email || email,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        await createUser(dbUserData as Omit<User, 'id'>);
+      } catch (dbError) {
+        console.warn('Failed to create database user record:', dbError);
+        // Don't throw here as the auth signup was successful
+      }
+    }
+    
     return { user: data.user, session: data.session };
   } catch (error) {
     console.error('Sign up error:', error);

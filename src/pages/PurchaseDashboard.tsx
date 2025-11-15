@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { DashboardCard } from "@/components/DashboardCard";
 import { 
@@ -10,6 +11,7 @@ import {
   CreditCard,
   History
 } from "lucide-react";
+import { getAccessibleModules } from "@/utils/roleAccessControl";
 
 interface PurchaseDashboardProps {
   username: string;
@@ -19,7 +21,10 @@ interface PurchaseDashboardProps {
 }
 
 export const PurchaseDashboard = ({ username, onBack, onLogout, onNavigate }: PurchaseDashboardProps) => {
-  const purchaseModules = [
+  const [accessibleModules, setAccessibleModules] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const allPurchaseModules = [
     {
       id: "suppliers",
       title: "Supplier Management",
@@ -71,6 +76,35 @@ export const PurchaseDashboard = ({ username, onBack, onLogout, onNavigate }: Pu
     },
   ];
 
+  // Load accessible modules on component mount
+  useEffect(() => {
+    const loadAccessibleModules = async () => {
+      try {
+        const modules = await getAccessibleModules();
+        setAccessibleModules(modules);
+      } catch (error) {
+        console.error("Error loading accessible modules:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAccessibleModules();
+  }, []);
+
+  // Filter modules based on user's access rights
+  const purchaseModules = allPurchaseModules.filter(module => 
+    accessibleModules.includes(module.id)
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation 
@@ -88,18 +122,24 @@ export const PurchaseDashboard = ({ username, onBack, onLogout, onNavigate }: Pu
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {purchaseModules.map((module) => (
-            <DashboardCard
-              key={module.id}
-              title={module.title}
-              description={module.description}
-              icon={module.icon}
-              onClick={() => onNavigate(module.id)}
-              className={module.color}
-            />
-          ))}
-        </div>
+        {purchaseModules.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">You don't have access to any purchase modules.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {purchaseModules.map((module) => (
+              <DashboardCard
+                key={module.id}
+                title={module.title}
+                description={module.description}
+                icon={module.icon}
+                onClick={() => onNavigate(module.id)}
+                className={module.color}
+              />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

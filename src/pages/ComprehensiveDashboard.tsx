@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { DashboardCard } from "@/components/DashboardCard";
 import { 
@@ -17,6 +18,7 @@ import {
   Scan,
   Bot
 } from "lucide-react";
+import { getAccessibleModules } from "@/utils/roleAccessControl";
 
 interface DashboardProps {
   username: string;
@@ -25,7 +27,11 @@ interface DashboardProps {
 }
 
 export const ComprehensiveDashboard = ({ username, onNavigate, onLogout }: DashboardProps) => {
-  const modules = [
+  const [accessibleModules, setAccessibleModules] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Define all modules with their properties
+  const allModules = [
     {
       id: "sales",
       title: "Sales Management",
@@ -154,6 +160,35 @@ export const ComprehensiveDashboard = ({ username, onNavigate, onLogout }: Dashb
     }
   ];
 
+  // Load accessible modules on component mount
+  useEffect(() => {
+    const loadAccessibleModules = async () => {
+      try {
+        const modules = await getAccessibleModules();
+        setAccessibleModules(modules);
+      } catch (error) {
+        console.error("Error loading accessible modules:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAccessibleModules();
+  }, []);
+
+  // Filter modules based on user's access rights
+  const modules = allModules.filter(module => 
+    accessibleModules.includes(module.id)
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation 
@@ -170,22 +205,28 @@ export const ComprehensiveDashboard = ({ username, onNavigate, onLogout }: Dashb
           </p>
         </div>
         
-        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 auto-rows-fr">
-          {modules.map((module) => (
-            <div key={module.id} className="flex">
-              <DashboardCard
-                title={module.title}
-                description={module.description}
-                icon={module.icon}
-                onClick={() => {
-                  console.log("Module clicked:", module.id);
-                  onNavigate(module.id);
-                }}
-                className={module.color}
-              />
-            </div>
-          ))}
-        </div>
+        {modules.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">You don't have access to any modules.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 auto-rows-fr">
+            {modules.map((module) => (
+              <div key={module.id} className="flex">
+                <DashboardCard
+                  title={module.title}
+                  description={module.description}
+                  icon={module.icon}
+                  onClick={() => {
+                    console.log("Module clicked:", module.id);
+                    onNavigate(module.id);
+                  }}
+                  className={module.color}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

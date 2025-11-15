@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { DashboardCard } from "@/components/DashboardCard";
 import { 
@@ -12,6 +13,7 @@ import {
   Scan,
   FileText
 } from "lucide-react";
+import { getAccessibleModules } from "@/utils/roleAccessControl";
 
 interface SalesDashboardProps {
   username: string;
@@ -21,7 +23,10 @@ interface SalesDashboardProps {
 }
 
 export const SalesDashboard = ({ username, onBack, onLogout, onNavigate }: SalesDashboardProps) => {
-  const salesModules = [
+  const [accessibleModules, setAccessibleModules] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const allSalesModules = [
     {
       id: "cart",
       title: "Sales Terminal",
@@ -94,6 +99,35 @@ export const SalesDashboard = ({ username, onBack, onLogout, onNavigate }: Sales
     },
   ];
 
+  // Load accessible modules on component mount
+  useEffect(() => {
+    const loadAccessibleModules = async () => {
+      try {
+        const modules = await getAccessibleModules();
+        setAccessibleModules(modules);
+      } catch (error) {
+        console.error("Error loading accessible modules:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAccessibleModules();
+  }, []);
+
+  // Filter modules based on user's access rights
+  const salesModules = allSalesModules.filter(module => 
+    accessibleModules.includes(module.id)
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation 
@@ -111,18 +145,24 @@ export const SalesDashboard = ({ username, onBack, onLogout, onNavigate }: Sales
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {salesModules.map((module) => (
-            <DashboardCard
-              key={module.id}
-              title={module.title}
-              description={module.description}
-              icon={module.icon}
-              onClick={() => onNavigate(module.id)}
-              className={module.color}
-            />
-          ))}
-        </div>
+        {salesModules.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">You don't have access to any sales modules.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {salesModules.map((module) => (
+              <DashboardCard
+                key={module.id}
+                title={module.title}
+                description={module.description}
+                icon={module.icon}
+                onClick={() => onNavigate(module.id)}
+                className={module.color}
+              />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

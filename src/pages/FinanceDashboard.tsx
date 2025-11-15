@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { DashboardCard } from "@/components/DashboardCard";
 import { 
@@ -9,6 +10,7 @@ import {
   Settings,
   Bot
 } from "lucide-react";
+import { getAccessibleModules } from "@/utils/roleAccessControl";
 
 interface FinanceDashboardProps {
   username: string;
@@ -18,7 +20,10 @@ interface FinanceDashboardProps {
 }
 
 export const FinanceDashboard = ({ username, onBack, onLogout, onNavigate }: FinanceDashboardProps) => {
-  const financeModules = [
+  const [accessibleModules, setAccessibleModules] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const allFinanceModules = [
     {
       id: "expenses",
       title: "Expense Tracking",
@@ -84,6 +89,35 @@ export const FinanceDashboard = ({ username, onBack, onLogout, onNavigate }: Fin
     },
   ];
 
+  // Load accessible modules on component mount
+  useEffect(() => {
+    const loadAccessibleModules = async () => {
+      try {
+        const modules = await getAccessibleModules();
+        setAccessibleModules(modules);
+      } catch (error) {
+        console.error("Error loading accessible modules:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAccessibleModules();
+  }, []);
+
+  // Filter modules based on user's access rights
+  const financeModules = allFinanceModules.filter(module => 
+    accessibleModules.includes(module.id)
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation 
@@ -101,34 +135,38 @@ export const FinanceDashboard = ({ username, onBack, onLogout, onNavigate }: Fin
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {financeModules.map((module) => (
-            <DashboardCard
-              key={module.id}
-              title={module.title}
-              description={module.description}
-              icon={module.icon}
-              onClick={() => {
-                // Special handling for reports module
-                if (module.id === "reports") {
-                  console.log("Financial reports module clicked");
-                  onNavigate("statements-reports");
-                  return;
-                }
-                // Special handling for financial statements module
-                if (module.id === "financial-statements") {
-                  console.log("Financial statements module clicked");
-                  onNavigate("financial-reports");
-                  return;
-                }
-                onNavigate(module.id);
-              }}
-              className={module.color}
-            />
-          ))}
-        </div>
-        
-
+        {financeModules.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">You don't have access to any finance modules.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {financeModules.map((module) => (
+              <DashboardCard
+                key={module.id}
+                title={module.title}
+                description={module.description}
+                icon={module.icon}
+                onClick={() => {
+                  // Special handling for reports module
+                  if (module.id === "reports") {
+                    console.log("Financial reports module clicked");
+                    onNavigate("statements-reports");
+                    return;
+                  }
+                  // Special handling for financial statements module
+                  if (module.id === "financial-statements") {
+                    console.log("Financial statements module clicked");
+                    onNavigate("financial-reports");
+                    return;
+                  }
+                  onNavigate(module.id);
+                }}
+                className={module.color}
+              />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

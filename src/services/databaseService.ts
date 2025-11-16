@@ -1180,12 +1180,64 @@ export const getSales = async (): Promise<Sale[]> => {
       .order('sale_date', { ascending: false });
       
     if (error) throw error;
+    
+    // Add debug log
+    console.log('getSales returned:', data?.length || 0, 'records');
+    if (data && data.length > 0) {
+      console.log('Sample sales data:', data.slice(0, 3));
+    }
+    
     return data || [];
   } catch (error) {
     console.error('Error fetching sales:', error);
     return [];
   }
 };
+
+export const getExpenses = async (): Promise<Expense[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .order('expense_date', { ascending: false });
+      
+    if (error) throw error;
+    
+    // Add debug log
+    console.log('getExpenses returned:', data?.length || 0, 'records');
+    if (data && data.length > 0) {
+      console.log('Sample expenses data:', data.slice(0, 3));
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching expenses:', error);
+    return [];
+  }
+};
+
+export const getReturns = async (): Promise<Return[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('returns')
+      .select('*')
+      .order('return_date', { ascending: false });
+      
+    if (error) throw error;
+    
+    // Add debug log
+    console.log('getReturns returned:', data?.length || 0, 'records');
+    if (data && data.length > 0) {
+      console.log('Sample returns data:', data.slice(0, 3));
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching returns:', error);
+    return [];
+  }
+};
+
 
 export const getSaleById = async (id: string): Promise<Sale | null> => {
   try {
@@ -1345,6 +1397,13 @@ export const getPurchaseOrders = async (): Promise<PurchaseOrder[]> => {
       .order('order_date', { ascending: false });
       
     if (error) throw error;
+    
+    // Add debug log
+    console.log('getPurchaseOrders returned:', data?.length || 0, 'records');
+    if (data && data.length > 0) {
+      console.log('Sample purchase orders data:', data.slice(0, 3));
+    }
+    
     return data || [];
   } catch (error) {
     console.error('Error fetching purchase orders:', error);

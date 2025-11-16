@@ -222,6 +222,17 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
           getReturns()
         ]);
 
+        // Add debug logs to see what data we're getting
+        console.log('=== Income Statement Data Debug ===');
+        console.log('Sales count:', sales.length);
+        console.log('Sample sales:', sales.slice(0, 3));
+        console.log('Purchase orders count:', purchases.length);
+        console.log('Sample purchases:', purchases.slice(0, 3));
+        console.log('Expenses count:', expenses.length);
+        console.log('Sample expenses:', expenses.slice(0, 3));
+        console.log('Returns count:', returns.length);
+        console.log('Sample returns:', returns.slice(0, 3));
+
         // Calculate revenue (total sales) minus returns
         const totalSales = sales.reduce((sum, sale) => sum + (sale.total_amount || 0), 0);
         const totalReturns = returns.reduce((sum, returnItem) => sum + (returnItem.total_amount || 0), 0);
@@ -250,6 +261,17 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
         // Calculate net profit
         const netProfit = operatingProfit + otherIncomeExpenses - tax;
         const netProfitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+
+        // Log calculated values
+        console.log('=== Calculated Values ===');
+        console.log('Total Sales:', totalSales);
+        console.log('Total Returns:', totalReturns);
+        console.log('Revenue (Sales - Returns):', revenue);
+        console.log('COGS:', cogs);
+        console.log('Gross Profit:', grossProfit);
+        console.log('Operating Expenses:', operatingExpenses);
+        console.log('Operating Profit:', operatingProfit);
+        console.log('Net Profit:', netProfit);
 
         // Update state with calculated values
         setIncomeStatementData({

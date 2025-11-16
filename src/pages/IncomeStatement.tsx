@@ -11,7 +11,8 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  Percent
+  Percent,
+  Bug
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PrintUtils } from "@/utils/printUtils";
@@ -38,6 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { runDatabaseDebug } from "@/utils/databaseDebug";
 
 interface IncomeStatementProps {
   username: string;
@@ -358,7 +360,7 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
             Back to Reports
           </Button>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button 
               variant="outline" 
               className="flex items-center gap-2"
@@ -374,6 +376,14 @@ export const IncomeStatement = ({ username, onBack, onLogout }: IncomeStatementP
             >
               <Download className="h-4 w-4" />
               Export
+            </Button>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={runDatabaseDebug}
+            >
+              <Bug className="h-4 w-4" />
+              Debug Data
             </Button>
           </div>
         </div>

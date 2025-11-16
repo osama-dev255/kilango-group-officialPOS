@@ -1180,13 +1180,6 @@ export const getSales = async (): Promise<Sale[]> => {
       .order('sale_date', { ascending: false });
       
     if (error) throw error;
-    
-    // Add debug log
-    console.log('getSales returned:', data?.length || 0, 'records');
-    if (data && data.length > 0) {
-      console.log('Sample sales data:', data.slice(0, 3));
-    }
-    
     return data || [];
   } catch (error) {
     console.error('Error fetching sales:', error);
@@ -1202,13 +1195,6 @@ export const getExpenses = async (): Promise<Expense[]> => {
       .order('expense_date', { ascending: false });
       
     if (error) throw error;
-    
-    // Add debug log
-    console.log('getExpenses returned:', data?.length || 0, 'records');
-    if (data && data.length > 0) {
-      console.log('Sample expenses data:', data.slice(0, 3));
-    }
-    
     return data || [];
   } catch (error) {
     console.error('Error fetching expenses:', error);
@@ -1224,13 +1210,6 @@ export const getReturns = async (): Promise<Return[]> => {
       .order('return_date', { ascending: false });
       
     if (error) throw error;
-    
-    // Add debug log
-    console.log('getReturns returned:', data?.length || 0, 'records');
-    if (data && data.length > 0) {
-      console.log('Sample returns data:', data.slice(0, 3));
-    }
-    
     return data || [];
   } catch (error) {
     console.error('Error fetching returns:', error);
@@ -1397,13 +1376,6 @@ export const getPurchaseOrders = async (): Promise<PurchaseOrder[]> => {
       .order('order_date', { ascending: false });
       
     if (error) throw error;
-    
-    // Add debug log
-    console.log('getPurchaseOrders returned:', data?.length || 0, 'records');
-    if (data && data.length > 0) {
-      console.log('Sample purchase orders data:', data.slice(0, 3));
-    }
-    
     return data || [];
   } catch (error) {
     console.error('Error fetching purchase orders:', error);
@@ -1722,21 +1694,7 @@ export const updatePurchaseOrderItems = async (updates: { id: string; data: Part
   }
 };
 
-// Expense CRUD operations
-export const getExpenses = async (): Promise<Expense[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('expenses')
-      .select('*')
-      .order('expense_date', { ascending: false });
-      
-    if (error) throw error;
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching expenses:', error);
-    return [];
-  }
-};
+
 
 export const getExpenseById = async (id: string): Promise<Expense | null> => {
   try {
@@ -1882,21 +1840,7 @@ export const getDiscounts = async (): Promise<Discount[]> => {
   }
 };
 
-// Returns CRUD operations
-export const getReturns = async (): Promise<Return[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('returns')
-      .select('*')
-      .order('return_date', { ascending: false });
-      
-    if (error) throw error;
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching returns:', error);
-    return [];
-  }
-};
+
 
 // Inventory Audits CRUD operations
 export const getInventoryAudits = async (): Promise<InventoryAudit[]> => {
